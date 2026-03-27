@@ -44,10 +44,7 @@ class ModelSingleton:
         if key not in self._models:
             start_time = time.time()
 
-            if (
-                backend not in ["http-client", "dots-ocr-vllm", "dots-ocr-hf"]
-                and not model_path
-            ):
+            if not model_path:
                 model_path = auto_download_and_get_model_root_path("/", "vlm")
 
             if backend == "dots-ocr-hf" or backend == "dots-ocr-vllm":
