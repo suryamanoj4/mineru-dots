@@ -82,6 +82,7 @@ nav:
     - Usage:
       - Usage: usage/index.md
       - Quick Usage: usage/quick_usage.md
+      - dots.ocr Integration: usage/dots_ocr.md
       - Model Source: usage/model_source.md
       - CLI Tools: usage/cli_tools.md
       - Advanced CLI Parameters: usage/advanced_cli_parameters.md
@@ -100,6 +101,7 @@ nav:
   - Usage:
     - Usage: usage/index.md
     - Quick Usage: usage/quick_usage.md
+    - dots.ocr Integration: usage/dots_ocr.md
     - Model Source: usage/model_source.md
     - CLI Tools: usage/cli_tools.md
     - Advanced CLI Parameters: usage/advanced_cli_parameters.md
@@ -135,6 +137,7 @@ plugins:
             Docker Deployment: Docker部署
             Usage: 使用指南
             Quick Usage: 基础使用
+            dots.ocr Integration: dots.ocr 集成
             CLI Tools: 命令行工具
             Model Source: 模型源配置
             Advanced CLI Parameters: 命令行进阶参数

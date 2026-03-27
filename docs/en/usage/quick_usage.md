@@ -1,5 +1,8 @@
 # Using MinerU
 
+> [!NOTE]
+> MinerU now uses **dots.ocr** (`rednote-hilab/dots.mocr`) as the default VLM model for high-accuracy document parsing. The `vlm-auto-engine` backend uses dots.ocr for full layout detection + text extraction, while `hybrid-auto-engine` uses dots.ocr for layout detection only and pipeline for OCR/formula/table processing.
+
 ## Quick Model Source Configuration
 MinerU uses `huggingface` as the default model source. If users cannot access `huggingface` due to network restrictions, they can conveniently switch the model source to `modelscope` through environment variables:
 ```bash

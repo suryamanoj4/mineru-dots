@@ -5,6 +5,23 @@ MinerU uses `HuggingFace` and `ModelScope` as model repositories. Users can swit
 - `HuggingFace` is the default model source, providing excellent loading speed and high stability globally.
 - `ModelScope` is the best choice for users in mainland China, providing seamlessly compatible `hf` SDK modules, suitable for users who cannot access HuggingFace.
 
+## Default VLM Model: dots.ocr
+
+MinerU uses **dots.ocr** (`rednote-hilab/dots.mocr`) as the default VLM model for the `vlm-auto-engine` and `hybrid-auto-engine` backends. This is a 3B parameter multilingual document parsing VLM that supports:
+
+- Layout detection (title, text, table, image, formula, list, etc.)
+- OCR in 109+ languages
+- Formula detection and recognition
+
+### dots.ocr Model Sources
+
+| Source | Model Path |
+|--------|------------|
+| HuggingFace | `rednote-hilab/dots.mocr` |
+| ModelScope | `rednote-hilab/dots.ocr` |
+
+The model source is controlled by the same `MINERU_MODEL_SOURCE` environment variable as other models.
+
 ## Methods to Switch Model Sources
 
 ### Switch via Command Line Parameters

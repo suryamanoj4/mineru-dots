@@ -45,6 +45,13 @@
 
 # Changelog
 
+- 2026/03/XX 2.8.0 Release
+  - **Integrated dots.ocr as the default VLM model**: MinerU now uses `rednote-hilab/dots.mocr` (a multilingual document parsing VLM) as the default VLM model for the `vlm-auto-engine` and `hybrid-auto-engine` backends.
+  - Changed default parsing backend from `hybrid-auto-engine` to `vlm-auto-engine` for improved accuracy.
+  - Self-contained dots.ocr module with no external dependencies - all code bundled within MinerU-dots.
+  - Added two prompt modes: `prompt_layout_all_en` for full layout + text (VLM mode), `prompt_layout_only_en` for layout detection (Hybrid mode).
+  - See [dots.ocr integration documentation](https://opendatalab.github.io/MinerU/usage/dots_ocr/) for details.
+
 - 2026/02/06 2.7.6 Release
   - Added support for the domestic computing platforms Kunlunxin and Tecorigin; currently, the domestic computing platforms that have been adapted and supported by the official team and vendors include:
     - [Ascend](https://opendatalab.github.io/MinerU/zh/usage/acceleration_cards/Ascend) 
@@ -96,6 +103,7 @@ https://github.com/user-attachments/assets/4bea02c9-6d54-4cd6-97ed-dff14340982c
 
 ## Key Features
 
+- **Integrated dots.ocr VLM Model**: Uses `rednote-hilab/dots.mocr` (3B params) for multilingual document layout detection and OCR. Supports 109+ languages.
 - Remove headers, footers, footnotes, page numbers, etc., to ensure semantic coherence.
 - Output text in human-readable order, suitable for single-column, multi-column, and complex layouts.
 - Preserve the structure of the original document, including headings, paragraphs, lists, etc.
@@ -207,6 +215,7 @@ A WebUI developed based on Gradio, with a simple interface and only core parsing
 
 <sup>1</sup> Accuracy metrics are the End-to-End Evaluation Overall scores from OmniDocBench (v1.5), based on the latest version of `MinerU`.  
 <sup>2</sup> Servers compatible with OpenAI API, such as local model servers or remote model services deployed via inference frameworks like `vLLM`/`SGLang`/`LMDeploy`.  
+<sup>3</sup> dots.ocr (VLM backend) requires ~8GB VRAM for inference, using vLLM acceleration.  
 <sup>3</sup> Linux only supports distributions from 2019 and later.  
 <sup>4</sup> Since the key dependency `ray` does not support Python 3.13 on Windows, only versions 3.10~3.12 are supported.  
 <sup>5</sup> macOS requires version 14.0 or later.
@@ -300,6 +309,7 @@ Currently, some models in this project are trained based on YOLO. However, since
 
 - [PDF-Extract-Kit](https://github.com/opendatalab/PDF-Extract-Kit)
 - [DocLayout-YOLO](https://github.com/opendatalab/DocLayout-YOLO)
+- [dots.ocr](https://huggingface.co/rednote-hilab/dots.mocr) - Multilingual document parsing VLM
 - [UniMERNet](https://github.com/opendatalab/UniMERNet)
 - [RapidTable](https://github.com/RapidAI/RapidTable)
 - [TableStructureRec](https://github.com/RapidAI/TableStructureRec)
