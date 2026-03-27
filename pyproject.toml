@@ -51,6 +51,10 @@ test = [
     "coverage",
     "fuzzywuzzy"
 ]
+dev = [
+    "ruff>=0.8.0",
+    "vulture>=2.0",
+]
 vlm = [
     "torch>=2.6.0,<3",
     "transformers>=4.51.1,!=4.57.2,<5.0.0",
