@@ -237,9 +237,19 @@ class DotsOCRClient:
 
         prompt_with_img = f"<|img|><|imgpad|><|endofimg|>{prompt}"
 
+        # Use vLLM engine with messages API for multimodal
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "image": image},
+                    {"type": "text", "text": prompt_with_img},
+                ],
+            }
+        ]
+
         outputs = self._vllm_llm.generate(
-            prompt=prompt_with_img,
-            images=image,
+            messages=messages,
             max_tokens=self.max_completion_tokens or 24000,
             temperature=self.temperature or 0.1,
             top_p=self.top_p or 0.9,
