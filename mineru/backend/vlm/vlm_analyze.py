@@ -5,8 +5,13 @@ import json
 
 from loguru import logger
 
-from .utils import enable_custom_logits_processors, set_default_gpu_memory_utilization, set_default_batch_size, \
-    set_lmdeploy_backend, mod_kwargs_by_device_type
+from .utils import (
+    enable_custom_logits_processors,
+    set_default_gpu_memory_utilization,
+    set_default_batch_size,
+    set_lmdeploy_backend,
+    mod_kwargs_by_device_type,
+)
 from .model_output_to_middle_json import result_to_middle_json
 from ...data.data_reader_writer import DataWriter
 from mineru.utils.pdf_image_tools import load_images_from_pdf
@@ -16,7 +21,6 @@ from ...utils.config_reader import get_device
 from ...utils.enum_class import ImageType
 from ...utils.models_download_utils import auto_download_and_get_model_root_path
 
-from mineru_vl_utils import MinerUClient
 from packaging import version
 
 
@@ -35,27 +39,57 @@ class ModelSingleton:
         model_path: str | None,
         server_url: str | None,
         **kwargs,
-    ) -> MinerUClient:
+    ):
         key = (backend, model_path, server_url)
         if key not in self._models:
             start_time = time.time()
+
+            if (
+                backend not in ["http-client", "dots-ocr-vllm", "dots-ocr-hf"]
+                and not model_path
+            ):
+                model_path = auto_download_and_get_model_root_path("/", "vlm")
+
+            if backend == "dots-ocr-hf" or backend == "dots-ocr-vllm":
+                from .dots_ocr_client import DotsOCRClient
+
+                use_hf = backend == "dots-ocr-hf"
+                self._models[key] = DotsOCRClient(
+                    backend="transformers" if use_hf else "vllm-engine",
+                    model_path=model_path,
+                    server_url=server_url,
+                    use_hf=use_hf,
+                    **kwargs,
+                )
+                elapsed = round(time.time() - start_time, 2)
+                logger.info(f"get {backend} predictor cost: {elapsed}s")
+                return self._models[key]
+
+            from mineru_vl_utils import MinerUClient
+
             model = None
             processor = None
             vllm_llm = None
             lmdeploy_engine = None
             vllm_async_llm = None
-            batch_size = kwargs.get("batch_size", 0)  # for transformers backend only
-            max_concurrency = kwargs.get("max_concurrency", 100)  # for http-client backend only
-            http_timeout = kwargs.get("http_timeout", 600)  # for http-client backend only
-            server_headers = kwargs.get("server_headers", None)  # for http-client backend only
-            max_retries = kwargs.get("max_retries", 3)  # for http-client backend only
-            retry_backoff_factor = kwargs.get("retry_backoff_factor", 0.5)  # for http-client backend only
-            # 从kwargs中移除这些参数，避免传递给不相关的初始化函数
-            for param in ["batch_size", "max_concurrency", "http_timeout", "server_headers", "max_retries", "retry_backoff_factor"]:
+            batch_size = kwargs.get("batch_size", 0)
+            max_concurrency = kwargs.get("max_concurrency", 100)
+            http_timeout = kwargs.get("http_timeout", 600)
+            server_headers = kwargs.get("server_headers", None)
+            max_retries = kwargs.get("max_retries", 3)
+            retry_backoff_factor = kwargs.get("retry_backoff_factor", 0.5)
+
+            for param in [
+                "batch_size",
+                "max_concurrency",
+                "http_timeout",
+                "server_headers",
+                "max_retries",
+                "retry_backoff_factor",
+            ]:
                 if param in kwargs:
                     del kwargs[param]
-            if backend not in ["http-client"] and not model_path:
-                model_path = auto_download_and_get_model_root_path("/","vlm")
+
             if backend == "transformers":
                 try:
                     from transformers import (
@@ -64,7 +98,9 @@ class ModelSingleton:
                     )
                     from transformers import __version__ as transformers_version
                 except ImportError:
-                    raise ImportError("Please install transformers to use the transformers backend.")
+                    raise ImportError(
+                        "Please install transformers to use the transformers backend."
+                    )
 
                 if version.parse(transformers_version) >= version.parse("4.56.0"):
                     dtype_key = "dtype"
@@ -74,7 +110,7 @@ class ModelSingleton:
                 model = Qwen2VLForConditionalGeneration.from_pretrained(
                     model_path,
                     device_map={"": device},
-                    **{dtype_key: "auto"},  # type: ignore
+                    **{dtype_key: "auto"},
                 )
                 processor = AutoProcessor.from_pretrained(
                     model_path,
@@ -85,40 +121,53 @@ class ModelSingleton:
             elif backend == "mlx-engine":
                 mlx_supported = is_mac_os_version_supported()
                 if not mlx_supported:
-                    raise EnvironmentError("mlx-engine backend is only supported on macOS 13.5+ with Apple Silicon.")
+                    raise EnvironmentError(
+                        "mlx-engine backend is only supported on macOS 13.5+ with Apple Silicon."
+                    )
                 try:
                     from mlx_vlm import load as mlx_load
                 except ImportError:
-                    raise ImportError("Please install mlx-vlm to use the mlx-engine backend.")
+                    raise ImportError(
+                        "Please install mlx-vlm to use the mlx-engine backend."
+                    )
                 model, processor = mlx_load(model_path)
             else:
-                if os.getenv('OMP_NUM_THREADS') is None:
+                if os.getenv("OMP_NUM_THREADS") is None:
                     os.environ["OMP_NUM_THREADS"] = "1"
 
                 if backend == "vllm-engine":
                     try:
                         import vllm
                     except ImportError:
-                        raise ImportError("Please install vllm to use the vllm-engine backend.")
+                        raise ImportError(
+                            "Please install vllm to use the vllm-engine backend."
+                        )
 
                     kwargs = mod_kwargs_by_device_type(kwargs, vllm_mode="sync_engine")
 
                     if "compilation_config" in kwargs:
                         if isinstance(kwargs["compilation_config"], str):
                             try:
-                                kwargs["compilation_config"] = json.loads(kwargs["compilation_config"])
+                                kwargs["compilation_config"] = json.loads(
+                                    kwargs["compilation_config"]
+                                )
                             except json.JSONDecodeError:
                                 logger.warning(
-                                    f"Failed to parse compilation_config as JSON: {kwargs['compilation_config']}")
+                                    f"Failed to parse compilation_config as JSON: {kwargs['compilation_config']}"
+                                )
                                 del kwargs["compilation_config"]
                     if "gpu_memory_utilization" not in kwargs:
-                        kwargs["gpu_memory_utilization"] = set_default_gpu_memory_utilization()
+                        kwargs["gpu_memory_utilization"] = (
+                            set_default_gpu_memory_utilization()
+                        )
                     if "model" not in kwargs:
                         kwargs["model"] = model_path
-                    if enable_custom_logits_processors() and ("logits_processors" not in kwargs):
+                    if enable_custom_logits_processors() and (
+                        "logits_processors" not in kwargs
+                    ):
                         from mineru_vl_utils import MinerULogitsProcessor
+
                         kwargs["logits_processors"] = [MinerULogitsProcessor]
-                    # 使用kwargs为 vllm初始化参数
                     vllm_llm = vllm.LLM(**kwargs)
                 elif backend == "vllm-async-engine":
                     try:
@@ -126,38 +175,51 @@ class ModelSingleton:
                         from vllm.v1.engine.async_llm import AsyncLLM
                         from vllm.config import CompilationConfig
                     except ImportError:
-                        raise ImportError("Please install vllm to use the vllm-async-engine backend.")
+                        raise ImportError(
+                            "Please install vllm to use the vllm-async-engine backend."
+                        )
 
                     kwargs = mod_kwargs_by_device_type(kwargs, vllm_mode="async_engine")
 
                     if "compilation_config" in kwargs:
                         if isinstance(kwargs["compilation_config"], dict):
-                            # 如果是字典，转换为 CompilationConfig 对象
-                            kwargs["compilation_config"] = CompilationConfig(**kwargs["compilation_config"])
+                            kwargs["compilation_config"] = CompilationConfig(
+                                **kwargs["compilation_config"]
+                            )
                         elif isinstance(kwargs["compilation_config"], str):
-                            # 如果是 JSON 字符串，先解析再转换
                             try:
                                 config_dict = json.loads(kwargs["compilation_config"])
-                                kwargs["compilation_config"] = CompilationConfig(**config_dict)
+                                kwargs["compilation_config"] = CompilationConfig(
+                                    **config_dict
+                                )
                             except (json.JSONDecodeError, TypeError) as e:
                                 logger.warning(
-                                    f"Failed to parse compilation_config: {kwargs['compilation_config']}, error: {e}")
+                                    f"Failed to parse compilation_config: {kwargs['compilation_config']}, error: {e}"
+                                )
                                 del kwargs["compilation_config"]
                     if "gpu_memory_utilization" not in kwargs:
-                        kwargs["gpu_memory_utilization"] = set_default_gpu_memory_utilization()
+                        kwargs["gpu_memory_utilization"] = (
+                            set_default_gpu_memory_utilization()
+                        )
                     if "model" not in kwargs:
                         kwargs["model"] = model_path
-                    if enable_custom_logits_processors() and ("logits_processors" not in kwargs):
+                    if enable_custom_logits_processors() and (
+                        "logits_processors" not in kwargs
+                    ):
                         from mineru_vl_utils import MinerULogitsProcessor
+
                         kwargs["logits_processors"] = [MinerULogitsProcessor]
-                    # 使用kwargs为 vllm初始化参数
-                    vllm_async_llm = AsyncLLM.from_engine_args(AsyncEngineArgs(**kwargs))
+                    vllm_async_llm = AsyncLLM.from_engine_args(
+                        AsyncEngineArgs(**kwargs)
+                    )
                 elif backend == "lmdeploy-engine":
                     try:
                         from lmdeploy import PytorchEngineConfig, TurbomindEngineConfig
                         from lmdeploy.serve.vl_async_engine import VLAsyncEngine
                     except ImportError:
-                        raise ImportError("Please install lmdeploy to use the lmdeploy-engine backend.")
+                        raise ImportError(
+                            "Please install lmdeploy to use the lmdeploy-engine backend."
+                        )
                     if "cache_max_entry_count" not in kwargs:
                         kwargs["cache_max_entry_count"] = 0.5
 
@@ -166,7 +228,9 @@ class ModelSingleton:
                         if "lmdeploy_device" in kwargs:
                             device_type = kwargs.pop("lmdeploy_device")
                             if device_type not in ["cuda", "ascend", "maca", "camb"]:
-                                raise ValueError(f"Unsupported lmdeploy device type: {device_type}")
+                                raise ValueError(
+                                    f"Unsupported lmdeploy device type: {device_type}"
+                                )
                         else:
                             device_type = "cuda"
                     lm_backend = os.getenv("MINERU_LMDEPLOY_BACKEND", "")
@@ -174,10 +238,14 @@ class ModelSingleton:
                         if "lmdeploy_backend" in kwargs:
                             lm_backend = kwargs.pop("lmdeploy_backend")
                             if lm_backend not in ["pytorch", "turbomind"]:
-                                raise ValueError(f"Unsupported lmdeploy backend: {lm_backend}")
+                                raise ValueError(
+                                    f"Unsupported lmdeploy backend: {lm_backend}"
+                                )
                         else:
                             lm_backend = set_lmdeploy_backend(device_type)
-                    logger.info(f"lmdeploy device is: {device_type}, lmdeploy backend is: {lm_backend}")
+                    logger.info(
+                        f"lmdeploy device is: {device_type}, lmdeploy backend is: {lm_backend}"
+                    )
 
                     if lm_backend == "pytorch":
                         kwargs["device_type"] = device_type
@@ -187,18 +255,20 @@ class ModelSingleton:
                     else:
                         raise ValueError(f"Unsupported lmdeploy backend: {lm_backend}")
 
-                    log_level = 'ERROR'
+                    log_level = "ERROR"
                     from lmdeploy.utils import get_logger
-                    lm_logger = get_logger('lmdeploy')
+
+                    lm_logger = get_logger("lmdeploy")
                     lm_logger.setLevel(log_level)
-                    if os.getenv('TM_LOG_LEVEL') is None:
-                        os.environ['TM_LOG_LEVEL'] = log_level
+                    if os.getenv("TM_LOG_LEVEL") is None:
+                        os.environ["TM_LOG_LEVEL"] = log_level
 
                     lmdeploy_engine = VLAsyncEngine(
                         model_path,
                         backend=lm_backend,
                         backend_config=backend_config,
                     )
+
             self._models[key] = MinerUClient(
                 backend=backend,
                 model=model,
@@ -222,25 +292,34 @@ class ModelSingleton:
 def doc_analyze(
     pdf_bytes,
     image_writer: DataWriter | None,
-    predictor: MinerUClient | None = None,
+    predictor=None,
     backend="transformers",
     model_path: str | None = None,
     server_url: str | None = None,
+    prompt_mode: str = "prompt_layout_all_en",
     **kwargs,
 ):
     if predictor is None:
-        predictor = ModelSingleton().get_model(backend, model_path, server_url, **kwargs)
+        predictor = ModelSingleton().get_model(
+            backend, model_path, server_url, **kwargs
+        )
 
     load_images_start = time.time()
     images_list, pdf_doc = load_images_from_pdf(pdf_bytes, image_type=ImageType.PIL)
     images_pil_list = [image_dict["img_pil"] for image_dict in images_list]
     load_images_time = round(time.time() - load_images_start, 2)
-    logger.debug(f"load images cost: {load_images_time}, speed: {round(len(images_pil_list)/load_images_time, 3)} images/s")
+    logger.debug(
+        f"load images cost: {load_images_time}, speed: {round(len(images_pil_list) / load_images_time, 3)} images/s"
+    )
 
     infer_start = time.time()
-    results = predictor.batch_two_step_extract(images=images_pil_list)
+    results = predictor.batch_two_step_extract(
+        images=images_pil_list, prompt_mode=prompt_mode
+    )
     infer_time = round(time.time() - infer_start, 2)
-    logger.debug(f"infer finished, cost: {infer_time}, speed: {round(len(results)/infer_time, 3)} page/s")
+    logger.debug(
+        f"infer finished, cost: {infer_time}, speed: {round(len(results) / infer_time, 3)} page/s"
+    )
 
     middle_json = result_to_middle_json(results, images_list, pdf_doc, image_writer)
     return middle_json, results
@@ -249,24 +328,33 @@ def doc_analyze(
 async def aio_doc_analyze(
     pdf_bytes,
     image_writer: DataWriter | None,
-    predictor: MinerUClient | None = None,
+    predictor=None,
     backend="transformers",
     model_path: str | None = None,
     server_url: str | None = None,
+    prompt_mode: str = "prompt_layout_all_en",
     **kwargs,
 ):
     if predictor is None:
-        predictor = ModelSingleton().get_model(backend, model_path, server_url, **kwargs)
+        predictor = ModelSingleton().get_model(
+            backend, model_path, server_url, **kwargs
+        )
 
     load_images_start = time.time()
     images_list, pdf_doc = load_images_from_pdf(pdf_bytes, image_type=ImageType.PIL)
     images_pil_list = [image_dict["img_pil"] for image_dict in images_list]
     load_images_time = round(time.time() - load_images_start, 2)
-    logger.debug(f"load images cost: {load_images_time}, speed: {round(len(images_pil_list)/load_images_time, 3)} images/s")
+    logger.debug(
+        f"load images cost: {load_images_time}, speed: {round(len(images_pil_list) / load_images_time, 3)} images/s"
+    )
 
     infer_start = time.time()
-    results = await predictor.aio_batch_two_step_extract(images=images_pil_list)
+    results = await predictor.aio_batch_two_step_extract(
+        images=images_pil_list, prompt_mode=prompt_mode
+    )
     infer_time = round(time.time() - infer_start, 2)
-    logger.debug(f"infer finished, cost: {infer_time}, speed: {round(len(results)/infer_time, 3)} page/s")
+    logger.debug(
+        f"infer finished, cost: {infer_time}, speed: {round(len(results) / infer_time, 3)} page/s"
+    )
     middle_json = result_to_middle_json(results, images_list, pdf_doc, image_writer)
     return middle_json, results
