@@ -225,35 +225,27 @@ class DotsOCRClient:
         return response
 
     def _inference_vllm(self, image: Image.Image, prompt: str) -> str:
-        from .dots_ocr.utils.image_utils import PILimage_to_base64
-        from openai import OpenAI
-        import os
+        from .dots_ocr.utils.image_utils import fetch_image
 
         if not hasattr(self, "_vllm_llm"):
             raise ValueError("vLLM model not loaded")
 
-        addr = "http://localhost:8000/v1"
-        client = OpenAI(api_key=os.environ.get("API_KEY", "0"), base_url=addr)
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": PILimage_to_base64(image)},
-                    },
-                    {"type": "text", "text": f"<|img|><|imgpad|><|endofimg|>{prompt}"},
-                ],
-            }
-        ]
-        response = client.chat.completions.create(
-            messages=messages,
-            model="model",
-            max_completion_tokens=self.max_completion_tokens,
-            temperature=self.temperature,
-            top_p=self.top_p,
+        min_pixels = self.min_pixels or 3136
+        max_pixels = self.max_pixels or 11289600
+
+        image = fetch_image(image, min_pixels=min_pixels, max_pixels=max_pixels)
+
+        prompt_with_img = f"<|img|><|imgpad|><|endofimg|>{prompt}"
+
+        outputs = self._vllm_llm.generate(
+            prompt=prompt_with_img,
+            images=image,
+            max_tokens=self.max_completion_tokens or 24000,
+            temperature=self.temperature or 0.1,
+            top_p=self.top_p or 0.9,
         )
-        return response.choices[0].message.content
+
+        return outputs[0].outputs[0].text
 
     def _convert_to_mineru_format(
         self, cells: List[dict], page_idx: int, width: int, height: int
