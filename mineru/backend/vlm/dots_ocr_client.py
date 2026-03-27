@@ -225,6 +225,7 @@ class DotsOCRClient:
         return response
 
     def _inference_vllm(self, image: Image.Image, prompt: str) -> str:
+        from vllm import SamplingParams
         from .dots_ocr.utils.image_utils import fetch_image
 
         if not hasattr(self, "_vllm_llm"):
@@ -235,24 +236,30 @@ class DotsOCRClient:
 
         image = fetch_image(image, min_pixels=min_pixels, max_pixels=max_pixels)
 
-        prompt_with_img = f"<|img|><|imgpad|><|endofimg|>{prompt}"
-
-        # Use vLLM engine with messages API for multimodal
         messages = [
             {
                 "role": "user",
                 "content": [
                     {"type": "image", "image": image},
-                    {"type": "text", "text": prompt_with_img},
+                    {"type": "text", "text": prompt},
                 ],
             }
         ]
 
-        outputs = self._vllm_llm.generate(
-            messages=messages,
+        prompt_with_img = self._processor.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+
+        sampling_params = SamplingParams(
             max_tokens=self.max_completion_tokens or 24000,
             temperature=self.temperature or 0.1,
             top_p=self.top_p or 0.9,
+        )
+
+        outputs = self._vllm_llm.generate(
+            prompt=prompt_with_img,
+            image_data=[image],
+            sampling_params=sampling_params,
         )
 
         return outputs[0].outputs[0].text
