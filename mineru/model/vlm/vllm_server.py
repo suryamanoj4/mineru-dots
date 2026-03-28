@@ -14,6 +14,7 @@ def main():
     has_port_arg = False
     has_gpu_memory_utilization_arg = False
     has_logits_processors_arg = False
+    has_chat_template_content_format_arg = False
     model_path = None
     model_arg_indices = []
 
@@ -25,6 +26,8 @@ def main():
             has_gpu_memory_utilization_arg = True
         if arg == "--logits-processors" or arg.startswith("--logits-processors="):
             has_logits_processors_arg = True
+        if arg == "--chat-template-content-format" or arg.startswith("--chat-template-content-format="):
+            has_chat_template_content_format_arg = True
         if arg == "--model":
             if i + 1 < len(args):
                 model_path = args[i + 1]
@@ -46,6 +49,9 @@ def main():
     if not has_gpu_memory_utilization_arg:
         gpu_memory_utilization = str(set_default_gpu_memory_utilization())
         args.extend(["--gpu-memory-utilization", gpu_memory_utilization])
+    if not has_chat_template_content_format_arg:
+        # Required for dots.ocr which expects string content format in chat template
+        args.extend(["--chat-template-content-format", "string"])
     if not model_path:
         model_path = auto_download_and_get_model_root_path("/", "vlm")
     if (not has_logits_processors_arg) and custom_logits_processors:
