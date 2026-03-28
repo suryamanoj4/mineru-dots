@@ -146,13 +146,30 @@ class DotsOCRClient:
         logger.info("dots.ocr vLLM model loaded successfully")
 
         # Create MinerUClient - prompts are passed directly in batch_two_step_extract
-        return MinerUClient(
+        mineru_client = MinerUClient(
             backend=backend_type,
             vllm_llm=vllm_llm,
             model_path=self.model_path,
             batch_size=self.batch_size,
             max_concurrency=self.max_concurrency,
         )
+        
+        # Patch the internal VLLM client's build_messages method for dots.ocr compatibility
+        # dots.ocr's chat template expects string content, not OpenAI list format
+        def build_messages_string(prompt: str) -> list[dict]:
+            prompt = prompt or mineru_client.client.prompt
+            messages = []
+            if mineru_client.client.system_prompt:
+                messages.append({"role": "system", "content": mineru_client.client.system_prompt})
+            # Use string content format for chat template compatibility
+            # Image is passed separately via multi_modal_data in vLLM
+            user_content = prompt if prompt else ""
+            messages.append({"role": "user", "content": user_content})
+            return messages
+        
+        mineru_client.client.build_messages = build_messages_string
+        
+        return mineru_client
 
     def _get_prompt(self, prompt_mode: str = "prompt_layout_all_en") -> str:
         return dict_promptmode_to_prompt.get(
