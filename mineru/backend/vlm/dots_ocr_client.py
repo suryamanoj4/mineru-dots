@@ -248,9 +248,10 @@ class DotsOCRClient:
         start_time = time.time()
         # Access internal client's batch_predict for raw text output
         # dots.ocr returns JSON with both layout and content in one pass
+        # Pass prompt as a list to avoid chat template issues
         outputs = self._client.client.batch_predict(
             images=images,
-            prompts=prompt,
+            prompts=[prompt] * len(images),
             sampling_params=[sampling_params] * len(images),
         )
         elapsed = time.time() - start_time
@@ -281,9 +282,10 @@ class DotsOCRClient:
 
         start_time = time.time()
         # Access internal client's aio_batch_predict for raw text output
+        # Pass prompt as a list to avoid chat template issues
         outputs = await self._client.client.aio_batch_predict(
             images=images,
-            prompts=prompt,
+            prompts=[prompt] * len(images),
             sampling_params=[sampling_params] * len(images),
         )
         elapsed = time.time() - start_time
