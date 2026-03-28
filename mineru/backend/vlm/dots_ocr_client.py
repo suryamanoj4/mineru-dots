@@ -237,8 +237,11 @@ class DotsOCRClient:
             f"Processing {total} images with dots.ocr (prompt_mode: {prompt_mode})"
         )
 
-        # Get the dots.ocr prompt
-        prompt = self._get_prompt(prompt_mode)
+        # Get the dots.ocr prompt and add special tokens required by the model
+        base_prompt = self._get_prompt(prompt_mode)
+        # dots.ocr requires special tokens before the prompt text
+        prompt = f"<|img|><|imgpad|><|endofimg|>{base_prompt}"
+        
         sampling_params = MinerUSamplingParams(
             temperature=self.temperature,
             top_p=self.top_p,
@@ -273,7 +276,11 @@ class DotsOCRClient:
             f"Processing {total} images with dots.ocr async (prompt_mode: {prompt_mode})"
         )
 
-        prompt = self._get_prompt(prompt_mode)
+        # Get the dots.ocr prompt and add special tokens required by the model
+        base_prompt = self._get_prompt(prompt_mode)
+        # dots.ocr requires special tokens before the prompt text
+        prompt = f"<|img|><|imgpad|><|endofimg|>{base_prompt}"
+        
         sampling_params = MinerUSamplingParams(
             temperature=self.temperature,
             top_p=self.top_p,
