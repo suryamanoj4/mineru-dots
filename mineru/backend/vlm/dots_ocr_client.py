@@ -145,6 +145,7 @@ class DotsOCRClient:
 
         logger.info("dots.ocr vLLM model loaded successfully")
 
+        # Create MinerUClient - prompts are passed directly in batch_two_step_extract
         return MinerUClient(
             backend=backend_type,
             vllm_llm=vllm_llm,
@@ -236,6 +237,7 @@ class DotsOCRClient:
             f"Processing {total} images with dots.ocr (prompt_mode: {prompt_mode})"
         )
 
+        # Get the dots.ocr prompt
         prompt = self._get_prompt(prompt_mode)
         sampling_params = MinerUSamplingParams(
             temperature=self.temperature,
@@ -244,9 +246,11 @@ class DotsOCRClient:
         )
 
         start_time = time.time()
-        outputs = self._client.batch_predict(
+        # Access internal client's batch_predict for raw text output
+        # dots.ocr returns JSON with both layout and content in one pass
+        outputs = self._client.client.batch_predict(
             images=images,
-            prompts=[prompt] * len(images),
+            prompts=prompt,
             sampling_params=[sampling_params] * len(images),
         )
         elapsed = time.time() - start_time
@@ -276,9 +280,10 @@ class DotsOCRClient:
         )
 
         start_time = time.time()
-        outputs = await self._client.aio_batch_predict(
+        # Access internal client's aio_batch_predict for raw text output
+        outputs = await self._client.client.aio_batch_predict(
             images=images,
-            prompts=[prompt] * len(images),
+            prompts=prompt,
             sampling_params=[sampling_params] * len(images),
         )
         elapsed = time.time() - start_time
