@@ -113,7 +113,7 @@ repository = "https://github.com/opendatalab/MinerU"
 issues = "https://github.com/opendatalab/MinerU/issues"
 
 [project.scripts]
-mineru = "mineru.cli.client:main"
+mineru = "mineru.cli.__main__:main"
 mineru-vllm-server = "mineru.cli.vlm_server:vllm_server"
 mineru-lmdeploy-server = "mineru.cli.vlm_server:lmdeploy_server"
 mineru-openai-server = "mineru.cli.vlm_server:openai_server"
