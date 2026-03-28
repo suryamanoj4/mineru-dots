@@ -7,9 +7,9 @@ import sys
 # This must be set before importing vllm or initializing CUDA
 os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
 
+# Import main CLI command (needed for package entry point)
+from mineru.cli.client import main
+
 
 if __name__ == "__main__":
-    # Import and run the actual CLI
-    from mineru.cli.client import main
-
     sys.exit(main())
