@@ -1,6 +1,7 @@
 # Copyright (c) Opendatalab. All rights reserved.
 import json
 import os
+import time
 import sys
 
 import click
@@ -379,10 +380,22 @@ def main(
             logger.exception(e)
 
     if os.path.isdir(input_path):
+        # Fast file scanning - just check extension, don't read file content
         doc_path_list = []
+        pdf_extensions = {'.pdf'}
+        image_extensions = {'.png', '.jpeg', '.jpg', '.jp2', '.webp', '.gif', '.bmp', '.tiff'}
+        valid_extensions = pdf_extensions | image_extensions
+        
+        logger.info(f"Scanning directory: {input_path}")
+        scan_start = time.time()
+        
         for doc_path in Path(input_path).glob("*"):
-            if guess_suffix_by_path(doc_path) in pdf_suffixes + image_suffixes:
+            if doc_path.suffix.lower() in valid_extensions and doc_path.is_file():
                 doc_path_list.append(doc_path)
+        
+        scan_time = round(time.time() - scan_start, 2)
+        logger.info(f"Found {len(doc_path_list)} files in {scan_time}s")
+        
         input_folder_name = Path(input_path).stem
         parse_doc_with_batching(doc_path_list, input_folder_name)
     else:
