@@ -33,7 +33,7 @@ class DotsOCRClient:
         use_hf: bool = False,
         temperature: float = 0.1,
         top_p: float = 1.0,
-        max_completion_tokens: int = 16384,
+        max_completion_tokens: int = 32768,
         min_pixels: Optional[int] = None,
         max_pixels: Optional[int] = None,
         batch_size: int = 0,
@@ -134,7 +134,7 @@ class DotsOCRClient:
             model=self.model_path,
             trust_remote_code=True,
             gpu_memory_utilization=0.9,
-            max_model_len=8192,
+            max_model_len=32768,
         )
 
         backend_type = (
