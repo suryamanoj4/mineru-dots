@@ -268,15 +268,22 @@ def main(
             "batch_size": batch_size,
         }
 
-        if input_folder_name and resume:
+        # Checkpoint is only used for folder input (not single files)
+        if input_folder_name:
             checkpoint_path = get_checkpoint_path(output_dir, input_folder_name)
-            checkpoint = load_checkpoint(checkpoint_path)
-            if "failed" not in checkpoint:
-                checkpoint["failed"] = []
-            logger.info(
-                f"Resuming: {len(checkpoint['processed'])}/{checkpoint['total']} processed, "
-                f"{len(checkpoint['failed'])} failed"
-            )
+            
+            if resume and checkpoint_path.exists():
+                # Load existing checkpoint for resume
+                checkpoint = load_checkpoint(checkpoint_path)
+                if "failed" not in checkpoint:
+                    checkpoint["failed"] = []
+                logger.info(
+                    f"Resuming: {len(checkpoint['processed'])}/{checkpoint['total']} processed, "
+                    f"{len(checkpoint['failed'])} failed"
+                )
+            else:
+                # New run - checkpoint will be created on first save
+                logger.info(f"Checkpoint file: {checkpoint_path}")
 
         processed_set = set(checkpoint["processed"])
         failed_set = set(checkpoint.get("failed", []))
