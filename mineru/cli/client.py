@@ -1,4 +1,5 @@
 # Copyright (c) Opendatalab. All rights reserved.
+import json
 import os
 import sys
 
@@ -16,6 +17,24 @@ from mineru.utils.guess_suffix_or_lang import guess_suffix_by_path
 from mineru.utils.model_utils import get_vram
 from ..version import __version__
 from .common import do_parse, read_fn, pdf_suffixes, image_suffixes
+
+
+def get_checkpoint_path(output_dir: str, input_folder_name: str) -> Path:
+    checkpoint_dir = Path(output_dir) / ".mineru_checkpoints"
+    return checkpoint_dir / f"{input_folder_name}.json"
+
+
+def load_checkpoint(checkpoint_path: Path) -> dict:
+    if checkpoint_path.exists():
+        with open(checkpoint_path, "r") as f:
+            return json.load(f)
+    return {"processed": [], "total": 0, "batch_size": 20}
+
+
+def save_checkpoint(checkpoint_path: Path, checkpoint: dict):
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(checkpoint_path, "w") as f:
+        json.dump(checkpoint, f, indent=2)
 
 
 @click.command(
@@ -177,6 +196,20 @@ from .common import do_parse, read_fn, pdf_suffixes, image_suffixes
     """,
     default="huggingface",
 )
+@click.option(
+    "-bs",
+    "--batch-size",
+    "batch_size",
+    type=int,
+    help="Number of PDF files to load into RAM at once for batch processing. Default is 20.",
+    default=20,
+)
+@click.option(
+    "--resume/--no-resume",
+    "resume",
+    help="Resume from checkpoint if previously interrupted. Default is False (disabled).",
+    default=False,
+)
 def main(
     ctx,
     input_path,
@@ -192,6 +225,8 @@ def main(
     device_mode,
     virtual_vram,
     model_source,
+    batch_size,
+    resume,
     **kwargs,
 ):
 
@@ -221,6 +256,92 @@ def main(
             os.environ["MINERU_MODEL_SOURCE"] = model_source
 
     os.makedirs(output_dir, exist_ok=True)
+
+    def parse_doc_with_batching(
+        path_list: list[Path], input_folder_name: str | None = None
+    ):
+        checkpoint_path = None
+        checkpoint = {
+            "processed": [],
+            "failed": [],
+            "total": len(path_list),
+            "batch_size": batch_size,
+        }
+
+        if input_folder_name and resume:
+            checkpoint_path = get_checkpoint_path(output_dir, input_folder_name)
+            checkpoint = load_checkpoint(checkpoint_path)
+            if "failed" not in checkpoint:
+                checkpoint["failed"] = []
+            logger.info(
+                f"Resuming: {len(checkpoint['processed'])}/{checkpoint['total']} processed, "
+                f"{len(checkpoint['failed'])} failed"
+            )
+
+        processed_set = set(checkpoint["processed"])
+        failed_set = set(checkpoint.get("failed", []))
+        remaining_paths = [
+            p
+            for p in path_list
+            if p.name not in processed_set and p.name not in failed_set
+        ]
+        total_files = len(path_list)
+
+        if not remaining_paths:
+            logger.info("All files already processed!")
+            return
+
+        logger.info(
+            f"Processing {len(remaining_paths)} of {total_files} files with batch size {batch_size}"
+        )
+
+        for batch_start in range(0, len(remaining_paths), batch_size):
+            batch_paths = remaining_paths[batch_start : batch_start + batch_size]
+
+            batch_data = []
+            for path in batch_paths:
+                file_name = str(Path(path).stem)
+                pdf_bytes = read_fn(path)
+                batch_data.append((path, file_name, pdf_bytes))
+
+            for path, file_name, pdf_bytes in batch_data:
+                try:
+                    do_parse(
+                        output_dir=output_dir,
+                        pdf_file_names=[file_name],
+                        pdf_bytes_list=[pdf_bytes],
+                        p_lang_list=[lang],
+                        backend=backend,
+                        parse_method=method,
+                        formula_enable=formula_enable,
+                        table_enable=table_enable,
+                        server_url=server_url,
+                        start_page_id=start_page_id,
+                        end_page_id=end_page_id,
+                        **kwargs,
+                    )
+
+                    checkpoint["processed"].append(path.name)
+
+                    if checkpoint_path:
+                        checkpoint["total"] = total_files
+                        checkpoint["batch_size"] = batch_size
+                        save_checkpoint(checkpoint_path, checkpoint)
+
+                    current_processed = len(checkpoint["processed"])
+                    logger.info(
+                        f"Progress: {current_processed}/{total_files} files processed"
+                    )
+
+                except Exception as e:
+                    logger.error(f"Error processing {path.name}: {e}")
+                    checkpoint["failed"].append(path.name)
+                    if checkpoint_path:
+                        checkpoint["total"] = total_files
+                        checkpoint["batch_size"] = batch_size
+                        save_checkpoint(checkpoint_path, checkpoint)
+                    logger.info(f"Skipping failed file: {path.name}")
+                    continue
 
     def parse_doc(path_list: list[Path]):
         try:
@@ -255,7 +376,8 @@ def main(
         for doc_path in Path(input_path).glob("*"):
             if guess_suffix_by_path(doc_path) in pdf_suffixes + image_suffixes:
                 doc_path_list.append(doc_path)
-        parse_doc(doc_path_list)
+        input_folder_name = Path(input_path).stem
+        parse_doc_with_batching(doc_path_list, input_folder_name)
     else:
         parse_doc([Path(input_path)])
 
