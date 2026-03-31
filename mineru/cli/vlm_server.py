@@ -21,23 +21,27 @@ def lmdeploy_server():
     'inference_engine',
     type=click.Choice(['auto', 'vllm', 'lmdeploy']),
     default='auto',
-    help='Select the inference engine used to accelerate VLM inference, default is "auto".',
+    help='Select the inference engine for serving dots.ocr model, default is "auto" (vLLM preferred).',
 )
 @click.pass_context
 def openai_server(ctx, inference_engine):
+    """Start an OpenAI-compatible API server for dots.ocr model inference.
+    
+    This server provides an OpenAI-compatible API endpoint that can be used
+    with the vlm-http-client or hybrid-http-client backends in mineru-api.
+    """
     sys.argv = [sys.argv[0]] + ctx.args
     if inference_engine == 'auto':
         try:
             import vllm
             inference_engine = 'vllm'
-            logger.info("Using vLLM as the inference engine for VLM server.")
+            logger.info("Using vLLM as the inference engine for dots.ocr server.")
         except ImportError:
-            logger.info("vLLM not found, attempting to use LMDeploy as the inference engine for VLM server.")
+            logger.info("vLLM not found, attempting to use LMDeploy as the inference engine for dots.ocr server.")
             try:
                 import lmdeploy
                 inference_engine = 'lmdeploy'
-            # Success message moved after successful import
-                logger.info("Using LMDeploy as the inference engine for VLM server.")
+                logger.info("Using LMDeploy as the inference engine for dots.ocr server.")
             except ImportError:
                 logger.error("Neither vLLM nor LMDeploy is installed. Please install at least one of them.")
                 sys.exit(1)

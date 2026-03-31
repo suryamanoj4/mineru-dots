@@ -155,10 +155,10 @@ async def parse_pdf(
         "hybrid-auto-engine",
         description="""The backend for parsing:
 - pipeline: More general, supports multiple languages, hallucination-free.
-- vlm-auto-engine: High accuracy via local computing power, supports Chinese and English documents only.
-- vlm-http-client: High accuracy via remote computing power(client suitable for openai-compatible servers), supports Chinese and English documents only.
-- hybrid-auto-engine: Next-generation high accuracy solution via local computing power, supports multiple languages.
-- hybrid-http-client: High accuracy via remote computing power but requires a little local computing power(client suitable for openai-compatible servers), supports multiple languages.""",
+- vlm-auto-engine: High accuracy via local computing power using dots.ocr model, supports Chinese and English documents only.
+- vlm-http-client: High accuracy via remote computing power (client for OpenAI-compatible servers like mineru-openai-server), supports Chinese and English documents only.
+- hybrid-auto-engine: Next-generation high accuracy solution via local computing power using dots.ocr for layout detection, supports multiple languages.
+- hybrid-http-client: High accuracy via remote computing power but requires a little local computing power (client for OpenAI-compatible servers), supports multiple languages.""",
     ),
     parse_method: str = Form(
         "auto",
@@ -430,10 +430,10 @@ async def parse_pdf(
 def main(ctx, host, port, reload, **kwargs):
     kwargs.update(arg_parse(ctx))
 
-    # 将配置参数存储到应用状态中
+    # Store config in app state
     app.state.config = kwargs
 
-    # 将 CLI 的并发参数同步到环境变量，确保 uvicorn 重载子进程可见
+    # Sync concurrency params to env vars for uvicorn reload subprocess
     try:
         mcr = int(kwargs.get("mineru_api_max_concurrent_requests", 0) or 0)
     except ValueError:
@@ -441,8 +441,9 @@ def main(ctx, host, port, reload, **kwargs):
     os.environ["MINERU_API_MAX_CONCURRENT_REQUESTS"] = str(mcr)
 
     """启动MinerU FastAPI服务器的命令行入口"""
-    print(f"Start MinerU FastAPI Service: http://{host}:{port}")
+    """Start MinerU FastAPI server for PDF-to-Markdown conversion with dots.ocr."""
     print(f"API documentation: http://{host}:{port}/docs")
+    print(f"Using dots.ocr for VLM-based PDF parsing")
 
     uvicorn.run("mineru.cli.fast_api:app", host=host, port=port, reload=reload)
 

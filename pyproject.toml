@@ -6,10 +6,10 @@ build-backend = "setuptools.build_meta"
 name = "mineru"
 dynamic = ["version"]
 license = { text = "AGPL-3.0" }
-description = "A practical tool for converting PDF to Markdown"
+description = "A practical tool for converting PDF to Markdown powered by dots.ocr"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
-keywords = ["magic-pdf", "mineru", "MinerU", "convert", "pdf", "markdown"]
+keywords = ["magic-pdf", "mineru", "MinerU", "dots-ocr", "dots.ocr", "convert", "pdf", "markdown", "ocr", "vlm"]
 classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -117,6 +117,7 @@ mineru = "mineru.cli.__main__:main"
 mineru-vllm-server = "mineru.cli.vlm_server:vllm_server"
 mineru-lmdeploy-server = "mineru.cli.vlm_server:lmdeploy_server"
 mineru-openai-server = "mineru.cli.vlm_server:openai_server"
+mineru-dots-server = "mineru.cli.vlm_server:openai_server"
 mineru-models-download = "mineru.cli.models_download:download_models"
 mineru-api = "mineru.cli.fast_api:main"
 mineru-gradio = "mineru.cli.gradio_app:main"

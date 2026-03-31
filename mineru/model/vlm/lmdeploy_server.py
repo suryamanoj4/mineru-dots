@@ -8,6 +8,11 @@ from mineru.utils.models_download_utils import auto_download_and_get_model_root_
 
 
 def main():
+    """Start LMDeploy server configured for dots.ocr model inference.
+
+    This function sets up LMDeploy with the correct configuration for dots.ocr,
+    providing an alternative to vLLM for serving the dots.ocr model.
+    """
     args = sys.argv[1:]
 
     has_port_arg = False
@@ -16,7 +21,7 @@ def main():
     device_type = ""
     lm_backend = ""
 
-    # 检查现有参数
+    # Check existing arguments
     indices_to_remove = []
 
     for i, arg in enumerate(args):
@@ -41,11 +46,11 @@ def main():
             device_type = arg.split("=", 1)[1]
             indices_to_remove.append(i)
 
-    # 从后往前删除,避免索引错位
+    # Remove indices from back to front to avoid index shifting
     for i in sorted(set(indices_to_remove), reverse=True):
         args.pop(i)
 
-    # 添加默认参数
+    # Add default parameters for dots.ocr
     if not has_port_arg:
         args.extend(["--server-port", "30000"])
     if not has_gpu_memory_utilization_arg:
@@ -68,7 +73,6 @@ def main():
     if lm_backend == "pytorch":
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-
     args.extend(["--device", device_type])
     args.extend(["--backend", lm_backend])
 
@@ -76,16 +80,16 @@ def main():
 
     # logger.debug(args)
 
-    # 重构参数，将模型路径作为位置参数
+    # Reconstruct arguments with model path as positional argument
     sys.argv = [sys.argv[0]] + ["serve", "api_server", model_path] + args
 
     if os.getenv('OMP_NUM_THREADS') is None:
         os.environ["OMP_NUM_THREADS"] = "1"
 
-    # 启动 lmdeploy 服务器
-    print(f"start lmdeploy server: {sys.argv}")
+    # Start LMDeploy server
+    print(f"start lmdeploy server for dots.ocr: {sys.argv}")
 
-    # 使用os.system调用启动lmdeploy服务器
+    # Use os.system to start lmdeploy server
     os.system("lmdeploy " + " ".join(sys.argv[1:]))
 
 

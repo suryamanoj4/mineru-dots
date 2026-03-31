@@ -9,16 +9,22 @@ from vllm.entrypoints.cli.main import main as vllm_main
 
 
 def main():
+    """Start vLLM server configured for dots.ocr model inference.
+
+    This function sets up vLLM with the correct configuration for dots.ocr,
+    including chat-template-content-format=string which is required by dots.ocr.
+    """
     args = sys.argv[1:]
 
     has_port_arg = False
     has_gpu_memory_utilization_arg = False
     has_logits_processors_arg = False
     has_chat_template_content_format_arg = False
+    has_max_model_len_arg = False
     model_path = None
     model_arg_indices = []
 
-    # 检查现有参数
+    # Check existing arguments
     for i, arg in enumerate(args):
         if arg == "--port" or arg.startswith("--port="):
             has_port_arg = True
@@ -28,6 +34,8 @@ def main():
             has_logits_processors_arg = True
         if arg == "--chat-template-content-format" or arg.startswith("--chat-template-content-format="):
             has_chat_template_content_format_arg = True
+        if arg == "--max-model-len" or arg.startswith("--max-model-len="):
+            has_max_model_len_arg = True
         if arg == "--model":
             if i + 1 < len(args):
                 model_path = args[i + 1]
@@ -36,14 +44,14 @@ def main():
             model_path = arg.split("=", 1)[1]
             model_arg_indices.append(i)
 
-    # 从参数列表中移除 --model 参数
+    # Remove --model argument from argument list
     if model_arg_indices:
         for index in sorted(model_arg_indices, reverse=True):
             args.pop(index)
 
     custom_logits_processors = enable_custom_logits_processors()
 
-    # 添加默认参数
+    # Add default parameters for dots.ocr
     if not has_port_arg:
         args.extend(["--port", "30000"])
     if not has_gpu_memory_utilization_arg:
@@ -52,6 +60,9 @@ def main():
     if not has_chat_template_content_format_arg:
         # Required for dots.ocr which expects string content format in chat template
         args.extend(["--chat-template-content-format", "string"])
+    if not has_max_model_len_arg:
+        # dots.ocr supports long context for complex PDF layouts
+        args.extend(["--max-model-len", "32768"])
     if not model_path:
         model_path = auto_download_and_get_model_root_path("/", "vlm")
     if (not has_logits_processors_arg) and custom_logits_processors:
@@ -59,14 +70,14 @@ def main():
 
     args = mod_kwargs_by_device_type(args, vllm_mode="server")
 
-    # 重构参数，将模型路径作为位置参数
+    # Reconstruct arguments with model path as positional argument
     sys.argv = [sys.argv[0]] + ["serve", model_path] + args
 
     if os.getenv('OMP_NUM_THREADS') is None:
         os.environ["OMP_NUM_THREADS"] = "1"
 
-    # 启动vllm服务器
-    print(f"start vllm server: {sys.argv}")
+    # Start vLLM server
+    print(f"start vllm server for dots.ocr: {sys.argv}")
     vllm_main()
 
 
