@@ -21,6 +21,7 @@ def main():
     has_logits_processors_arg = False
     has_chat_template_content_format_arg = False
     has_max_model_len_arg = False
+    has_trust_remote_code_arg = False
     model_path = None
     model_arg_indices = []
 
@@ -36,6 +37,8 @@ def main():
             has_chat_template_content_format_arg = True
         if arg == "--max-model-len" or arg.startswith("--max-model-len="):
             has_max_model_len_arg = True
+        if arg == "--trust-remote-code" or arg.startswith("--trust-remote-code="):
+            has_trust_remote_code_arg = True
         if arg == "--model":
             if i + 1 < len(args):
                 model_path = args[i + 1]
@@ -63,6 +66,9 @@ def main():
     if not has_max_model_len_arg:
         # dots.ocr supports long context for complex PDF layouts
         args.extend(["--max-model-len", "32768"])
+    if not has_trust_remote_code_arg:
+        # Required to allow custom code in the model repository
+        args.append("--trust-remote-code")
     if not model_path:
         model_path = auto_download_and_get_model_root_path("/", "vlm")
     if (not has_logits_processors_arg) and custom_logits_processors:
