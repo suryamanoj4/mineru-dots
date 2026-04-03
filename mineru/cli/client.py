@@ -309,8 +309,18 @@ def main(
             batch_data = []
             for path in batch_paths:
                 file_name = str(Path(path).stem)
-                pdf_bytes = read_fn(path)
-                batch_data.append((path, file_name, pdf_bytes))
+                try:
+                    pdf_bytes = read_fn(path)
+                    batch_data.append((path, file_name, pdf_bytes))
+                except Exception as e:
+                    logger.error(f"Error reading {path.name}: {e}")
+                    checkpoint["failed"].append(path.name)
+                    if checkpoint_path:
+                        checkpoint["total"] = total_files
+                        checkpoint["batch_size"] = batch_size
+                        save_checkpoint(checkpoint_path, checkpoint)
+                    logger.info(f"Skipping unreadable file: {path.name}")
+                    continue
 
             for path, file_name, pdf_bytes in batch_data:
                 try:
