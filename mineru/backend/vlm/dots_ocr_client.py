@@ -5,6 +5,7 @@ from loguru import logger
 
 from .dots_ocr.utils.layout_utils import post_process_output
 from .dots_ocr.utils.prompts import dict_promptmode_to_prompt
+from .utils import set_default_gpu_memory_utilization
 from mineru_vl_utils import MinerUClient, MinerUSamplingParams
 from mineru_vl_utils.structs import ContentBlock
 
@@ -130,10 +131,13 @@ class DotsOCRClient:
 
         logger.info(f"Loading dots.ocr model with vLLM from: {self.model_path}")
 
+        gpu_memory_utilization = set_default_gpu_memory_utilization()
+        logger.info(f"Using GPU memory utilization: {gpu_memory_utilization}")
+
         vllm_llm = vllm.LLM(
             model=self.model_path,
             trust_remote_code=True,
-            gpu_memory_utilization=0.9,
+            gpu_memory_utilization=gpu_memory_utilization,
             max_model_len=32768,
         )
 
