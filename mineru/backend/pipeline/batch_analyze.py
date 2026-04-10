@@ -1,4 +1,5 @@
 import html
+import os
 
 import cv2
 from loguru import logger
@@ -156,7 +157,7 @@ class BatchAnalyze:
                 ocr_result = det_ocr_engine.ocr(bgr_image, rec=False)[0]
                 # 构造需要 OCR 识别的图片字典，包括cropped_img, dt_box, table_id，并按照语言进行分组
                 for dt_box in ocr_result:
-                    rec_img_lang_group[_lang].append(
+                    rec_img_lang_group[table_res_dict["lang"]].append(
                         {
                             "cropped_img": get_rotate_crop_image(
                                 bgr_image, np.asarray(dt_box, dtype=np.float32)
@@ -278,6 +279,23 @@ class BatchAnalyze:
                     det_db_box_thresh=0.3,
                     lang=lang
                 )
+
+                if not hasattr(ocr_model, "text_detector"):
+                    logger.info(
+                        f"OCR engine {os.getenv('MINERU_OCR_ENGINE', 'paddle')} does not support batched detection; "
+                        f"falling back to per-image OCR detection for language {lang}."
+                    )
+                    for crop_info in tqdm(lang_crop_list, desc=f"OCR-det {lang}"):
+                        bgr_image, useful_list, ocr_res_list_dict, res, adjusted_mfdetrec_res, _lang = crop_info
+                        ocr_res = ocr_model.ocr(
+                            bgr_image, mfd_res=adjusted_mfdetrec_res, rec=False
+                        )[0]
+                        if ocr_res:
+                            ocr_result_list = get_ocr_result_list(
+                                ocr_res, useful_list, ocr_res_list_dict['ocr_enable'], bgr_image, _lang
+                            )
+                            ocr_res_list_dict['layout_res'].extend(ocr_result_list)
+                    continue
 
                 # 按分辨率分组并同时完成padding
                 # RESOLUTION_GROUP_STRIDE = 32

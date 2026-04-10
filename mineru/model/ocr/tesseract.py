@@ -9,6 +9,26 @@ from PIL import Image
 
 
 class TesseractOCRModel:
+    LANG_ALIASES = {
+        "ch": "chi_sim",
+        "ch_server": "chi_sim",
+        "ch_lite": "chi_sim",
+        "en": "eng",
+        "korean": "kor",
+        "japan": "jpn",
+        "chinese_cht": "chi_tra",
+        "ta": "tam",
+        "te": "tel",
+        "ka": "kan",
+        "th": "tha",
+        "el": "ell",
+        "latin": "eng",
+        "arabic": "ara",
+        "east_slavic": "rus",
+        "cyrillic": "rus",
+        "devanagari": "hin",
+    }
+
     def __init__(
         self,
         lang: str = "eng",
@@ -29,7 +49,7 @@ class TesseractOCRModel:
 
         self.tesseract = pytesseract
         self.Output = Output
-        self.lang = lang
+        self.lang = self.LANG_ALIASES.get(lang, lang or "eng")
         self.oem = oem
         self.psm = psm
         self.extra_config = config.strip()

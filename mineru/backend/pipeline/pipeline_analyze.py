@@ -4,7 +4,7 @@ from typing import List, Tuple
 from PIL import Image
 from loguru import logger
 
-from .model_init import MineruPipelineModel
+from .model_init import MineruPipelineModel, resolve_ocr_engine
 from mineru.utils.config_reader import get_device
 from ...utils.enum_class import ImageType
 from ...utils.pdf_classify import classify
@@ -29,13 +29,16 @@ class ModelSingleton:
         lang=None,
         formula_enable=None,
         table_enable=None,
+        ocr_engine=None,
     ):
-        key = (lang, formula_enable, table_enable)
+        selected_engine = resolve_ocr_engine(ocr_engine)
+        key = (lang, formula_enable, table_enable, selected_engine)
         if key not in self._models:
             self._models[key] = custom_model_init(
                 lang=lang,
                 formula_enable=formula_enable,
                 table_enable=table_enable,
+                ocr_engine=selected_engine,
             )
         return self._models[key]
 
@@ -44,6 +47,7 @@ def custom_model_init(
     lang=None,
     formula_enable=True,
     table_enable=True,
+    ocr_engine=None,
 ):
     model_init_start = time.time()
     # 从配置文件读取model-dir和device
@@ -57,6 +61,7 @@ def custom_model_init(
         'table_config': table_config,
         'formula_config': formula_config,
         'lang': lang,
+        'ocr_engine': resolve_ocr_engine(ocr_engine),
     }
 
     custom_model = MineruPipelineModel(**model_input)
@@ -73,6 +78,7 @@ def doc_analyze(
         parse_method: str = 'auto',
         formula_enable=True,
         table_enable=True,
+        ocr_engine=None,
 ):
     """
     适当调大MIN_BATCH_INFERENCE_SIZE可以提高性能，更大的 MIN_BATCH_INFERENCE_SIZE会消耗更多内存，
@@ -130,7 +136,12 @@ def doc_analyze(
             f'Batch {index + 1}/{len(batch_images)}: '
             f'{processed_images_count} pages/{len(images_with_extra_info)} pages'
         )
-        batch_results = batch_image_analyze(batch_image, formula_enable, table_enable)
+        batch_results = batch_image_analyze(
+            batch_image,
+            formula_enable,
+            table_enable,
+            ocr_engine=ocr_engine,
+        )
         results.extend(batch_results)
     infer_time = round(time.time() - infer_start, 2)
     logger.debug(f"infer finished, cost: {infer_time}, speed: {round(len(results) / infer_time, 3)} page/s")
@@ -156,11 +167,13 @@ def doc_analyze(
 def batch_image_analyze(
         images_with_extra_info: List[Tuple[Image.Image, bool, str]],
         formula_enable=True,
-        table_enable=True):
+        table_enable=True,
+        ocr_engine=None):
 
     from .batch_analyze import BatchAnalyze
 
     model_manager = ModelSingleton()
+    selected_engine = resolve_ocr_engine(ocr_engine)
 
     device = get_device()
 
@@ -198,12 +211,19 @@ def batch_image_analyze(
             version.parse(torch.__version__) >= version.parse("2.8.0")
             or str(device).startswith('mps')
             or device_type.lower() in ["corex"]
+            or selected_engine == "tesseract"
     ):
         enable_ocr_det_batch = False
     else:
         enable_ocr_det_batch = True
 
-    batch_model = BatchAnalyze(model_manager, batch_ratio, formula_enable, table_enable, enable_ocr_det_batch)
+    batch_model = BatchAnalyze(
+        model_manager,
+        batch_ratio,
+        formula_enable,
+        table_enable,
+        enable_ocr_det_batch,
+    )
     results = batch_model(images_with_extra_info)
 
     clean_memory(get_device())

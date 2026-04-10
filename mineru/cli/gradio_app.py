@@ -43,6 +43,8 @@ async def parse_pdf(doc_path, output_dir, end_page_id, is_ocr, formula_enable, t
         # 根据 backend 类型准备环境目录
         if backend.startswith("hybrid"):
             env_name = f"hybrid_{parse_method}"
+        elif backend == "pipeline-lite":
+            env_name = f"pipeline_lite_{parse_method}"
         else:
             env_name = parse_method
 
@@ -664,6 +666,7 @@ def main(ctx,
             "md_text": "Markdown text",
             "backend_info_vlm": "High-precision parsing via VLM, supports Chinese and English documents only.",
             "backend_info_pipeline": "Traditional Multi-model pipeline parsing, supports multiple languages, hallucination-free.",
+            "backend_info_pipeline_lite": "Same parsing pipeline as `pipeline`, but using Tesseract OCR instead of PaddleOCR.",
             "backend_info_hybrid": "High-precision hybrid parsing, supports multiple languages.",
             "backend_info_default": "Select the backend engine for document parsing.",
         },
@@ -695,6 +698,7 @@ def main(ctx,
             "md_text": "Markdown 文本",
             "backend_info_vlm": "多模态大模型高精度解析，仅支持中英文文档。",
             "backend_info_pipeline": "传统多模型管道解析，支持多语言，无幻觉。",
+            "backend_info_pipeline_lite": "与 `pipeline` 使用同一套解析流程，只是将 OCR 从 PaddleOCR 切换为 Tesseract。",
             "backend_info_hybrid": "高精度混合解析，支持多语言。",
             "backend_info_default": "选择文档解析的后端引擎。",
         },
@@ -724,6 +728,8 @@ def main(ctx,
     def get_backend_info(backend_choice):
         if backend_choice.startswith("vlm"):
             return i18n("backend_info_vlm")
+        elif backend_choice == "pipeline-lite":
+            return i18n("backend_info_pipeline_lite")
         elif backend_choice == "pipeline":
             return i18n("backend_info_pipeline")
         elif backend_choice.startswith("hybrid"):

@@ -173,7 +173,16 @@ def page_model_info_to_page_info(page_model_info, image_dict, page, image_writer
     return page_info
 
 
-def result_to_middle_json(model_list, images_list, pdf_doc, image_writer, lang=None, ocr_enable=False, formula_enabled=True):
+def result_to_middle_json(
+    model_list,
+    images_list,
+    pdf_doc,
+    image_writer,
+    lang=None,
+    ocr_enable=False,
+    formula_enabled=True,
+    ocr_engine=None,
+):
     middle_json = {"pdf_info": [], "_backend":"pipeline", "_version_name": __version__}
     formula_enabled = get_formula_enable(formula_enabled)
     for page_index, page_model_info in tqdm(enumerate(model_list), total=len(model_list), desc="Processing pages"):
@@ -213,7 +222,8 @@ def result_to_middle_json(model_list, images_list, pdf_doc, image_writer, lang=N
         ocr_model = atom_model_manager.get_atom_model(
             atom_model_name='ocr',
             det_db_box_thresh=0.3,
-            lang=lang
+            lang=lang,
+            ocr_engine=ocr_engine,
         )
         ocr_res_list = ocr_model.ocr(img_crop_list, det=False, tqdm_enable=True)[0]
         assert len(ocr_res_list) == len(

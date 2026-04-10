@@ -4,6 +4,7 @@ import json
 import os
 import copy
 from pathlib import Path
+from contextlib import contextmanager
 
 from loguru import logger
 import pypdfium2 as pdfium
@@ -28,6 +29,30 @@ pdf_suffixes = ["pdf"]
 image_suffixes = ["png", "jpeg", "jp2", "webp", "gif", "bmp", "jpg", "tiff"]
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+
+def get_pipeline_subdir(backend: str, parse_method: str) -> str:
+    return parse_method if backend == "pipeline" else f"pipeline_lite_{parse_method}"
+
+
+@contextmanager
+def temporary_env(**updates):
+    previous = {}
+    sentinel = object()
+    for key, value in updates.items():
+        previous[key] = os.environ.get(key, sentinel)
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = str(value)
+    try:
+        yield
+    finally:
+        for key, value in previous.items():
+            if value is sentinel:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
 def read_fn(path):
     if not isinstance(path, Path):
@@ -173,6 +198,7 @@ def _process_pipeline(
         pdf_file_names,
         pdf_bytes_list,
         p_lang_list,
+        backend,
         parse_method,
         p_formula_enable,
         p_table_enable,
@@ -189,38 +215,44 @@ def _process_pipeline(
     from mineru.backend.pipeline.model_json_to_middle_json import result_to_middle_json as pipeline_result_to_middle_json
     from mineru.backend.pipeline.pipeline_analyze import doc_analyze as pipeline_doc_analyze
 
-    infer_results, all_image_lists, all_pdf_docs, lang_list, ocr_enabled_list = (
-        pipeline_doc_analyze(
-            pdf_bytes_list, p_lang_list, parse_method=parse_method,
-            formula_enable=p_formula_enable, table_enable=p_table_enable
-        )
-    )
+    ocr_engine = "tesseract" if backend == "pipeline-lite" else "paddle"
+    pipeline_subdir = get_pipeline_subdir(backend, parse_method)
 
-    for idx, model_list in enumerate(infer_results):
-        model_json = copy.deepcopy(model_list)
-        pdf_file_name = pdf_file_names[idx]
-        local_image_dir, local_md_dir = prepare_env(output_dir, pdf_file_name, parse_method)
-        image_writer, md_writer = FileBasedDataWriter(local_image_dir), FileBasedDataWriter(local_md_dir)
-
-        images_list = all_image_lists[idx]
-        pdf_doc = all_pdf_docs[idx]
-        _lang = lang_list[idx]
-        _ocr_enable = ocr_enabled_list[idx]
-
-        middle_json = pipeline_result_to_middle_json(
-            model_list, images_list, pdf_doc, image_writer,
-            _lang, _ocr_enable, p_formula_enable
+    with temporary_env(MINERU_OCR_ENGINE=ocr_engine):
+        infer_results, all_image_lists, all_pdf_docs, lang_list, ocr_enabled_list = (
+            pipeline_doc_analyze(
+                pdf_bytes_list, p_lang_list, parse_method=parse_method,
+                formula_enable=p_formula_enable, table_enable=p_table_enable,
+                ocr_engine=ocr_engine,
+            )
         )
 
-        pdf_info = middle_json["pdf_info"]
-        pdf_bytes = pdf_bytes_list[idx]
+        for idx, model_list in enumerate(infer_results):
+            model_json = copy.deepcopy(model_list)
+            pdf_file_name = pdf_file_names[idx]
+            local_image_dir, local_md_dir = prepare_env(output_dir, pdf_file_name, pipeline_subdir)
+            image_writer, md_writer = FileBasedDataWriter(local_image_dir), FileBasedDataWriter(local_md_dir)
 
-        _process_output(
-            pdf_info, pdf_bytes, pdf_file_name, local_md_dir, local_image_dir,
-            md_writer, f_draw_layout_bbox, f_draw_span_bbox, f_dump_orig_pdf,
-            f_dump_md, f_dump_content_list, f_dump_middle_json, f_dump_model_output,
-            f_make_md_mode, middle_json, model_json, is_pipeline=True
-        )
+            images_list = all_image_lists[idx]
+            pdf_doc = all_pdf_docs[idx]
+            _lang = lang_list[idx]
+            _ocr_enable = ocr_enabled_list[idx]
+
+            middle_json = pipeline_result_to_middle_json(
+                model_list, images_list, pdf_doc, image_writer,
+                _lang, _ocr_enable, p_formula_enable,
+                ocr_engine=ocr_engine,
+            )
+
+            pdf_info = middle_json["pdf_info"]
+            pdf_bytes = pdf_bytes_list[idx]
+
+            _process_output(
+                pdf_info, pdf_bytes, pdf_file_name, local_md_dir, local_image_dir,
+                md_writer, f_draw_layout_bbox, f_draw_span_bbox, f_dump_orig_pdf,
+                f_dump_md, f_dump_content_list, f_dump_middle_json, f_dump_model_output,
+                f_make_md_mode, middle_json, model_json, is_pipeline=True
+            )
 
 
 async def _async_process_vlm(
@@ -436,10 +468,10 @@ def do_parse(
     # 预处理PDF字节数据
     pdf_bytes_list = _prepare_pdf_bytes(pdf_bytes_list, start_page_id, end_page_id)
 
-    if backend == "pipeline":
+    if backend in ["pipeline", "pipeline-lite"]:
         _process_pipeline(
             output_dir, pdf_file_names, pdf_bytes_list, p_lang_list,
-            parse_method, formula_enable, table_enable,
+            backend, parse_method, formula_enable, table_enable,
             f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
             f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode
         )
@@ -508,11 +540,11 @@ async def aio_do_parse(
     # 预处理PDF字节数据
     pdf_bytes_list = _prepare_pdf_bytes(pdf_bytes_list, start_page_id, end_page_id)
 
-    if backend == "pipeline":
+    if backend in ["pipeline", "pipeline-lite"]:
         # pipeline模式暂不支持异步，使用同步处理方式
         _process_pipeline(
             output_dir, pdf_file_names, pdf_bytes_list, p_lang_list,
-            parse_method, formula_enable, table_enable,
+            backend, parse_method, formula_enable, table_enable,
             f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
             f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode
         )

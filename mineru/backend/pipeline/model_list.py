@@ -3,6 +3,7 @@ class AtomicModel:
     MFD = "mfd"
     MFR = "mfr"
     OCR = "ocr"
+    Tesseract = "tesseract"
     WirelessTable = "wireless_table"
     WiredTable = "wired_table"
     TableCls = "table_cls"

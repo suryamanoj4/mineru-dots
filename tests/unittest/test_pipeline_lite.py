@@ -1,0 +1,143 @@
+# Copyright (c) Opendatalab. All rights reserved.
+import sys
+import types
+import unittest
+from unittest import mock
+
+from mineru.cli import common
+from mineru.model.ocr.tesseract import TesseractOCRModel
+
+
+class PipelineLiteTests(unittest.TestCase):
+    def test_get_pipeline_subdir(self):
+        self.assertEqual(common.get_pipeline_subdir("pipeline", "auto"), "auto")
+        self.assertEqual(
+            common.get_pipeline_subdir("pipeline-lite", "ocr"),
+            "pipeline_lite_ocr",
+        )
+
+    def test_temporary_env_restores_previous_value(self):
+        with mock.patch.dict(common.os.environ, {"MINERU_OCR_ENGINE": "paddle"}, clear=False):
+            with common.temporary_env(MINERU_OCR_ENGINE="tesseract"):
+                self.assertEqual(common.os.environ["MINERU_OCR_ENGINE"], "tesseract")
+
+            self.assertEqual(common.os.environ["MINERU_OCR_ENGINE"], "paddle")
+
+    def test_do_parse_routes_pipeline_lite_to_pipeline_handler(self):
+        captured = {}
+
+        def fake_prepare(pdf_bytes_list, start_page_id, end_page_id):
+            captured["prepare"] = (pdf_bytes_list, start_page_id, end_page_id)
+            return pdf_bytes_list
+
+        def fake_process_pipeline(
+            output_dir,
+            pdf_file_names,
+            pdf_bytes_list,
+            p_lang_list,
+            backend,
+            parse_method,
+            formula_enable,
+            table_enable,
+            *args,
+            **kwargs,
+        ):
+            captured["backend"] = backend
+            captured["parse_method"] = parse_method
+            captured["formula_enable"] = formula_enable
+            captured["table_enable"] = table_enable
+            captured["output_dir"] = output_dir
+            captured["pdf_file_names"] = pdf_file_names
+            captured["pdf_bytes_list"] = pdf_bytes_list
+            captured["p_lang_list"] = p_lang_list
+
+        with mock.patch.object(common, "_prepare_pdf_bytes", side_effect=fake_prepare):
+            with mock.patch.object(common, "_process_pipeline", side_effect=fake_process_pipeline):
+                common.do_parse(
+                    output_dir="./output",
+                    pdf_file_names=["sample"],
+                    pdf_bytes_list=[b"pdf-bytes"],
+                    p_lang_list=["en"],
+                    backend="pipeline-lite",
+                    parse_method="ocr",
+                    formula_enable=False,
+                    table_enable=False,
+                    start_page_id=1,
+                    end_page_id=2,
+                )
+
+        self.assertEqual(captured["backend"], "pipeline-lite")
+        self.assertEqual(captured["parse_method"], "ocr")
+        self.assertFalse(captured["formula_enable"])
+        self.assertFalse(captured["table_enable"])
+        self.assertEqual(captured["pdf_file_names"], ["sample"])
+        self.assertEqual(captured["pdf_bytes_list"], [b"pdf-bytes"])
+        self.assertEqual(captured["p_lang_list"], ["en"])
+        self.assertEqual(captured["prepare"][1:], (1, 2))
+
+    def test_process_pipeline_only_switches_ocr_engine_for_pipeline_lite(self):
+        captured = {}
+
+        def fake_doc_analyze(*args, **kwargs):
+            captured["doc_analyze_ocr_engine"] = kwargs["ocr_engine"]
+            return ([[]], [[]], [object()], ["en"], [True])
+
+        def fake_result_to_middle_json(
+            model_list,
+            images_list,
+            pdf_doc,
+            image_writer,
+            lang,
+            ocr_enable,
+            formula_enabled,
+            ocr_engine=None,
+        ):
+            captured["middle_json_ocr_engine"] = ocr_engine
+            return {"pdf_info": []}
+
+        def fake_process_output(*args, **kwargs):
+            captured["processed"] = True
+
+        with mock.patch("mineru.backend.pipeline.pipeline_analyze.doc_analyze", side_effect=fake_doc_analyze):
+            with mock.patch("mineru.backend.pipeline.model_json_to_middle_json.result_to_middle_json", side_effect=fake_result_to_middle_json):
+                with mock.patch.object(common, "_process_output", side_effect=fake_process_output):
+                    common._process_pipeline(
+                        output_dir="./output",
+                        pdf_file_names=["sample"],
+                        pdf_bytes_list=[b"pdf-bytes"],
+                        p_lang_list=["en"],
+                        backend="pipeline-lite",
+                        parse_method="ocr",
+                        p_formula_enable=False,
+                        p_table_enable=False,
+                        f_draw_layout_bbox=False,
+                        f_draw_span_bbox=False,
+                        f_dump_md=False,
+                        f_dump_middle_json=False,
+                        f_dump_model_output=False,
+                        f_dump_orig_pdf=False,
+                        f_dump_content_list=False,
+                        f_make_md_mode=None,
+                    )
+
+        self.assertEqual(captured["doc_analyze_ocr_engine"], "tesseract")
+        self.assertEqual(captured["middle_json_ocr_engine"], "tesseract")
+        self.assertTrue(captured["processed"])
+
+    def test_tesseract_lang_alias(self):
+        fake_pytesseract = types.ModuleType("pytesseract")
+        fake_pytesseract.Output = types.SimpleNamespace(DICT=object())
+        fake_pytesseract.pytesseract = types.SimpleNamespace(
+            tesseract_cmd="/usr/bin/tesseract"
+        )
+        fake_pytesseract.image_to_data = lambda *args, **kwargs: {}
+
+        with mock.patch("shutil.which", return_value="/usr/bin/tesseract"):
+            with mock.patch.dict(sys.modules, {"pytesseract": fake_pytesseract}):
+                model = TesseractOCRModel(lang="en")
+
+        self.assertEqual(model.lang, "eng")
+
+
+if __name__ == "__main__":
+    unittest.main()
