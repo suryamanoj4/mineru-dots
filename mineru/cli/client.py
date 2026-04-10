@@ -82,6 +82,7 @@ def save_checkpoint(checkpoint_path: Path, checkpoint: dict):
     type=click.Choice(
         [
             "pipeline",
+            "pipeline-lite",
             "vlm-http-client",
             "hybrid-http-client",
             "vlm-auto-engine",
@@ -91,6 +92,7 @@ def save_checkpoint(checkpoint_path: Path, checkpoint: dict):
     help="""\b
     the backend for parsing pdf:
       pipeline: More general.
+      pipeline-lite: Lightweight Tesseract OCR backend with lower resource usage.
       vlm-auto-engine: High accuracy via local computing power (uses dots.ocr).
       vlm-http-client: High accuracy via remote computing power (client suitable for openai-compatible servers).
       hybrid-auto-engine: Next-generation high accuracy solution via local computing power (uses dots.ocr for layout).

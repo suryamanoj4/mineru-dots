@@ -223,6 +223,49 @@ def _process_pipeline(
         )
 
 
+def _process_pipeline_lite(
+        output_dir,
+        pdf_file_names,
+        pdf_bytes_list,
+        p_lang_list,
+        parse_method,
+        f_draw_layout_bbox,
+        f_draw_span_bbox,
+        f_dump_md,
+        f_dump_middle_json,
+        f_dump_model_output,
+        f_dump_orig_pdf,
+        f_dump_content_list,
+        f_make_md_mode,
+        **kwargs,
+):
+    from mineru.backend.pipeline_lite.pipeline_lite_analyze import (
+        doc_analyze as pipeline_lite_doc_analyze,
+    )
+
+    del f_draw_span_bbox
+
+    for idx, (pdf_bytes, language) in enumerate(zip(pdf_bytes_list, p_lang_list)):
+        pdf_file_name = pdf_file_names[idx]
+        local_image_dir, local_md_dir = prepare_env(output_dir, pdf_file_name, parse_method)
+        _, md_writer = FileBasedDataWriter(local_image_dir), FileBasedDataWriter(local_md_dir)
+
+        middle_json, model_output = pipeline_lite_doc_analyze(
+            pdf_bytes,
+            language=language,
+            parse_method=parse_method,
+            **kwargs,
+        )
+        pdf_info = middle_json["pdf_info"]
+
+        _process_output(
+            pdf_info, pdf_bytes, pdf_file_name, local_md_dir, local_image_dir,
+            md_writer, f_draw_layout_bbox, False, f_dump_orig_pdf,
+            f_dump_md, f_dump_content_list, f_dump_middle_json, f_dump_model_output,
+            f_make_md_mode, middle_json, model_output, is_pipeline=False
+        )
+
+
 async def _async_process_vlm(
         output_dir,
         pdf_file_names,
@@ -443,6 +486,13 @@ def do_parse(
             f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
             f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode
         )
+    elif backend == "pipeline-lite":
+        _process_pipeline_lite(
+            output_dir, pdf_file_names, pdf_bytes_list, p_lang_list,
+            parse_method, f_draw_layout_bbox, f_draw_span_bbox, f_dump_md,
+            f_dump_middle_json, f_dump_model_output, f_dump_orig_pdf,
+            f_dump_content_list, f_make_md_mode, **kwargs,
+        )
     else:
         if backend.startswith("vlm-"):
             backend = backend[4:]
@@ -515,6 +565,13 @@ async def aio_do_parse(
             parse_method, formula_enable, table_enable,
             f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
             f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode
+        )
+    elif backend == "pipeline-lite":
+        _process_pipeline_lite(
+            output_dir, pdf_file_names, pdf_bytes_list, p_lang_list,
+            parse_method, f_draw_layout_bbox, f_draw_span_bbox, f_dump_md,
+            f_dump_middle_json, f_dump_model_output, f_dump_orig_pdf,
+            f_dump_content_list, f_make_md_mode, **kwargs,
         )
     else:
         if backend.startswith("vlm-"):

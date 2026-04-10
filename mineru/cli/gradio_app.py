@@ -286,6 +286,7 @@ def main(ctx,
             "md_text": "Markdown text",
             "backend_info_vlm": "High-precision parsing via VLM, supports Chinese and English documents only.",
             "backend_info_pipeline": "Traditional Multi-model pipeline parsing, supports multiple languages, hallucination-free.",
+            "backend_info_pipeline_lite": "Lightweight Tesseract OCR parsing with simpler execution and lower resource usage.",
             "backend_info_hybrid": "High-precision hybrid parsing, supports multiple languages.",
             "backend_info_default": "Select the backend engine for document parsing.",
         },
@@ -317,6 +318,7 @@ def main(ctx,
             "md_text": "Markdown 文本",
             "backend_info_vlm": "多模态大模型高精度解析，仅支持中英文文档。",
             "backend_info_pipeline": "传统多模型管道解析，支持多语言，无幻觉。",
+            "backend_info_pipeline_lite": "轻量级 Tesseract OCR 解析，执行更简单，资源占用更低。",
             "backend_info_hybrid": "高精度混合解析，支持多语言。",
             "backend_info_default": "选择文档解析的后端引擎。",
         },
@@ -326,7 +328,7 @@ def main(ctx,
     def get_formula_label(backend_choice):
         if backend_choice.startswith("vlm"):
             return i18n("formula_label_vlm")
-        elif backend_choice == "pipeline":
+        elif backend_choice in ["pipeline", "pipeline-lite"]:
             return i18n("formula_label_pipeline")
         elif backend_choice.startswith("hybrid"):
             return i18n("formula_label_hybrid")
@@ -336,7 +338,7 @@ def main(ctx,
     def get_formula_info(backend_choice):
         if backend_choice.startswith("vlm"):
             return i18n("formula_info_vlm")
-        elif backend_choice == "pipeline":
+        elif backend_choice in ["pipeline", "pipeline-lite"]:
             return i18n("formula_info_pipeline")
         elif backend_choice.startswith("hybrid"):
             return i18n("formula_info_hybrid")
@@ -348,6 +350,8 @@ def main(ctx,
             return i18n("backend_info_vlm")
         elif backend_choice == "pipeline":
             return i18n("backend_info_pipeline")
+        elif backend_choice == "pipeline-lite":
+            return i18n("backend_info_pipeline_lite")
         elif backend_choice.startswith("hybrid"):
             return i18n("backend_info_hybrid")
         else:
@@ -408,7 +412,7 @@ def main(ctx,
                 with gr.Row():
                     max_pages = gr.Slider(1, max_convert_pages, max_convert_pages, step=1, label=i18n("max_pages"))
                 with gr.Row():
-                    drop_list = ["pipeline", "vlm-auto-engine", "hybrid-auto-engine"]
+                    drop_list = ["pipeline", "pipeline-lite", "vlm-auto-engine", "hybrid-auto-engine"]
                     preferred_option = "hybrid-auto-engine"
                     if http_client_enable:
                         drop_list.extend(["vlm-http-client", "hybrid-http-client"])

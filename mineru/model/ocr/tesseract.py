@@ -22,6 +22,7 @@ class TesseractOCRModel:
         try:
             import pytesseract
             from pytesseract import Output
+            from pytesseract import TesseractError, TesseractNotFoundError
         except ImportError as exc:
             raise ImportError(
                 "Please install pytesseract to use the Tesseract OCR backend."
@@ -29,6 +30,8 @@ class TesseractOCRModel:
 
         self.tesseract = pytesseract
         self.Output = Output
+        self.TesseractError = TesseractError
+        self.TesseractNotFoundError = TesseractNotFoundError
         self.lang = lang
         self.oem = oem
         self.psm = psm
@@ -49,6 +52,7 @@ class TesseractOCRModel:
             )
 
         self.tesseract_cmd = binary
+        self._validate_language()
 
     def predict(self, img: np.ndarray) -> list[dict]:
         data = self._image_to_data(img)
@@ -105,12 +109,20 @@ class TesseractOCRModel:
 
     def _image_to_data(self, img) -> dict:
         pil_img = self._to_pil_image(img)
-        return self.tesseract.image_to_data(
-            pil_img,
-            lang=self.lang,
-            config=self._build_config(),
-            output_type=self.Output.DICT,
-        )
+        try:
+            return self.tesseract.image_to_data(
+                pil_img,
+                lang=self.lang,
+                config=self._build_config(),
+                output_type=self.Output.DICT,
+            )
+        except self.TesseractNotFoundError as exc:
+            raise RuntimeError(
+                "Tesseract binary was not found. Install `tesseract` or provide "
+                "`tesseract_cmd`."
+            ) from exc
+        except self.TesseractError as exc:
+            raise RuntimeError(self._format_tesseract_error(exc)) from exc
 
     def _recognize_crop(self, img) -> tuple[str, float]:
         data = self._image_to_data(img)
@@ -174,6 +186,10 @@ class TesseractOCRModel:
                 "text": text,
                 "confidence": confidence,
                 "box": box,
+                "block_num": int(data.get("block_num", [0] * total)[idx] or 0),
+                "par_num": int(data.get("par_num", [0] * total)[idx] or 0),
+                "line_num": int(data.get("line_num", [0] * total)[idx] or 0),
+                "word_num": int(data.get("word_num", [0] * total)[idx] or 0),
             }
 
     def _build_config(self) -> str:
@@ -183,6 +199,44 @@ class TesseractOCRModel:
         if self.extra_config:
             parts.append(self.extra_config)
         return " ".join(parts)
+
+    def _validate_language(self) -> None:
+        requested_langs = [lang.strip() for lang in self.lang.split("+") if lang.strip()]
+        if not requested_langs:
+            raise ValueError("Tesseract language must not be empty.")
+
+        try:
+            available_langs = set(self.tesseract.get_languages(config=self._lang_config()))
+        except self.TesseractNotFoundError as exc:
+            raise RuntimeError(
+                "Tesseract binary was not found. Install `tesseract` or provide "
+                "`tesseract_cmd`."
+            ) from exc
+        except self.TesseractError as exc:
+            raise RuntimeError(self._format_tesseract_error(exc)) from exc
+
+        missing_langs = [lang for lang in requested_langs if lang not in available_langs]
+        if missing_langs:
+            raise RuntimeError(
+                "Tesseract language data is unavailable for "
+                f"{', '.join(missing_langs)}. Install the requested traineddata "
+                "files or set `tessdata_dir`."
+            )
+
+    def _lang_config(self) -> str:
+        if self.tessdata_dir:
+            return f'--tessdata-dir "{self.tessdata_dir}"'
+        return ""
+
+    def _format_tesseract_error(self, exc: Exception) -> str:
+        error_text = str(exc).strip()
+        if "Error opening data file" in error_text or "Failed loading language" in error_text:
+            return (
+                "Tesseract failed to load the requested language data. "
+                f"Requested language: `{self.lang}`. Install the traineddata files "
+                "or set `tessdata_dir`."
+            )
+        return f"Tesseract OCR failed: {error_text}"
 
     @staticmethod
     def _normalize_confidence(value) -> float:
