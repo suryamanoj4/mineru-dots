@@ -249,11 +249,25 @@ def to_pdf(file_path):
          "'a' for type '$', 'b' for type '()[]', 'all' for both types.",
     default='all',
 )
+@click.option(
+    '--default-backend',
+    'default_backend',
+    type=str,
+    default=None,
+    help="Set the default backend shown in the Gradio dropdown.",
+)
+@click.option(
+    '--backend-options',
+    'backend_options',
+    type=str,
+    default=None,
+    help="Comma-separated list of backend options exposed in the Gradio dropdown.",
+)
 def main(ctx,
         example_enable,
         http_client_enable,
         api_enable, max_convert_pages,
-        server_name, server_port, latex_delimiters_type, **kwargs
+        server_name, server_port, latex_delimiters_type, default_backend, backend_options, **kwargs
 ):
 
     # 创建 i18n 实例，支持中英文
@@ -371,6 +385,12 @@ def main(ctx,
 
     kwargs.update(arg_parse(ctx))
 
+    configured_backend_options = backend_options or os.getenv("MINERU_GRADIO_BACKEND_OPTIONS")
+    configured_default_backend = default_backend or os.getenv("MINERU_GRADIO_DEFAULT_BACKEND")
+    startup_backend_options = None
+    if configured_backend_options:
+        startup_backend_options = [item.strip() for item in configured_backend_options.split(",") if item.strip()]
+
     if latex_delimiters_type == 'a':
         latex_delimiters = latex_delimiters_type_a
     elif latex_delimiters_type == 'b':
@@ -380,23 +400,28 @@ def main(ctx,
     else:
         raise ValueError(f"Invalid latex delimiters type: {latex_delimiters_type}.")
 
-    vlm_engine = get_vlm_engine("auto", is_async=True)
-    if vlm_engine in ["transformers", "mlx-engine"]:
-        http_client_enable = True
-    else:
-        try:
-            logger.info(f"Start init {vlm_engine}...")
-            from mineru.backend.vlm.vlm_analyze import ModelSingleton
-            model_singleton = ModelSingleton()
-            predictor = model_singleton.get_model(
-                vlm_engine,
-                None,
-                None,
-                **kwargs
-            )
-            logger.info(f"{vlm_engine} init successfully.")
-        except Exception as e:
-            logger.exception(e)
+    needs_vlm_init = startup_backend_options is None or any(
+        option.startswith("vlm") or option.startswith("hybrid")
+        for option in startup_backend_options
+    )
+    if needs_vlm_init:
+        vlm_engine = get_vlm_engine("auto", is_async=True)
+        if vlm_engine in ["transformers", "mlx-engine"]:
+            http_client_enable = True
+        else:
+            try:
+                logger.info(f"Start init {vlm_engine}...")
+                from mineru.backend.vlm.vlm_analyze import ModelSingleton
+                model_singleton = ModelSingleton()
+                predictor = model_singleton.get_model(
+                    vlm_engine,
+                    None,
+                    None,
+                    **kwargs
+                )
+                logger.info(f"{vlm_engine} init successfully.")
+            except Exception as e:
+                logger.exception(e)
 
     suffixes = [f".{suffix}" for suffix in pdf_suffixes + image_suffixes]
     with gr.Blocks() as demo:
@@ -408,10 +433,17 @@ def main(ctx,
                 with gr.Row():
                     max_pages = gr.Slider(1, max_convert_pages, max_convert_pages, step=1, label=i18n("max_pages"))
                 with gr.Row():
-                    drop_list = ["pipeline", "vlm-auto-engine", "hybrid-auto-engine"]
-                    preferred_option = "hybrid-auto-engine"
-                    if http_client_enable:
-                        drop_list.extend(["vlm-http-client", "hybrid-http-client"])
+                    if configured_backend_options:
+                        drop_list = [item.strip() for item in configured_backend_options.split(",") if item.strip()]
+                    else:
+                        drop_list = ["pipeline", "vlm-auto-engine", "hybrid-auto-engine"]
+                        if http_client_enable:
+                            drop_list.extend(["vlm-http-client", "hybrid-http-client"])
+
+                    preferred_option = configured_default_backend or "hybrid-auto-engine"
+                    if preferred_option not in drop_list:
+                        preferred_option = drop_list[0]
+
                     backend = gr.Dropdown(drop_list, label=i18n("backend"), value=preferred_option, info=get_backend_info(preferred_option))
                 with gr.Row(visible=False) as client_options:
                     url = gr.Textbox(label=i18n("server_url"), value='http://localhost:30000', placeholder='http://localhost:30000', info=i18n("server_url_info"))
