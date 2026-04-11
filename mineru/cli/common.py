@@ -223,7 +223,7 @@ def _process_pipeline(
         )
 
 
-def _process_pipeline_lite(
+def _process_lite(
         output_dir,
         pdf_file_names,
         pdf_bytes_list,
@@ -240,7 +240,7 @@ def _process_pipeline_lite(
         **kwargs,
 ):
     from mineru.backend.pipeline_lite.pipeline_lite_analyze import (
-        doc_analyze as pipeline_lite_doc_analyze,
+        doc_analyze as lite_doc_analyze,
     )
 
     del f_draw_span_bbox
@@ -250,7 +250,7 @@ def _process_pipeline_lite(
         local_image_dir, local_md_dir = prepare_env(output_dir, pdf_file_name, parse_method)
         _, md_writer = FileBasedDataWriter(local_image_dir), FileBasedDataWriter(local_md_dir)
 
-        middle_json, model_output = pipeline_lite_doc_analyze(
+        middle_json, model_output = lite_doc_analyze(
             pdf_bytes,
             language=language,
             parse_method=parse_method,
@@ -486,8 +486,8 @@ def do_parse(
             f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
             f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode
         )
-    elif backend == "pipeline-lite":
-        _process_pipeline_lite(
+    elif backend == "lite":
+        _process_lite(
             output_dir, pdf_file_names, pdf_bytes_list, p_lang_list,
             parse_method, f_draw_layout_bbox, f_draw_span_bbox, f_dump_md,
             f_dump_middle_json, f_dump_model_output, f_dump_orig_pdf,
@@ -566,8 +566,8 @@ async def aio_do_parse(
             f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
             f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode
         )
-    elif backend == "pipeline-lite":
-        _process_pipeline_lite(
+    elif backend == "lite":
+        _process_lite(
             output_dir, pdf_file_names, pdf_bytes_list, p_lang_list,
             parse_method, f_draw_layout_bbox, f_draw_span_bbox, f_dump_md,
             f_dump_middle_json, f_dump_model_output, f_dump_orig_pdf,

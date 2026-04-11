@@ -95,7 +95,7 @@ https://github.com/user-attachments/assets/4bea02c9-6d54-4cd6-97ed-dff14340982c
 | Feature | Status | Expected Completion |
 |---------|--------|---------------------|
 | **vParse Rebranding** | 🚧 In Progress | Package rename, CLI commands, documentation |
-| **Tesseract Integration** | 📋 Planned | Pipeline-lite backend for lightweight OCR |
+| **Tesseract Integration** | 📋 Planned | Lite backend for direct Tesseract-only OCR |
 | **Multi-Model VLM Support** | 📋 Planned | Qwen2-VL, InternVL2, Got-OCR2.0, Nougat |
 | **KV Cache Optimization** | 📋 Planned | Memory optimization for bulk VLM processing |
 | **Bulk Processing API** | 📋 Planned | Job queue, progress tracking, checkpoint/resume |
@@ -379,7 +379,7 @@ vParse is undergoing active development with a comprehensive roadmap to become a
 
 | Wave | Focus | Timeline | Key Deliverables |
 |------|-------|----------|------------------|
-| **Wave 1** | Foundation | Weeks 1-4 | Unified API, Tesseract, pipeline-lite, PyPI package |
+| **Wave 1** | Foundation | Weeks 1-4 | Unified API, Tesseract, lite backend, PyPI package |
 | **Wave 2** | Multi-Model VLM | Weeks 5-8 | Qwen2-VL, InternVL2, model auto-selection |
 | **Wave 3** | Memory & Performance | Weeks 9-12 | KV cache optimization, streaming, OOM prevention |
 | **Wave 4** | Bulk Processing & Docker | Weeks 13-16 | Job queue, Redis/Celery, production Docker |

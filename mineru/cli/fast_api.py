@@ -155,7 +155,7 @@ async def parse_pdf(
         "hybrid-auto-engine",
         description="""The backend for parsing:
 - pipeline: More general, supports multiple languages, hallucination-free.
-- pipeline-lite: Lightweight Tesseract OCR backend with lower resource usage.
+- lite: Direct Tesseract-only OCR backend with lower resource usage and no full MinerU pipeline stages.
 - vlm-auto-engine: High accuracy via local computing power, supports Chinese and English documents only.
 - vlm-http-client: High accuracy via remote computing power(client suitable for openai-compatible servers), supports Chinese and English documents only.
 - hybrid-auto-engine: Next-generation high accuracy solution via local computing power, supports multiple languages.

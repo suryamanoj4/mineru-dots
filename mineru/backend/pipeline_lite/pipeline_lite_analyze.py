@@ -52,7 +52,7 @@ def doc_analyze(
 
     config = _build_tesseract_config(language=language, **kwargs)
     logger.info(
-        f"pipeline-lite using Tesseract lang={config.lang} oem={config.oem} psm={config.psm}"
+        f"lite backend using direct Tesseract lang={config.lang} oem={config.oem} psm={config.psm}"
     )
 
     ocr_model = TesseractOCRModel(
@@ -81,12 +81,12 @@ def doc_analyze(
 
         middle_json = {
             "pdf_info": page_infos,
-            "_backend": "pipeline-lite",
+            "_backend": "lite",
             "_version_name": __version__,
             "_backend_config": _config_to_dict(config),
         }
         raw_output = {
-            "_backend": "pipeline-lite",
+            "_backend": "lite",
             "_ocr_engine": "tesseract",
             "_backend_config": _config_to_dict(config),
             "pages": page_outputs,
