@@ -352,6 +352,15 @@ async def parse_pdf(
                                 ),
                             )
 
+                    layout_pdf_path = os.path.join(parse_dir, f"{pdf_name}_layout.pdf")
+                    if os.path.exists(layout_pdf_path):
+                        zf.write(
+                            layout_pdf_path,
+                            arcname=os.path.join(
+                                safe_pdf_name, f"{safe_pdf_name}_layout.pdf"
+                            ),
+                        )
+
             return FileResponse(
                 path=zip_path,
                 media_type="application/zip",

@@ -1,25 +1,22 @@
 services:
-  mineru-gradio-cpu:
+  mineru-api-cpu:
     profiles: ["cpu"]
     build:
       context: ..
       dockerfile: docker/global/Dockerfile.cpu
-    container_name: mineru-gradio-cpu
+    container_name: mineru-api-cpu
     restart: always
     ports:
-      - "7860:7860"
+      - "8000:8000"
     environment:
-      MINERU_GRADIO_BACKEND_OPTIONS: pipeline
-      MINERU_GRADIO_DEFAULT_BACKEND: pipeline
       MINERU_MODEL_SOURCE: huggingface
-    entrypoint:
-      - /bin/bash
-      - /app/docker/global/start-gradio-cpu.sh
+      MINERU_API_ENABLE_FASTAPI_DOCS: "1"
+    entrypoint: mineru-api
     command:
-      - --server-name
+      - --host
       - 0.0.0.0
-      - --server-port
-      - "7860"
+      - --port
+      - "8000"
     ulimits:
       memlock: -1
       stack: 67108864
@@ -28,24 +25,111 @@ services:
       - mineru-hf-cache:/root/.cache/huggingface
       - mineru-ms-cache:/root/.cache/modelscope
 
-  mineru-gradio-gpu:
-    profiles: ["gpu"]
+  mineru-gradio-cpu:
+    profiles: ["cpu"]
     build:
       context: ..
-      dockerfile: docker/global/Dockerfile
-    container_name: mineru-gradio-gpu
+      dockerfile: docker/global/Dockerfile.cpu
+    container_name: mineru-gradio-cpu
     restart: always
+    depends_on:
+      - mineru-api-cpu
     ports:
       - "7860:7860"
     environment:
-      MINERU_GRADIO_BACKEND_OPTIONS: vlm-auto-engine
-      MINERU_GRADIO_DEFAULT_BACKEND: vlm-auto-engine
-    entrypoint: mineru-gradio
+      MINERU_GRADIO_BACKEND_OPTIONS: pipeline
+      MINERU_GRADIO_DEFAULT_BACKEND: pipeline
+      MINERU_GRADIO_BACKEND_API_URL: http://mineru-api-cpu:8000
+    entrypoint:
+      - /bin/bash
+      - /app/docker/global/start-gradio-cpu.sh
     command:
       - --server-name
       - 0.0.0.0
       - --server-port
       - "7860"
+    volumes:
+      - mineru-hf-cache:/root/.cache/huggingface
+      - mineru-ms-cache:/root/.cache/modelscope
+
+  mineru-api-gpu:
+    profiles: ["gpu"]
+    build:
+      context: ..
+      dockerfile: docker/global/Dockerfile
+    container_name: mineru-api-gpu
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      MINERU_API_ENABLE_FASTAPI_DOCS: "1"
+    entrypoint: mineru-api
+    command:
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --gpu-memory-utilization
+      - "0.5"
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    ipc: host
+    volumes:
+      - mineru-hf-cache:/root/.cache/huggingface
+      - mineru-ms-cache:/root/.cache/modelscope
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]
+              capabilities: [gpu]
+
+  mineru-gradio-gpu:
+    profiles: ["gpu"]
+    build:
+      context: ..
+      dockerfile: docker/global/Dockerfile.cpu
+    container_name: mineru-gradio-gpu
+    restart: always
+    depends_on:
+      - mineru-api-gpu
+    ports:
+      - "7860:7860"
+    environment:
+      MINERU_GRADIO_BACKEND_OPTIONS: vlm-auto-engine
+      MINERU_GRADIO_DEFAULT_BACKEND: vlm-auto-engine
+      MINERU_GRADIO_BACKEND_API_URL: http://mineru-api-gpu:8000
+    entrypoint:
+      - /bin/bash
+      - /app/docker/global/start-gradio-cpu.sh
+    command:
+      - --server-name
+      - 0.0.0.0
+      - --server-port
+      - "7860"
+    volumes:
+      - mineru-hf-cache:/root/.cache/huggingface
+      - mineru-ms-cache:/root/.cache/modelscope
+
+  mineru-api-hybrid:
+    profiles: ["hybrid"]
+    build:
+      context: ..
+      dockerfile: docker/global/Dockerfile
+    container_name: mineru-api-hybrid
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      MINERU_API_ENABLE_FASTAPI_DOCS: "1"
+    entrypoint: mineru-api
+    command:
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
       - --gpu-memory-utilization
       - "0.5"
     ulimits:
@@ -67,36 +151,28 @@ services:
     profiles: ["hybrid"]
     build:
       context: ..
-      dockerfile: docker/global/Dockerfile
+      dockerfile: docker/global/Dockerfile.cpu
     container_name: mineru-gradio-hybrid
     restart: always
+    depends_on:
+      - mineru-api-hybrid
     ports:
       - "7860:7860"
     environment:
       MINERU_GRADIO_BACKEND_OPTIONS: hybrid-auto-engine
       MINERU_GRADIO_DEFAULT_BACKEND: hybrid-auto-engine
-    entrypoint: mineru-gradio
+      MINERU_GRADIO_BACKEND_API_URL: http://mineru-api-hybrid:8000
+    entrypoint:
+      - /bin/bash
+      - /app/docker/global/start-gradio-cpu.sh
     command:
       - --server-name
       - 0.0.0.0
       - --server-port
       - "7860"
-      - --gpu-memory-utilization
-      - "0.5"
-    ulimits:
-      memlock: -1
-      stack: 67108864
-    ipc: host
     volumes:
       - mineru-hf-cache:/root/.cache/huggingface
       - mineru-ms-cache:/root/.cache/modelscope
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ["0"]
-              capabilities: [gpu]
 
 volumes:
   mineru-hf-cache:
