@@ -27,11 +27,12 @@ MinerU's Docker uses `vllm/vllm-openai` as the base image, so it includes the `v
 ## Start Docker Container
 
 ```bash
+# Example: start an interactive shell from the GPU image
 docker run --gpus all \
   --shm-size 32g \
   -p 30000:30000 -p 7860:7860 -p 8000:8000 \
   --ipc=host \
-  -it mineru:latest \
+  -it mineru:gpu \
   /bin/bash
 ```
 
@@ -50,10 +51,12 @@ cd /path/to/MinerU
 >[!NOTE]
 >
 - The Docker Compose setup is organized around three hardware/runtime profiles: `cpu`, `gpu`, and `hybrid`.
+- The Compose file in this branch is focused on Gradio deployment profiles. The previous Compose services for the OpenAI-compatible server and API are not included here.
 - Start only one profile at a time because the `gpu` and `hybrid` profiles both rely on local GPU-backed inference.
 - The Compose services build from the local checkout, so your branch changes are included in the image.
 - Models are downloaded on demand at runtime instead of during `docker build`, which keeps image builds much faster.
 - Model caches are persisted in Docker volumes, so the first download is reused across container restarts.
+- If you run commands from the repository root, keep passing `-f docker/compose.yaml` to follow-up commands such as `ps`, `logs`, `down`, and `restart`. Alternatively, `cd docker` first and then run `docker compose ...`.
 
 ---
 
@@ -65,6 +68,25 @@ Use this on machines without an NVIDIA GPU. The Gradio UI will expose only the `
 docker compose -f docker/compose.yaml --profile cpu up -d
 ```
 
+To stop the CPU profile:
+
+```bash
+docker compose -f docker/compose.yaml --profile cpu down
+```
+
+To rebuild the image and start the CPU profile again:
+
+```bash
+docker compose -f docker/compose.yaml --profile cpu up -d --build
+```
+
+To inspect the running CPU container:
+
+```bash
+docker compose -f docker/compose.yaml ps
+docker compose -f docker/compose.yaml logs -f mineru-gradio-cpu
+```
+
 Open `http://<server_ip>:7860` in your browser.
 The first container startup may take longer because pipeline models are prepared before Gradio starts. After that, requests use the persistent cache volume.
 
@@ -74,6 +96,25 @@ Use this on machines with an NVIDIA GPU when you want VLM-based parsing. The Gra
 
 ```bash
 docker compose -f docker/compose.yaml --profile gpu up -d
+```
+
+To stop the GPU profile:
+
+```bash
+docker compose -f docker/compose.yaml --profile gpu down
+```
+
+To rebuild the image and start the GPU profile again:
+
+```bash
+docker compose -f docker/compose.yaml --profile gpu up -d --build
+```
+
+To inspect the running GPU container:
+
+```bash
+docker compose -f docker/compose.yaml ps
+docker compose -f docker/compose.yaml logs -f mineru-gradio-gpu
 ```
 
 Open `http://<server_ip>:7860` in your browser.
