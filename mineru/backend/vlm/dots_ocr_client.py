@@ -8,6 +8,7 @@ from .dots_ocr.utils.prompts import dict_promptmode_to_prompt
 from .utils import set_default_gpu_memory_utilization
 from mineru_vl_utils import MinerUClient, MinerUSamplingParams
 from mineru_vl_utils.structs import ContentBlock
+from mineru.utils.vparse_config import config
 
 
 DOTS_TO_MINERU_TYPE = {
@@ -59,10 +60,12 @@ class DotsOCRClient:
 
     def _create_client(self) -> MinerUClient:
         if self.backend == "http-client":
-            logger.info(f"Using HTTP client with server_url: {self.server_url}")
+            resolved_server_url = self.server_url or config.remote_nodes.vlm_server_url
+            self.server_url = resolved_server_url
+            logger.info(f"Using HTTP client with server_url: {resolved_server_url}")
             return MinerUClient(
                 backend="http-client",
-                server_url=self.server_url,
+                server_url=resolved_server_url,
                 model_path=self.model_path,
                 batch_size=self.batch_size,
                 max_concurrency=self.max_concurrency,

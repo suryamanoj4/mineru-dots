@@ -25,6 +25,7 @@ from base64 import b64encode
 from mineru.cli.common import aio_do_parse, read_fn, pdf_suffixes, image_suffixes
 from mineru.utils.cli_parser import arg_parse
 from mineru.utils.guess_suffix_or_lang import guess_suffix_by_path
+from mineru.utils.vparse_config import config
 from mineru.version import __version__
 
 # 并发控制器
@@ -38,7 +39,10 @@ async def limit_concurrency():
         if _request_semaphore._value == 0:
             raise HTTPException(
                 status_code=503,
-                detail=f"Server is at maximum capacity: {os.getenv('MINERU_API_MAX_CONCURRENT_REQUESTS', 'unset')}. Please try again later.",
+                detail=(
+                    "Server is at maximum capacity: "
+                    f"{config.api_server.max_concurrent_requests}. Please try again later."
+                ),
             )
         async with _request_semaphore:
             yield
@@ -62,12 +66,7 @@ def create_app():
 
     # 初始化并发控制器：从环境变量MINERU_API_MAX_CONCURRENT_REQUESTS读取
     global _request_semaphore
-    try:
-        max_concurrent_requests = int(
-            os.getenv("MINERU_API_MAX_CONCURRENT_REQUESTS", "0")
-        )
-    except ValueError:
-        max_concurrent_requests = 0
+    max_concurrent_requests = config.api_server.max_concurrent_requests
 
     if max_concurrent_requests > 0:
         _request_semaphore = asyncio.Semaphore(max_concurrent_requests)
@@ -424,8 +423,8 @@ async def parse_pdf(
     context_settings=dict(ignore_unknown_options=True, allow_extra_args=True)
 )
 @click.pass_context
-@click.option("--host", default="127.0.0.1", help="Server host (default: 127.0.0.1)")
-@click.option("--port", default=8000, type=int, help="Server port (default: 8000)")
+@click.option("--host", default=None, help="Server host (default: vparse_config.yaml)")
+@click.option("--port", default=None, type=int, help="Server port (default: vparse_config.yaml)")
 @click.option("--reload", is_flag=True, help="Enable auto-reload (development mode)")
 def main(ctx, host, port, reload, **kwargs):
     kwargs.update(arg_parse(ctx))
@@ -433,18 +432,27 @@ def main(ctx, host, port, reload, **kwargs):
     # 将配置参数存储到应用状态中
     app.state.config = kwargs
 
-    # 将 CLI 的并发参数同步到环境变量，确保 uvicorn 重载子进程可见
-    try:
-        mcr = int(kwargs.get("mineru_api_max_concurrent_requests", 0) or 0)
-    except ValueError:
-        mcr = 0
-    os.environ["MINERU_API_MAX_CONCURRENT_REQUESTS"] = str(mcr)
-
     """启动MinerU FastAPI服务器的命令行入口"""
-    print(f"Start MinerU FastAPI Service: http://{host}:{port}")
-    print(f"API documentation: http://{host}:{port}/docs")
+    resolved_host = config.api_server.host
+    resolved_port = config.api_server.port
+    print(f"Start MinerU FastAPI Service: http://{resolved_host}:{resolved_port}")
+    print(f"API documentation: http://{resolved_host}:{resolved_port}/docs")
 
-    uvicorn.run("mineru.cli.fast_api:app", host=host, port=port, reload=reload)
+    if reload:
+        uvicorn.run(
+            "mineru.cli.fast_api:app",
+            host=config.api_server.host,
+            port=config.api_server.port,
+            reload=reload,
+        )
+    else:
+        uvicorn.run(
+            "mineru.cli.fast_api:app",
+            host=config.api_server.host,
+            port=config.api_server.port,
+            reload=reload,
+            workers=config.api_server.workers,
+        )
 
 
 if __name__ == "__main__":
