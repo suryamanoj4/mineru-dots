@@ -5,8 +5,8 @@ MinerU provides a convenient Docker deployment method, which helps quickly set u
 ## Build Docker Image using Dockerfile
 
 ```bash
-wget https://gcore.jsdelivr.net/gh/opendatalab/MinerU@master/docker/global/Dockerfile
-docker build -t mineru:latest -f Dockerfile .
+docker build -t mineru:gpu -f docker/global/Dockerfile .
+docker build -t mineru:cpu -f docker/global/Dockerfile.cpu .
 ```
 
 > [!TIP]
@@ -27,11 +27,12 @@ MinerU's Docker uses `vllm/vllm-openai` as the base image, so it includes the `v
 ## Start Docker Container
 
 ```bash
+# Example: start an interactive shell from the GPU image
 docker run --gpus all \
   --shm-size 32g \
   -p 30000:30000 -p 7860:7860 -p 8000:8000 \
   --ipc=host \
-  -it mineru:latest \
+  -it mineru:gpu \
   /bin/bash
 ```
 
@@ -43,44 +44,89 @@ You can also directly start MinerU services by replacing `/bin/bash` with servic
 We provide a [compose.yaml](https://github.com/opendatalab/MinerU/blob/master/docker/compose.yaml) file that you can use to quickly start MinerU services.
 
 ```bash
-# Download compose.yaml file
-wget https://gcore.jsdelivr.net/gh/opendatalab/MinerU@master/docker/compose.yaml
+# Run from the repository root
+cd /path/to/MinerU
 ```
 
 >[!NOTE]
 >
->- The `compose.yaml` file contains configurations for multiple services of MinerU, you can choose to start specific services as needed.
->- Different services might have additional parameter configurations, which you can view and edit in the `compose.yaml` file.
->- Due to the pre-allocation of GPU memory by the `vllm` inference acceleration framework, you may not be able to run multiple `vllm` services simultaneously on the same machine. Therefore, ensure that other services that might use GPU memory have been stopped before starting the `vlm-openai-server` service or using the `vlm-vllm-engine` backend.
+- The Docker Compose setup is organized around three hardware/runtime profiles: `cpu`, `gpu`, and `hybrid`.
+- The Compose file in this branch is focused on Gradio deployment profiles. The previous Compose services for the OpenAI-compatible server and API are not included here.
+- Start only one profile at a time because the `gpu` and `hybrid` profiles both rely on local GPU-backed inference.
+- The Compose services build from the local checkout, so your branch changes are included in the image.
+- Models are downloaded on demand at runtime instead of during `docker build`, which keeps image builds much faster.
+- Model caches are persisted in Docker volumes, so the first download is reused across container restarts.
+- If you run commands from the repository root, keep passing `-f docker/compose.yaml` to follow-up commands such as `ps`, `logs`, `down`, and `restart`. Alternatively, `cd docker` first and then run `docker compose ...`.
 
 ---
 
-### Start OpenAI-compatible server service
-connect to `openai-server` via `vlm-http-client` backend
-  ```bash
-  docker compose -f compose.yaml --profile openai-server up -d
-  ```
-  >[!TIP]
-  >In another terminal, connect to openai server via http client (only requires CPU and network, no vllm environment needed)
-  > ```bash
-  > mineru -p <input_path> -o <output_path> -b vlm-http-client -u http://<server_ip>:30000
-  > ```
+### Start CPU mode
 
----
+Use this on machines without an NVIDIA GPU. The Gradio UI will expose only the `pipeline` backend.
 
-### Start Web API service
-  ```bash
-  docker compose -f compose.yaml --profile api up -d
-  ```
-  >[!TIP]
-  >Access `http://<server_ip>:8000/docs` in your browser to view the API documentation.
+```bash
+docker compose -f docker/compose.yaml --profile cpu up -d
+```
 
----
+To stop the CPU profile:
 
-### Start Gradio WebUI service
-  ```bash
-  docker compose -f compose.yaml --profile gradio up -d
-  ```
-  >[!TIP]
-  >
-  >- Access `http://<server_ip>:7860` in your browser to use the Gradio WebUI.
+```bash
+docker compose -f docker/compose.yaml --profile cpu down
+```
+
+To rebuild the image and start the CPU profile again:
+
+```bash
+docker compose -f docker/compose.yaml --profile cpu up -d --build
+```
+
+To inspect the running CPU container:
+
+```bash
+docker compose -f docker/compose.yaml ps
+docker compose -f docker/compose.yaml logs -f mineru-gradio-cpu
+```
+
+Open `http://<server_ip>:7860` in your browser.
+The first container startup may take longer because pipeline models are prepared before Gradio starts. After that, requests use the persistent cache volume.
+
+### Start GPU mode
+
+Use this on machines with an NVIDIA GPU when you want VLM-based parsing. The Gradio UI will expose only the `vlm-auto-engine` backend.
+
+```bash
+docker compose -f docker/compose.yaml --profile gpu up -d
+```
+
+To stop the GPU profile:
+
+```bash
+docker compose -f docker/compose.yaml --profile gpu down
+```
+
+To rebuild the image and start the GPU profile again:
+
+```bash
+docker compose -f docker/compose.yaml --profile gpu up -d --build
+```
+
+To inspect the running GPU container:
+
+```bash
+docker compose -f docker/compose.yaml ps
+docker compose -f docker/compose.yaml logs -f mineru-gradio-gpu
+```
+
+Open `http://<server_ip>:7860` in your browser.
+The first parse request may take longer because VLM models will be downloaded into the persistent cache volume.
+
+### Start Hybrid mode
+
+Use this on machines with an NVIDIA GPU when you want the hybrid parser. The Gradio UI will expose only the `hybrid-auto-engine` backend.
+
+```bash
+docker compose -f docker/compose.yaml --profile hybrid up -d
+```
+
+Open `http://<server_ip>:7860` in your browser.
+The first parse request may take longer because required models will be downloaded into the persistent cache volume.

@@ -285,14 +285,14 @@ vParse provides Docker deployment with Docker Compose:
 
 ```bash
 cd docker
-# Start API service
-docker compose --profile api up -d
+# CPU deployment: FastAPI backend on :8000 and Gradio frontend on :7860
+docker compose --profile cpu up -d
 
-# Start vLLM server
-docker compose --profile openai-server up -d
+# GPU deployment: FastAPI backend on :8000 and Gradio frontend on :7860
+docker compose --profile gpu up -d
 
-# Start Gradio Web UI
-docker compose --profile gradio up -d
+# Hybrid deployment: FastAPI backend on :8000 and Gradio frontend on :7860
+docker compose --profile hybrid up -d
 ```
 
 See [Docker Deployment Documentation](https://opendatalab.github.io/MinerU/quick_start/docker_deployment/) for detailed instructions.
