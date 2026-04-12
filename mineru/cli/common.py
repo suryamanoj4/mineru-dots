@@ -32,7 +32,12 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
 def get_pipeline_subdir(backend: str, parse_method: str) -> str:
-    return parse_method if backend == "pipeline" else f"pipeline_lite_{parse_method}"
+    if backend == "pipeline":
+        return parse_method
+    elif backend == "lite":
+        return f"lite_{parse_method}"
+    else:
+        return f"{backend}_{parse_method}"
 
 
 @contextmanager
@@ -215,16 +220,29 @@ def _process_pipeline(
     from mineru.backend.pipeline.model_json_to_middle_json import result_to_middle_json as pipeline_result_to_middle_json
     from mineru.backend.pipeline.pipeline_analyze import doc_analyze as pipeline_doc_analyze
 
-    ocr_engine = "tesseract" if backend == "pipeline-lite" else "paddle"
     pipeline_subdir = get_pipeline_subdir(backend, parse_method)
 
-    with temporary_env(MINERU_OCR_ENGINE=ocr_engine):
-        infer_results, all_image_lists, all_pdf_docs, lang_list, ocr_enabled_list = (
-            pipeline_doc_analyze(
-                pdf_bytes_list, p_lang_list, parse_method=parse_method,
-                formula_enable=p_formula_enable, table_enable=p_table_enable,
-                ocr_engine=ocr_engine,
-            )
+    infer_results, all_image_lists, all_pdf_docs, lang_list, ocr_enabled_list = (
+        pipeline_doc_analyze(
+            pdf_bytes_list, p_lang_list, parse_method=parse_method,
+            formula_enable=p_formula_enable, table_enable=p_table_enable,
+        )
+    )
+
+    for idx, model_list in enumerate(infer_results):
+        model_json = copy.deepcopy(model_list)
+        pdf_file_name = pdf_file_names[idx]
+        local_image_dir, local_md_dir = prepare_env(output_dir, pdf_file_name, pipeline_subdir)
+        image_writer, md_writer = FileBasedDataWriter(local_image_dir), FileBasedDataWriter(local_md_dir)
+
+        images_list = all_image_lists[idx]
+        pdf_doc = all_pdf_docs[idx]
+        _lang = lang_list[idx]
+        _ocr_enable = ocr_enabled_list[idx]
+
+        middle_json = pipeline_result_to_middle_json(
+            model_list, images_list, pdf_doc, image_writer,
+            _lang, _ocr_enable, p_formula_enable,
         )
 
         for idx, model_list in enumerate(infer_results):
@@ -240,8 +258,7 @@ def _process_pipeline(
 
             middle_json = pipeline_result_to_middle_json(
                 model_list, images_list, pdf_doc, image_writer,
-                _lang, _ocr_enable, p_formula_enable,
-                ocr_engine=ocr_engine,
+                _lang, _ocr_enable, p_formula_enable
             )
 
             pdf_info = middle_json["pdf_info"]
@@ -253,6 +270,47 @@ def _process_pipeline(
                 f_dump_md, f_dump_content_list, f_dump_middle_json, f_dump_model_output,
                 f_make_md_mode, middle_json, model_json, is_pipeline=True
             )
+
+
+def _process_lite(
+        output_dir,
+        pdf_file_names,
+        pdf_bytes_list,
+        p_lang_list,
+        backend,
+        parse_method,
+        f_draw_layout_bbox,
+        f_draw_span_bbox,
+        f_dump_md,
+        f_dump_middle_json,
+        f_dump_model_output,
+        f_dump_orig_pdf,
+        f_dump_content_list,
+        f_make_md_mode,
+):
+    """处理lite后端逻辑"""
+    from mineru.backend.lite.lite_analyze import doc_analyze as lite_doc_analyze
+
+    pipeline_subdir = get_pipeline_subdir(backend, parse_method)
+
+    for idx, pdf_bytes in enumerate(pdf_bytes_list):
+        pdf_file_name = pdf_file_names[idx]
+        _lang = p_lang_list[idx]
+        local_image_dir, local_md_dir = prepare_env(output_dir, pdf_file_name, pipeline_subdir)
+        image_writer, md_writer = FileBasedDataWriter(local_image_dir), FileBasedDataWriter(local_md_dir)
+
+        middle_json, infer_result = lite_doc_analyze(
+            pdf_bytes, image_writer=image_writer, lang=_lang,
+        )
+
+        pdf_info = middle_json["pdf_info"]
+
+        _process_output(
+            pdf_info, pdf_bytes, pdf_file_name, local_md_dir, local_image_dir,
+            md_writer, f_draw_layout_bbox, f_draw_span_bbox, f_dump_orig_pdf,
+            f_dump_md, f_dump_content_list, f_dump_middle_json, f_dump_model_output,
+            f_make_md_mode, middle_json, infer_result, is_pipeline=True
+        )
 
 
 async def _async_process_vlm(
@@ -475,6 +533,13 @@ def do_parse(
             f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
             f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode
         )
+    elif backend == "lite":
+        _process_lite(
+            output_dir, pdf_file_names, pdf_bytes_list, p_lang_list,
+            backend, parse_method,
+            f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
+            f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode
+        )
     else:
         if backend.startswith("vlm-"):
             backend = backend[4:]
@@ -545,6 +610,13 @@ async def aio_do_parse(
         _process_pipeline(
             output_dir, pdf_file_names, pdf_bytes_list, p_lang_list,
             backend, parse_method, formula_enable, table_enable,
+            f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
+            f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode
+        )
+    elif backend == "lite":
+        _process_lite(
+            output_dir, pdf_file_names, pdf_bytes_list, p_lang_list,
+            backend, parse_method,
             f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
             f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode
         )

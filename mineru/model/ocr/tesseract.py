@@ -74,6 +74,105 @@ class TesseractOCRModel:
         data = self._image_to_data(img)
         return list(self._iter_segments(data))
 
+    def get_structured_data(self, img: np.ndarray) -> list[dict]:
+        """Return structured OCR results (blocks -> paragraphs -> lines -> words)."""
+        data = self._image_to_data(img)
+        total = len(data.get("text", []))
+        
+        blocks = {}
+        for idx in range(total):
+            level = data["level"][idx]
+            block_num = data["block_num"][idx]
+            par_num = data["par_num"][idx]
+            line_num = data["line_num"][idx]
+            word_num = data["word_num"][idx]
+            
+            text = (data["text"][idx] or "").strip()
+            confidence = self._normalize_confidence(data["conf"][idx])
+            
+            left = int(data["left"][idx])
+            top = int(data["top"][idx])
+            width = int(data["width"][idx])
+            height = int(data["height"][idx])
+            
+            if width <= 0 or height <= 0:
+                continue
+                
+            bbox = [left, top, left + width, top + height]
+            
+            if block_num not in blocks:
+                blocks[block_num] = {"paragraphs": {}, "bbox": bbox}
+            
+            # Update block bbox to encompass all its elements
+            b = blocks[block_num]
+            b["bbox"] = [
+                min(b["bbox"][0], bbox[0]),
+                min(b["bbox"][1], bbox[1]),
+                max(b["bbox"][2], bbox[2]),
+                max(b["bbox"][3], bbox[3])
+            ]
+            
+            if par_num not in b["paragraphs"]:
+                b["paragraphs"][par_num] = {"lines": {}, "bbox": bbox}
+            
+            p = b["paragraphs"][par_num]
+            p["bbox"] = [
+                min(p["bbox"][0], bbox[0]),
+                min(p["bbox"][1], bbox[1]),
+                max(p["bbox"][2], bbox[2]),
+                max(p["bbox"][3], bbox[3])
+            ]
+            
+            if line_num not in p["lines"]:
+                p["lines"][line_num] = {"words": [], "bbox": bbox}
+            
+            l = p["lines"][line_num]
+            l["bbox"] = [
+                min(l["bbox"][0], bbox[0]),
+                min(l["bbox"][1], bbox[1]),
+                max(l["bbox"][2], bbox[2]),
+                max(l["bbox"][3], bbox[3])
+            ]
+            
+            if level == 5:  # Word level
+                if not text:
+                    continue
+                if confidence < self.min_confidence:
+                    continue
+                l["words"].append({
+                    "text": text,
+                    "confidence": confidence,
+                    "bbox": bbox
+                })
+
+        # Convert nested dicts to sorted lists
+        structured_blocks = []
+        for b_num in sorted(blocks.keys()):
+            b = blocks[b_num]
+            structured_paragraphs = []
+            for p_num in sorted(b["paragraphs"].keys()):
+                p = b["paragraphs"][p_num]
+                structured_lines = []
+                for l_num in sorted(p["lines"].keys()):
+                    l = p["lines"][l_num]
+                    if l["words"]:
+                        structured_lines.append({
+                            "words": l["words"],
+                            "bbox": l["bbox"]
+                        })
+                if structured_lines:
+                    structured_paragraphs.append({
+                        "lines": structured_lines,
+                        "bbox": p["bbox"]
+                    })
+            if structured_paragraphs:
+                structured_blocks.append({
+                    "paragraphs": structured_paragraphs,
+                    "bbox": b["bbox"]
+                })
+        
+        return structured_blocks
+
     def ocr(
         self,
         img,
@@ -101,8 +200,8 @@ class TesseractOCRModel:
             results = []
             for single_img in imgs:
                 data = self._image_to_data(single_img)
-                formatted = self._format_output(data, include_recognition=False)
-                results.append([item["box"] for item in formatted])
+                boxes = self._format_output(data, include_recognition=False)
+                results.append(boxes)
             return results
 
         if not det and rec:
@@ -115,12 +214,12 @@ class TesseractOCRModel:
 
     def __call__(self, img, mfd_res=None):
         del mfd_res
-        data = self._image_to_data(img)
-        segments = list(self._iter_segments(data))
-        if not segments:
+        words = list(self._iter_segments(self._image_to_data(img)))
+        if not words:
             return None, None
-        dt_boxes = [item["box"] for item in segments]
-        rec_res = [(item["text"], item["confidence"]) for item in segments]
+        line_results = self._merge_words_to_lines(words, include_recognition=True)
+        dt_boxes = [item[0] for item in line_results]
+        rec_res = [item[1] for item in line_results]
         return dt_boxes, rec_res
 
     def _image_to_data(self, img) -> dict:
@@ -153,21 +252,21 @@ class TesseractOCRModel:
         self,
         data: dict,
         include_recognition: bool = True,
-    ) -> list[dict]:
-        formatted = []
-        for segment in self._iter_segments(data):
-            entry = {"box": segment["box"]}
-            if include_recognition:
-                entry["rec"] = (segment["text"], segment["confidence"])
-            formatted.append(entry)
-
-        if include_recognition:
-            return [[item["box"], item["rec"]] for item in formatted]
-        return formatted
+    ) -> list:
+        words = list(self._iter_segments(data))
+        return self._merge_words_to_lines(words, include_recognition=include_recognition)
 
     def _iter_segments(self, data: dict) -> Iterable[dict]:
+        """Yield word-level segments from Tesseract output.
+
+        Words are later merged into lines using _merge_words_to_lines()
+        to match PaddleOCR's geometric merging behavior.
+        """
         total = len(data.get("text", []))
         for idx in range(total):
+            if data["level"][idx] != 5:  # Level 5 is word
+                continue
+
             text = (data["text"][idx] or "").strip()
             if not text:
                 continue
@@ -194,7 +293,91 @@ class TesseractOCRModel:
                 "text": text,
                 "confidence": confidence,
                 "box": box,
+                "bbox": [left, top, left + width, top + height],
             }
+
+    @staticmethod
+    def _is_overlaps_y(bbox1: list, bbox2: list, overlap_ratio: float = 0.8) -> bool:
+        """Check if two bboxes overlap significantly on the Y axis.
+
+        Matches the logic in mineru/utils/ocr_utils.py::_is_overlaps_y_exceeds_threshold
+        used by PaddleOCR's merge_spans_to_line.
+        """
+        _, y0_1, _, y1_1 = bbox1
+        _, y0_2, _, y1_2 = bbox2
+
+        overlap = max(0, min(y1_1, y1_2) - max(y0_1, y0_2))
+        height1, height2 = y1_1 - y0_1, y1_2 - y0_2
+        min_height = min(height1, height2)
+
+        return (overlap / min_height) > overlap_ratio if min_height > 0 else False
+
+    def _merge_words_to_lines(self, words: list[dict], include_recognition: bool = False) -> list:
+        """Merge word-level results into line-level results using Y-coordinate proximity.
+
+        This matches PaddleOCR's merge_spans_to_line behavior so that downstream
+        pipeline stages receive structurally equivalent output regardless of OCR engine.
+
+        Args:
+            words: List of word dicts with 'text', 'confidence', 'box', 'bbox' keys.
+            include_recognition: If True, returns [[box, (text, score)], ...] format.
+                               If False, returns [box, ...] format (detection only).
+
+        Returns:
+            List of line-level results in the requested format.
+        """
+        if not words:
+            return []
+
+        # Sort by Y position (top coordinate)
+        words.sort(key=lambda w: (w["bbox"][1], w["bbox"][0]))
+
+        # Group words into lines based on Y-axis overlap
+        lines = []
+        current_line = [words[0]]
+
+        for word in words[1:]:
+            if self._is_overlaps_y(word["bbox"], current_line[-1]["bbox"]):
+                current_line.append(word)
+            else:
+                lines.append(current_line)
+                current_line = [word]
+
+        if current_line:
+            lines.append(current_line)
+
+        # Merge each line into a single result
+        results = []
+        for line_words in lines:
+            # Compute encompassing bbox
+            all_lefts = [w["bbox"][0] for w in line_words]
+            all_tops = [w["bbox"][1] for w in line_words]
+            all_rights = [w["bbox"][2] for w in line_words]
+            all_bottoms = [w["bbox"][3] for w in line_words]
+
+            min_left = min(all_lefts)
+            min_top = min(all_tops)
+            max_right = max(all_rights)
+            max_bottom = max(all_bottoms)
+
+            line_box = [
+                [min_left, min_top],
+                [max_right, min_top],
+                [max_right, max_bottom],
+                [min_left, max_bottom],
+            ]
+
+            # Sort words in line by X position for correct reading order
+            line_words.sort(key=lambda w: w["bbox"][0])
+            line_text = " ".join(w["text"] for w in line_words)
+            line_conf = sum(w["confidence"] for w in line_words) / len(line_words)
+
+            if include_recognition:
+                results.append([line_box, (line_text, round(line_conf, 3))])
+            else:
+                results.append(line_box)
+
+        return results
 
     def _build_config(self) -> str:
         parts = [f"--oem {self.oem}", f"--psm {self.psm}"]

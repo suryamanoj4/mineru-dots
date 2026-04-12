@@ -484,7 +484,7 @@ async def parse_pdf(
         "hybrid-auto-engine",
         description="""The backend for parsing:
 - pipeline: More general, supports multiple languages, hallucination-free.
-- pipeline-lite: Same pipeline flow as `pipeline`, but using Tesseract OCR instead of PaddleOCR.
+- lite: Lightweight direct-Tesseract backend. Does not use the full pipeline.
 - vlm-auto-engine: High accuracy via local computing power, supports Chinese and English documents only.
 - vlm-http-client: High accuracy via remote computing power(client suitable for openai-compatible servers), supports Chinese and English documents only.
 - hybrid-auto-engine: Next-generation high accuracy solution via local computing power, supports multiple languages.
@@ -611,8 +611,8 @@ async def parse_pdf(
 
                     if backend == "pipeline":
                         parse_dir = os.path.join(unique_dir, pdf_name, parse_method)
-                    elif backend == "pipeline-lite":
-                        parse_dir = os.path.join(unique_dir, pdf_name, f"pipeline_lite_{parse_method}")
+                    elif backend == "lite":
+                        parse_dir = os.path.join(unique_dir, pdf_name, f"lite_{parse_method}")
                     elif backend.startswith("vlm"):
                         parse_dir = os.path.join(unique_dir, pdf_name, "vlm")
                     elif backend.startswith("hybrid"):
@@ -707,8 +707,8 @@ async def parse_pdf(
 
                 if backend == "pipeline":
                     parse_dir = os.path.join(unique_dir, pdf_name, parse_method)
-                elif backend == "pipeline-lite":
-                    parse_dir = os.path.join(unique_dir, pdf_name, f"pipeline_lite_{parse_method}")
+                elif backend == "lite":
+                    parse_dir = os.path.join(unique_dir, pdf_name, f"lite_{parse_method}")
                 elif backend.startswith("vlm"):
                     parse_dir = os.path.join(unique_dir, pdf_name, "vlm")
                 elif backend.startswith("hybrid"):

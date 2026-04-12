@@ -75,55 +75,6 @@ class PipelineLiteTests(unittest.TestCase):
         self.assertEqual(captured["p_lang_list"], ["en"])
         self.assertEqual(captured["prepare"][1:], (1, 2))
 
-    def test_process_pipeline_only_switches_ocr_engine_for_pipeline_lite(self):
-        captured = {}
-
-        def fake_doc_analyze(*args, **kwargs):
-            captured["doc_analyze_ocr_engine"] = kwargs["ocr_engine"]
-            return ([[]], [[]], [object()], ["en"], [True])
-
-        def fake_result_to_middle_json(
-            model_list,
-            images_list,
-            pdf_doc,
-            image_writer,
-            lang,
-            ocr_enable,
-            formula_enabled,
-            ocr_engine=None,
-        ):
-            captured["middle_json_ocr_engine"] = ocr_engine
-            return {"pdf_info": []}
-
-        def fake_process_output(*args, **kwargs):
-            captured["processed"] = True
-
-        with mock.patch("mineru.backend.pipeline.pipeline_analyze.doc_analyze", side_effect=fake_doc_analyze):
-            with mock.patch("mineru.backend.pipeline.model_json_to_middle_json.result_to_middle_json", side_effect=fake_result_to_middle_json):
-                with mock.patch.object(common, "_process_output", side_effect=fake_process_output):
-                    common._process_pipeline(
-                        output_dir="./output",
-                        pdf_file_names=["sample"],
-                        pdf_bytes_list=[b"pdf-bytes"],
-                        p_lang_list=["en"],
-                        backend="pipeline-lite",
-                        parse_method="ocr",
-                        p_formula_enable=False,
-                        p_table_enable=False,
-                        f_draw_layout_bbox=False,
-                        f_draw_span_bbox=False,
-                        f_dump_md=False,
-                        f_dump_middle_json=False,
-                        f_dump_model_output=False,
-                        f_dump_orig_pdf=False,
-                        f_dump_content_list=False,
-                        f_make_md_mode=None,
-                    )
-
-        self.assertEqual(captured["doc_analyze_ocr_engine"], "tesseract")
-        self.assertEqual(captured["middle_json_ocr_engine"], "tesseract")
-        self.assertTrue(captured["processed"])
-
     def test_tesseract_lang_alias(self):
         fake_pytesseract = types.ModuleType("pytesseract")
         fake_pytesseract.Output = types.SimpleNamespace(DICT=object())

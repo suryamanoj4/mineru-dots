@@ -238,7 +238,7 @@ def result_to_middle_json(
                 span['score'] = 0.0
 
     """分段"""
-    para_split(middle_json["pdf_info"])
+    para_split(middle_json["pdf_info"], ocr_engine=ocr_engine)
 
     """表格跨页合并"""
     cross_page_table_merge(middle_json["pdf_info"])

@@ -43,8 +43,8 @@ async def parse_pdf(doc_path, output_dir, end_page_id, is_ocr, formula_enable, t
         # 根据 backend 类型准备环境目录
         if backend.startswith("hybrid"):
             env_name = f"hybrid_{parse_method}"
-        elif backend == "pipeline-lite":
-            env_name = f"pipeline_lite_{parse_method}"
+        elif backend == "lite":
+            env_name = f"lite_{parse_method}"
         else:
             env_name = parse_method
 
@@ -666,7 +666,7 @@ def main(ctx,
             "md_text": "Markdown text",
             "backend_info_vlm": "High-precision parsing via VLM, supports Chinese and English documents only.",
             "backend_info_pipeline": "Traditional Multi-model pipeline parsing, supports multiple languages, hallucination-free.",
-            "backend_info_pipeline_lite": "Same parsing pipeline as `pipeline`, but using Tesseract OCR instead of PaddleOCR.",
+            "backend_info_lite": "Lightweight direct-Tesseract backend. Does not use the full pipeline.",
             "backend_info_hybrid": "High-precision hybrid parsing, supports multiple languages.",
             "backend_info_default": "Select the backend engine for document parsing.",
         },
@@ -698,7 +698,7 @@ def main(ctx,
             "md_text": "Markdown 文本",
             "backend_info_vlm": "多模态大模型高精度解析，仅支持中英文文档。",
             "backend_info_pipeline": "传统多模型管道解析，支持多语言，无幻觉。",
-            "backend_info_pipeline_lite": "与 `pipeline` 使用同一套解析流程，只是将 OCR 从 PaddleOCR 切换为 Tesseract。",
+            "backend_info_lite": "轻量化 Tesseract 直接后端，不使用完整的 MinerU 流水线。",
             "backend_info_hybrid": "高精度混合解析，支持多语言。",
             "backend_info_default": "选择文档解析的后端引擎。",
         },
@@ -724,17 +724,18 @@ def main(ctx,
             return i18n("formula_info_hybrid")
         else:
             return ""
+def get_backend_info(backend_choice):
+    if backend_choice.startswith("vlm"):
+        return i18n("backend_info_vlm")
+    elif backend_choice == "lite":
+        return i18n("backend_info_lite")
+    elif backend_choice == "pipeline":
+        return i18n("backend_info_pipeline")
+    elif backend_choice.startswith("hybrid"):
+        return i18n("backend_info_hybrid")
+    else:
+        return ""
 
-    def get_backend_info(backend_choice):
-        if backend_choice.startswith("vlm"):
-            return i18n("backend_info_vlm")
-        elif backend_choice == "pipeline-lite":
-            return i18n("backend_info_pipeline_lite")
-        elif backend_choice == "pipeline":
-            return i18n("backend_info_pipeline")
-        elif backend_choice.startswith("hybrid"):
-            return i18n("backend_info_hybrid")
-        else:
             return i18n("backend_info_default")
 
     # 更新界面函数
@@ -812,17 +813,10 @@ def main(ctx,
                 with gr.Row():
                     max_pages = gr.Slider(1, max_convert_pages, max_convert_pages, step=1, label=i18n("max_pages"))
                 with gr.Row():
-                    if configured_backend_options:
-                        drop_list = [item.strip() for item in configured_backend_options.split(",") if item.strip()]
-                    else:
-                        drop_list = ["pipeline", "vlm-auto-engine", "hybrid-auto-engine"]
-                        if http_client_enable:
-                            drop_list.extend(["vlm-http-client", "hybrid-http-client"])
-
-                    preferred_option = configured_default_backend or "hybrid-auto-engine"
-                    if preferred_option not in drop_list:
-                        preferred_option = drop_list[0]
-
+                    drop_list = ["pipeline", "lite", "vlm-auto-engine", "hybrid-auto-engine"]
+                    preferred_option = "hybrid-auto-engine"
+                    if http_client_enable:
+                        drop_list.extend(["vlm-http-client", "hybrid-http-client"])
                     backend = gr.Dropdown(drop_list, label=i18n("backend"), value=preferred_option, info=get_backend_info(preferred_option))
                 with gr.Row(visible=False) as client_options:
                     url = gr.Textbox(label=i18n("server_url"), value='http://localhost:30000', placeholder='http://localhost:30000', info=i18n("server_url_info"))

@@ -54,6 +54,8 @@ class BatchAnalyze:
             pil_images, YOLO_LAYOUT_BASE_BATCH_SIZE
         )
 
+        ocr_engine = os.getenv("MINERU_OCR_ENGINE", "paddle")
+
         if self.formula_enable:
             # 公式检测
             images_mfd_res = self.model.mfd_model.batch_predict(

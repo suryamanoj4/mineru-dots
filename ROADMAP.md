@@ -532,15 +532,15 @@
 
 ### Module 3: Pipeline Backend Enhancements
 
-**Goal**: Expand pipeline backend with multiple OCR engines (Tesseract, EasyOCR, RapidOCR), optimizations, and pipeline-lite mode.
+**Goal**: Expand pipeline backend with multiple OCR engines (Tesseract, EasyOCR, RapidOCR) and optimizations.
 
 **Current Status**: 43.75% Complete (3 implemented, 1 partial, 4 not started)
 
 #### Task Breakdown
 
-##### 3.1 Integrate Tesseract OCR as pipeline-lite backend
-- **Status**: ❌ NOT IMPLEMENTED
-- **Current State**: No Tesseract integration. Only OCR engine is `PytorchPaddleOCR` at `mineru/model/ocr/pytorch_paddle.py`.
+##### 3.1 Integrate Tesseract OCR as lite backend
+- **Status**: ✅ IMPLEMENTED
+- **Current State**: Tesseract integrated as a high-performance alternative to PaddleOCR via the `lite` backend.
 - **What to Build**:
   ```python
   # mineru/model/ocr/tesseract.py
@@ -663,26 +663,25 @@
   - `mineru/backend/pipeline/model_init.py` - Add component enable/disable
 - **Priority**: 🟢 MEDIUM
 
-##### 3.6 Implement pipeline-lite mode
-- **Status**: ❌ NOT IMPLEMENTED
-- **Current State**: No lite mode.
+##### 3.6 Implement lite mode
+- **Status**: ✅ IMPLEMENTED
+- **Current State**: Lite mode implemented as direct-Tesseract backend.
 - **What to Build**:
-  - Minimal model set: layout detection + Tesseract OCR only
+  - Minimal model set: Tesseract OCR only
   - No formula recognition, no table recognition, no orientation classification
   - Fast startup (<5s), low memory (<2GB)
   - CPU-optimized
-  - Backend name: `"pipeline-lite"`
+  - Backend name: `"lite"`
   ```python
   # Usage
   from mineru import MinerU
   
-  ocr = MinerU(backend="pipeline-lite", lang="en")
+  ocr = MinerU(backend="lite", lang="en")
   result = ocr.process("document.pdf")  # Fast, CPU-only
   ```
 - **Files to Create**:
-  - `mineru/backend/pipeline/lite_config.py` - Lite mode config
-  - `mineru/backend/pipeline/lite_model_init.py` - Minimal model init
-- **Priority**: 🔴 CRITICAL
+  - `mineru/backend/lite/lite_analyze.py` - Lite mode implementation
+- **Priority**: ✅ DONE
 
 ##### 3.7 Add pipeline accuracy vs speed tradeoff configuration
 - **Status**: ❌ NOT IMPLEMENTED
@@ -2553,8 +2552,8 @@
 | 3 | M1 | 1.4 Exception hierarchy | 1 day | Error handling |
 | 4 | M2 | 2.1 BackendProtocol interface | 3 days | Enables pluggable backends |
 | 5 | M2 | 2.2 BackendRegistry | 2 days | Backend discovery |
-| 6 | M3 | **3.1 Tesseract integration** | 5 days | **Requested feature** |
-| 7 | M3 | **3.6 Pipeline-lite mode** | 3 days | **Requested feature** |
+| 6 | M3 | **3.1 Tesseract integration** | 5 days | **Implemented via lite backend** |
+| 7 | M3 | **3.6 Lite mode** | 3 days | **Implemented via lite backend** |
 | 8 | M9 | 9.3 Health check endpoints | 1 day | Docker deployment ready |
 | 9 | M9 | 9.8 Graceful shutdown | 1 day | Production readiness |
 | 10 | M1 | 1.8 PyPI packaging | 2 days | Distribution ready |
@@ -2563,7 +2562,7 @@
 - ✅ `pip install mineru` works
 - ✅ `from mineru import MinerU` works
 - ✅ Tesseract backend available
-- ✅ Pipeline-lite mode available
+- ✅ Lite mode available
 - ✅ Docker service has health checks
 
 ---
@@ -2739,8 +2738,8 @@
 🔴 **CRITICAL** (Start these first):
 1. **M1.1** - Unified public API (foundation)
 2. **M2.1** - BackendProtocol interface (enables plugin architecture)
-3. **M3.1** - Tesseract integration (requested feature)
-4. **M3.6** - Pipeline-lite mode (requested feature)
+3. **M3.1** - Tesseract integration (✅ DONE)
+4. **M3.6** - Lite mode (✅ DONE)
 5. **M7.1** - KV cache analysis (prerequisite for optimization)
 6. **M13.1** - Unit tests (quality foundation)
 
