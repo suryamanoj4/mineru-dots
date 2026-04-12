@@ -4,6 +4,7 @@ import os
 import re
 import tempfile
 import asyncio
+import threading
 import uvicorn
 import click
 import zipfile
@@ -22,13 +23,16 @@ logger.add(sys.stderr, level=log_level)  # 添加新handler
 
 from base64 import b64encode
 
-from mineru.cli.common import aio_do_parse, read_fn, pdf_suffixes, image_suffixes
+from mineru.cli.common import aio_do_parse, do_parse, read_fn, pdf_suffixes, image_suffixes
+from mineru.cli.streaming import iter_stream_parse, cleanup_stream_session
 from mineru.utils.cli_parser import arg_parse
 from mineru.utils.guess_suffix_or_lang import guess_suffix_by_path
 from mineru.version import __version__
 
 # 并发控制器
 _request_semaphore: Optional[asyncio.Semaphore] = None
+_stream_jobs: dict[str, dict] = {}
+_stream_jobs_lock = threading.Lock()
 
 
 # 并发控制依赖函数
@@ -111,6 +115,20 @@ def encode_image(image_path: str) -> str:
         return b64encode(f.read()).decode()
 
 
+def render_markdown_with_base64(markdown_text: str, image_dir_path: str) -> str:
+    pattern = r"\!\[(?:[^\]]*)\]\(([^)]+)\)"
+
+    def replace(match):
+        relative_path = match.group(1)
+        if relative_path.endswith(".jpg"):
+            full_path = os.path.join(image_dir_path, relative_path)
+            if os.path.exists(full_path):
+                return f"![{relative_path}](data:image/jpeg;base64,{encode_image(full_path)})"
+        return match.group(0)
+
+    return re.sub(pattern, replace, markdown_text)
+
+
 def get_infer_result(
     file_suffix_identifier: str, pdf_name: str, parse_dir: str
 ) -> Optional[str]:
@@ -120,6 +138,317 @@ def get_infer_result(
         with open(result_file_path, "r", encoding="utf-8") as fp:
             return fp.read()
     return None
+
+
+def _register_stream_job(job_id: str, payload: dict):
+    with _stream_jobs_lock:
+        _stream_jobs[job_id] = payload
+
+
+def _update_stream_job(job_id: str, **updates):
+    with _stream_jobs_lock:
+        if job_id in _stream_jobs:
+            _stream_jobs[job_id].update(updates)
+
+
+def _get_stream_job(job_id: str) -> Optional[dict]:
+    with _stream_jobs_lock:
+        job = _stream_jobs.get(job_id)
+        return dict(job) if job is not None else None
+
+
+def _create_stream_zip(job: dict) -> str:
+    target_root = job.get("final_parse_dir") or job["session_root"]
+    zip_path = job.get("zip_path")
+    if zip_path and os.path.exists(zip_path):
+        return zip_path
+
+    zip_fd, zip_path = tempfile.mkstemp(suffix=".zip", prefix="mineru_stream_results_")
+    os.close(zip_fd)
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for root, _, files in os.walk(target_root):
+            for file in files:
+                file_path = os.path.join(root, file)
+                arcname = os.path.relpath(file_path, target_root)
+                zf.write(file_path, arcname=arcname)
+    _update_stream_job(job["job_id"], zip_path=zip_path)
+    return zip_path
+
+
+def _get_parse_dir(output_dir: str, pdf_name: str, backend: str, parse_method: str) -> str:
+    if backend.startswith("pipeline"):
+        return os.path.join(output_dir, pdf_name, parse_method)
+    if backend.startswith("vlm"):
+        return os.path.join(output_dir, pdf_name, "vlm")
+    if backend.startswith("hybrid"):
+        return os.path.join(output_dir, pdf_name, f"hybrid_{parse_method}")
+    raise ValueError(f"Unknown backend type: {backend}")
+
+
+def _run_stream_job(
+    job_id: str,
+    output_dir: str,
+    pdf_file_name: str,
+    pdf_bytes: bytes,
+    lang: str,
+    backend: str,
+    parse_method: str,
+    formula_enable: bool,
+    table_enable: bool,
+    server_url: Optional[str],
+    start_page_id: int,
+    end_page_id: int,
+    config: dict,
+):
+    try:
+        for update in iter_stream_parse(
+            output_dir=output_dir,
+            pdf_file_name=pdf_file_name,
+            pdf_bytes=pdf_bytes,
+            lang=lang,
+            backend=backend,
+            parse_method=parse_method,
+            formula_enable=formula_enable,
+            table_enable=table_enable,
+            server_url=server_url,
+            start_page_id=start_page_id,
+            end_page_id=end_page_id,
+            **config,
+        ):
+            _update_stream_job(
+                job_id,
+                status="running",
+                completed_pages=update["completed_pages"],
+                total_pages=update["total_pages"],
+                preview_md_path=update["preview_md_path"],
+                preview_middle_path=update["preview_middle_path"],
+                preview_model_path=update["preview_model_path"],
+                preview_content_list_path=update["preview_content_list_path"],
+                preview_content_list_v2_path=update["preview_content_list_v2_path"],
+                current_layout_pdf=update["current_layout_pdf"],
+                manifest_path=update["manifest_path"],
+                session_root=update["session_root"],
+            )
+
+        _update_stream_job(job_id, status="finalizing")
+        do_parse(
+            output_dir=output_dir,
+            pdf_file_names=[pdf_file_name],
+            pdf_bytes_list=[pdf_bytes],
+            p_lang_list=[lang],
+            backend=backend,
+            parse_method=parse_method,
+            formula_enable=formula_enable,
+            table_enable=table_enable,
+            server_url=server_url,
+            f_draw_layout_bbox=True,
+            f_draw_span_bbox=True,
+            f_dump_md=True,
+            f_dump_middle_json=True,
+            f_dump_model_output=True,
+            f_dump_orig_pdf=True,
+            f_dump_content_list=True,
+            start_page_id=start_page_id,
+            end_page_id=end_page_id,
+            **config,
+        )
+
+        final_parse_dir = _get_parse_dir(output_dir, pdf_file_name, backend, parse_method)
+        final_md_path = os.path.join(final_parse_dir, f"{pdf_file_name}.md")
+        final_layout_path = os.path.join(final_parse_dir, f"{pdf_file_name}_layout.pdf")
+        _update_stream_job(
+            job_id,
+            status="completed",
+            final_parse_dir=final_parse_dir,
+            final_md_path=final_md_path if os.path.exists(final_md_path) else None,
+            final_layout_pdf=final_layout_path if os.path.exists(final_layout_path) else None,
+        )
+        cleanup_stream_session(_get_stream_job(job_id).get("session_root"))
+    except Exception as exc:
+        logger.exception(exc)
+        _update_stream_job(job_id, status="failed", error=str(exc))
+
+
+@app.post(path="/file_parse_stream", dependencies=[Depends(limit_concurrency)])
+async def parse_pdf_stream(
+    files: List[UploadFile] = File(
+        ..., description="Upload a single pdf or image file for streamed parsing"
+    ),
+    output_dir: str = Form("./output", description="Output local directory"),
+    lang_list: List[str] = Form(["ch"], description="OCR language list"),
+    backend: str = Form("hybrid-auto-engine", description="Parsing backend"),
+    parse_method: str = Form("auto", description="Parsing method"),
+    formula_enable: bool = Form(True, description="Enable formula parsing."),
+    table_enable: bool = Form(True, description="Enable table parsing."),
+    server_url: Optional[str] = Form(
+        None,
+        description="(Adapted only for <vlm/hybrid>-http-client backend)openai compatible server url, e.g., http://127.0.0.1:30000",
+    ),
+    start_page_id: int = Form(
+        0, description="The starting page for PDF parsing, beginning from 0"
+    ),
+    end_page_id: int = Form(
+        99999, description="The ending page for PDF parsing, beginning from 0"
+    ),
+):
+    config = getattr(app.state, "config", {})
+
+    if len(files) != 1:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Streaming endpoint currently supports exactly one file per request."},
+        )
+
+    os.makedirs(output_dir, exist_ok=True)
+    unique_dir = os.path.join(output_dir, str(uuid.uuid4()))
+    os.makedirs(unique_dir, exist_ok=True)
+
+    file = files[0]
+    content = await file.read()
+    file_path = Path(file.filename)
+    temp_path = Path(unique_dir) / file_path.name
+    with open(temp_path, "wb") as f:
+        f.write(content)
+
+    file_suffix = guess_suffix_by_path(temp_path)
+    if file_suffix not in pdf_suffixes + image_suffixes:
+        cleanup_file(unique_dir)
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"Unsupported file type: {file_suffix}"},
+        )
+
+    try:
+        pdf_bytes = read_fn(temp_path)
+    except Exception as e:
+        cleanup_file(unique_dir)
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"Failed to load file: {str(e)}"},
+        )
+    finally:
+        if temp_path.exists():
+            os.remove(temp_path)
+
+    job_id = str(uuid.uuid4())
+    job = {
+        "job_id": job_id,
+        "status": "queued",
+        "error": None,
+        "output_dir": unique_dir,
+        "session_root": None,
+        "preview_md_path": None,
+        "preview_middle_path": None,
+        "preview_model_path": None,
+        "preview_content_list_path": None,
+        "preview_content_list_v2_path": None,
+        "current_layout_pdf": None,
+        "manifest_path": None,
+        "zip_path": None,
+        "completed_pages": 0,
+        "total_pages": 0,
+        "pdf_file_name": file_path.stem,
+        "backend": backend,
+        "parse_method": parse_method,
+        "final_parse_dir": None,
+        "final_md_path": None,
+        "final_layout_pdf": None,
+    }
+    _register_stream_job(job_id, job)
+
+    actual_lang = lang_list[0] if lang_list else "ch"
+    asyncio.create_task(
+        asyncio.to_thread(
+            _run_stream_job,
+            job_id,
+            unique_dir,
+            file_path.stem,
+            pdf_bytes,
+            actual_lang,
+            backend,
+            parse_method,
+            formula_enable,
+            table_enable,
+            server_url,
+            start_page_id,
+            end_page_id,
+            config,
+        )
+    )
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "job_id": job_id,
+            "status": "queued",
+            "status_url": f"/file_parse_stream/{job_id}",
+            "download_url": f"/file_parse_stream/{job_id}/download",
+            "layout_url": f"/file_parse_stream/{job_id}/layout",
+        },
+    )
+
+
+@app.get(path="/file_parse_stream/{job_id}", dependencies=[Depends(limit_concurrency)])
+async def get_stream_job_status(job_id: str):
+    job = _get_stream_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Stream job not found.")
+
+    preview_md = None
+    preview_md_rendered = None
+    md_path = job.get("final_md_path") if job["status"] == "completed" else job.get("preview_md_path")
+    if md_path and os.path.exists(md_path):
+        with open(md_path, "r", encoding="utf-8") as fp:
+            preview_md = fp.read()
+        image_root = job.get("final_parse_dir") if job["status"] == "completed" else job.get("session_root")
+        if image_root:
+            preview_md_rendered = render_markdown_with_base64(preview_md, image_root)
+
+    layout_available = job.get("final_layout_pdf") if job["status"] == "completed" else job.get("current_layout_pdf")
+    return JSONResponse(
+        status_code=200,
+        content={
+            "job_id": job_id,
+            "status": job["status"],
+            "error": job.get("error"),
+            "completed_pages": job.get("completed_pages", 0),
+            "total_pages": job.get("total_pages", 0),
+            "preview_md": preview_md,
+            "preview_md_rendered": preview_md_rendered,
+            "download_url": f"/file_parse_stream/{job_id}/download" if job["status"] == "completed" else None,
+            "layout_url": f"/file_parse_stream/{job_id}/layout" if layout_available else None,
+        },
+    )
+
+
+@app.get(path="/file_parse_stream/{job_id}/layout", dependencies=[Depends(limit_concurrency)])
+async def get_stream_job_layout(job_id: str):
+    job = _get_stream_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Stream job not found.")
+    layout_path = job.get("final_layout_pdf") if job["status"] == "completed" else job.get("current_layout_pdf")
+    if not layout_path or not os.path.exists(layout_path):
+        raise HTTPException(status_code=404, detail="No streamed layout artifact available yet.")
+    return FileResponse(
+        path=layout_path,
+        media_type="application/pdf",
+        filename=os.path.basename(layout_path),
+    )
+
+
+@app.get(path="/file_parse_stream/{job_id}/download", dependencies=[Depends(limit_concurrency)])
+async def download_stream_job(job_id: str):
+    job = _get_stream_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Stream job not found.")
+    if job["status"] != "completed":
+        raise HTTPException(status_code=409, detail="Stream job is not complete yet.")
+    zip_path = _create_stream_zip(job)
+    return FileResponse(
+        path=zip_path,
+        media_type="application/zip",
+        filename="results.zip",
+    )
 
 
 @app.post(path="/file_parse", dependencies=[Depends(limit_concurrency)])

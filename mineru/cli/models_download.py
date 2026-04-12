@@ -9,11 +9,34 @@ from mineru.utils.enum_class import ModelPath
 from mineru.utils.models_download_utils import auto_download_and_get_model_root_path
 
 
+PIPELINE_REQUIRED_MODEL_PATHS = [
+    ModelPath.doclayout_yolo,
+    ModelPath.yolo_v8_mfd,
+    ModelPath.unimernet_small,
+    ModelPath.pytorch_paddle,
+    ModelPath.layout_reader,
+    ModelPath.slanet_plus,
+    ModelPath.unet_structure,
+    ModelPath.paddle_table_cls,
+    ModelPath.paddle_orientation_classification,
+    ModelPath.pp_formulanet_plus_m,
+]
+
+
 def download_json(url):
     """下载JSON文件"""
     response = requests.get(url)
     response.raise_for_status()
     return response.json()
+
+
+def load_template_json(url):
+    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    local_template = os.path.join(repo_root, "mineru.template.json")
+    if os.path.exists(local_template):
+        with open(local_template, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return download_json(url)
 
 
 def download_and_modify_json(url, local_filename, modifications):
@@ -22,9 +45,9 @@ def download_and_modify_json(url, local_filename, modifications):
         data = json.load(open(local_filename))
         config_version = data.get('config_version', '0.0.0')
         if config_version < '1.3.1':
-            data = download_json(url)
+            data = load_template_json(url)
     else:
-        data = download_json(url)
+        data = load_template_json(url)
 
     # 修改内容
     for key, value in modifications.items():
@@ -39,6 +62,15 @@ def download_and_modify_json(url, local_filename, modifications):
     # 保存修改后的内容
     with open(local_filename, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
+
+
+def has_pipeline_models(model_dir):
+    if not model_dir or not os.path.isdir(model_dir):
+        return False
+    return all(
+        os.path.exists(os.path.join(model_dir, relative_path))
+        for relative_path in PIPELINE_REQUIRED_MODEL_PATHS
+    )
 
 
 def configure_model(model_dir, model_type):
