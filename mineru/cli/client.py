@@ -9,15 +9,14 @@ from pathlib import Path
 from loguru import logger
 
 log_level = os.getenv("MINERU_LOG_LEVEL", "INFO").upper()
-logger.remove()  # 移除默认handler
-logger.add(sys.stderr, level=log_level)  # 添加新handler
+logger.remove()
+logger.add(sys.stderr, level=log_level)
 
 from mineru.utils.cli_parser import arg_parse
 from mineru.utils.config_reader import get_device
-from mineru.utils.guess_suffix_or_lang import guess_suffix_by_path
 from mineru.utils.model_utils import get_vram
 from ..version import __version__
-from .common import do_parse, read_fn, pdf_suffixes, image_suffixes
+from .common import do_parse, read_fn
 
 
 def get_checkpoint_path(output_dir: str, input_folder_name: str) -> Path:
@@ -269,12 +268,10 @@ def main(
             "batch_size": batch_size,
         }
 
-        # Checkpoint is only used for folder input (not single files)
         if input_folder_name:
             checkpoint_path = get_checkpoint_path(output_dir, input_folder_name)
-            
+
             if resume and checkpoint_path.exists():
-                # Load existing checkpoint for resume
                 checkpoint = load_checkpoint(checkpoint_path)
                 if "failed" not in checkpoint:
                     checkpoint["failed"] = []
@@ -283,7 +280,6 @@ def main(
                     f"{len(checkpoint['failed'])} failed"
                 )
             else:
-                # New run - checkpoint will be created on first save
                 logger.info(f"Checkpoint file: {checkpoint_path}")
 
         processed_set = set(checkpoint["processed"])
@@ -390,22 +386,29 @@ def main(
             logger.exception(e)
 
     if os.path.isdir(input_path):
-        # Fast file scanning - just check extension, don't read file content
         doc_path_list = []
-        pdf_extensions = {'.pdf'}
-        image_extensions = {'.png', '.jpeg', '.jpg', '.jp2', '.webp', '.gif', '.bmp', '.tiff'}
-        valid_extensions = pdf_extensions | image_extensions
-        
+        valid_extensions = {
+            ".pdf",
+            ".png",
+            ".jpeg",
+            ".jpg",
+            ".jp2",
+            ".webp",
+            ".gif",
+            ".bmp",
+            ".tiff",
+        }
+
         logger.info(f"Scanning directory: {input_path}")
         scan_start = time.time()
-        
+
         for doc_path in Path(input_path).glob("*"):
             if doc_path.suffix.lower() in valid_extensions and doc_path.is_file():
                 doc_path_list.append(doc_path)
-        
+
         scan_time = round(time.time() - scan_start, 2)
         logger.info(f"Found {len(doc_path_list)} files in {scan_time}s")
-        
+
         input_folder_name = Path(input_path).stem
         parse_doc_with_batching(doc_path_list, input_folder_name)
     else:

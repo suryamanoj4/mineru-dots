@@ -9,7 +9,7 @@ from loguru import logger
 import pypdfium2 as pdfium
 
 from mineru.data.data_reader_writer import FileBasedDataWriter
-from mineru.utils.draw_bbox import draw_layout_bbox, draw_span_bbox, draw_line_sort_bbox
+from mineru.utils.draw_bbox import draw_layout_bbox, draw_span_bbox
 from mineru.utils.engine_utils import get_vlm_engine
 from mineru.utils.enum_class import MakeMode
 from mineru.utils.guess_suffix_or_lang import guess_suffix_by_bytes
@@ -57,7 +57,6 @@ def convert_pdf_bytes_to_bytes_by_pypdfium2(pdf_bytes, start_page_id=0, end_page
     try:
         end_page_id = get_end_page_id(end_page_id, len(pdf))
 
-        # 逐页导入,失败则跳过
         output_index = 0
         for page_index in range(start_page_id, end_page_id + 1):
             try:
@@ -68,11 +67,9 @@ def convert_pdf_bytes_to_bytes_by_pypdfium2(pdf_bytes, start_page_id=0, end_page
                 logger.warning(f"Failed to import page {page_index}: {page_error}, skipping this page.")
                 continue
 
-        # 将新PDF保存到内存缓冲区
         output_buffer = io.BytesIO()
         output_pdf.save(output_buffer)
 
-        # 获取字节数据
         output_bytes = output_buffer.getvalue()
     except Exception as e:
         logger.warning(f"Error in converting PDF bytes: {e}, Using original PDF bytes.")
@@ -83,7 +80,7 @@ def convert_pdf_bytes_to_bytes_by_pypdfium2(pdf_bytes, start_page_id=0, end_page
 
 
 def _prepare_pdf_bytes(pdf_bytes_list, start_page_id, end_page_id):
-    """准备处理PDF字节数据"""
+    """Prepare PDF byte ranges before parsing."""
     result = []
     for pdf_bytes in pdf_bytes_list:
         new_pdf_bytes = convert_pdf_bytes_to_bytes_by_pypdfium2(pdf_bytes, start_page_id, end_page_id)
@@ -110,9 +107,8 @@ def _process_output(
         model_output=None,
         is_pipeline=True
 ):
-    f_draw_line_sort_bbox = False
     from mineru.backend.pipeline.pipeline_middle_json_mkcontent import union_make as pipeline_union_make
-    """处理输出文件"""
+    """Write parse outputs to disk."""
     if f_draw_layout_bbox:
         draw_layout_bbox(pdf_info, pdf_bytes, local_md_dir, f"{pdf_file_name}_layout.pdf")
 
@@ -124,9 +120,6 @@ def _process_output(
             f"{pdf_file_name}_origin.pdf",
             pdf_bytes,
         )
-
-    if f_draw_line_sort_bbox:
-        draw_line_sort_bbox(pdf_info, pdf_bytes, local_md_dir, f"{pdf_file_name}_line_sort.pdf")
 
     image_dir = str(os.path.basename(local_image_dir))
 
@@ -185,7 +178,7 @@ def _process_pipeline(
         f_dump_content_list,
         f_make_md_mode,
 ):
-    """处理pipeline后端逻辑"""
+    """Process documents with the pipeline backend."""
     from mineru.backend.pipeline.model_json_to_middle_json import result_to_middle_json as pipeline_result_to_middle_json
     from mineru.backend.pipeline.pipeline_analyze import doc_analyze as pipeline_doc_analyze
 
@@ -239,7 +232,7 @@ async def _async_process_vlm(
         server_url=None,
         **kwargs,
 ):
-    """异步处理VLM后端逻辑"""
+    """Process documents with the VLM backend asynchronously."""
     parse_method = "vlm"
     f_draw_span_bbox = False
     if not backend.endswith("client"):
@@ -280,7 +273,7 @@ def _process_vlm(
         server_url=None,
         **kwargs,
 ):
-    """同步处理VLM后端逻辑"""
+    """Process documents with the VLM backend synchronously."""
     parse_method = "vlm"
     f_draw_span_bbox = False
     if not backend.endswith("client"):
@@ -325,7 +318,7 @@ def _process_hybrid(
         **kwargs,
 ):
     from mineru.backend.hybrid.hybrid_analyze import doc_analyze as hybrid_doc_analyze
-    """同步处理hybrid后端逻辑"""
+    """Process documents with the hybrid backend synchronously."""
     if not backend.endswith("client"):
         server_url = None
 
@@ -334,7 +327,7 @@ def _process_hybrid(
         local_image_dir, local_md_dir = prepare_env(output_dir, pdf_file_name, f"hybrid_{parse_method}")
         image_writer, md_writer = FileBasedDataWriter(local_image_dir), FileBasedDataWriter(local_md_dir)
 
-        middle_json, infer_result, _vlm_ocr_enable = hybrid_doc_analyze(
+        middle_json, infer_result, _ = hybrid_doc_analyze(
             pdf_bytes,
             image_writer=image_writer,
             backend=backend,
@@ -347,7 +340,6 @@ def _process_hybrid(
 
         pdf_info = middle_json["pdf_info"]
 
-        # f_draw_span_bbox = not _vlm_ocr_enable
         f_draw_span_bbox = False
 
         _process_output(
@@ -378,7 +370,7 @@ async def _async_process_hybrid(
         **kwargs,
 ):
     from mineru.backend.hybrid.hybrid_analyze import aio_doc_analyze as aio_hybrid_doc_analyze
-    """异步处理hybrid后端逻辑"""
+    """Process documents with the hybrid backend asynchronously."""
     if not backend.endswith("client"):
         server_url = None
 
@@ -387,7 +379,7 @@ async def _async_process_hybrid(
         local_image_dir, local_md_dir = prepare_env(output_dir, pdf_file_name, f"hybrid_{parse_method}")
         image_writer, md_writer = FileBasedDataWriter(local_image_dir), FileBasedDataWriter(local_md_dir)
 
-        middle_json, infer_result, _vlm_ocr_enable = await aio_hybrid_doc_analyze(
+        middle_json, infer_result, _ = await aio_hybrid_doc_analyze(
             pdf_bytes,
             image_writer=image_writer,
             backend=backend,
@@ -400,7 +392,6 @@ async def _async_process_hybrid(
 
         pdf_info = middle_json["pdf_info"]
 
-        # f_draw_span_bbox = not _vlm_ocr_enable
         f_draw_span_bbox = False
 
         _process_output(
@@ -433,7 +424,6 @@ def do_parse(
         end_page_id=None,
         **kwargs,
 ):
-    # 预处理PDF字节数据
     pdf_bytes_list = _prepare_pdf_bytes(pdf_bytes_list, start_page_id, end_page_id)
 
     if backend == "pipeline":
@@ -505,11 +495,9 @@ async def aio_do_parse(
         end_page_id=None,
         **kwargs,
 ):
-    # 预处理PDF字节数据
     pdf_bytes_list = _prepare_pdf_bytes(pdf_bytes_list, start_page_id, end_page_id)
 
     if backend == "pipeline":
-        # pipeline模式暂不支持异步，使用同步处理方式
         _process_pipeline(
             output_dir, pdf_file_names, pdf_bytes_list, p_lang_list,
             parse_method, formula_enable, table_enable,
@@ -553,17 +541,3 @@ async def aio_do_parse(
                 f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode,
                 server_url, **kwargs,
             )
-
-
-if __name__ == "__main__":
-    # pdf_path = "../../demo/pdfs/demo3.pdf"
-    pdf_path = "C:/Users/zhaoxiaomeng/Downloads/4546d0e2-ba60-40a5-a17e-b68555cec741.pdf"
-
-    try:
-       do_parse("./output", [Path(pdf_path).stem], [read_fn(Path(pdf_path))],["ch"],
-                end_page_id=10,
-                backend='vlm-huggingface'
-                # backend = 'pipeline'
-                )
-    except Exception as e:
-        logger.exception(e)
