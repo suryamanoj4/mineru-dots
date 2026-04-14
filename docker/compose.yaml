@@ -10,9 +10,14 @@ services:
       - "8000:8000"
     environment:
       MINERU_MODEL_SOURCE: huggingface
+      MINERU_PREFETCH_MODELS: pipeline
+      MINERU_TOOLS_CONFIG_JSON: /root/.mineru/mineru.json
       MINERU_API_ENABLE_FASTAPI_DOCS: "1"
-    entrypoint: mineru-api
+    entrypoint:
+      - /bin/bash
+      - /app/docker/global/start-with-models.sh
     command:
+      - mineru-api
       - --host
       - 0.0.0.0
       - --port
@@ -24,6 +29,7 @@ services:
     volumes:
       - mineru-hf-cache:/root/.cache/huggingface
       - mineru-ms-cache:/root/.cache/modelscope
+      - mineru-config:/root/.mineru
 
   mineru-gradio-cpu:
     profiles: ["cpu"]
@@ -37,13 +43,17 @@ services:
     ports:
       - "7860:7860"
     environment:
+      MINERU_MODEL_SOURCE: huggingface
+      MINERU_PREFETCH_MODELS: none
+      MINERU_TOOLS_CONFIG_JSON: /root/.mineru/mineru.json
       MINERU_GRADIO_BACKEND_OPTIONS: pipeline
       MINERU_GRADIO_DEFAULT_BACKEND: pipeline
       MINERU_GRADIO_BACKEND_API_URL: http://mineru-api-cpu:8000
     entrypoint:
       - /bin/bash
-      - /app/docker/global/start-gradio-cpu.sh
+      - /app/docker/global/start-with-models.sh
     command:
+      - mineru-gradio
       - --server-name
       - 0.0.0.0
       - --server-port
@@ -51,6 +61,7 @@ services:
     volumes:
       - mineru-hf-cache:/root/.cache/huggingface
       - mineru-ms-cache:/root/.cache/modelscope
+      - mineru-config:/root/.mineru
 
   mineru-api-gpu:
     profiles: ["gpu"]
@@ -62,9 +73,15 @@ services:
     ports:
       - "8000:8000"
     environment:
+      MINERU_MODEL_SOURCE: huggingface
+      MINERU_PREFETCH_MODELS: vlm
+      MINERU_TOOLS_CONFIG_JSON: /root/.mineru/mineru.json
       MINERU_API_ENABLE_FASTAPI_DOCS: "1"
-    entrypoint: mineru-api
+    entrypoint:
+      - /bin/bash
+      - /app/docker/global/start-with-models.sh
     command:
+      - mineru-api
       - --host
       - 0.0.0.0
       - --port
@@ -78,6 +95,7 @@ services:
     volumes:
       - mineru-hf-cache:/root/.cache/huggingface
       - mineru-ms-cache:/root/.cache/modelscope
+      - mineru-config:/root/.mineru
     deploy:
       resources:
         reservations:
@@ -98,13 +116,17 @@ services:
     ports:
       - "7860:7860"
     environment:
+      MINERU_MODEL_SOURCE: huggingface
+      MINERU_PREFETCH_MODELS: none
+      MINERU_TOOLS_CONFIG_JSON: /root/.mineru/mineru.json
       MINERU_GRADIO_BACKEND_OPTIONS: vlm-auto-engine
       MINERU_GRADIO_DEFAULT_BACKEND: vlm-auto-engine
       MINERU_GRADIO_BACKEND_API_URL: http://mineru-api-gpu:8000
     entrypoint:
       - /bin/bash
-      - /app/docker/global/start-gradio-cpu.sh
+      - /app/docker/global/start-with-models.sh
     command:
+      - mineru-gradio
       - --server-name
       - 0.0.0.0
       - --server-port
@@ -112,6 +134,7 @@ services:
     volumes:
       - mineru-hf-cache:/root/.cache/huggingface
       - mineru-ms-cache:/root/.cache/modelscope
+      - mineru-config:/root/.mineru
 
   mineru-api-hybrid:
     profiles: ["hybrid"]
@@ -123,9 +146,15 @@ services:
     ports:
       - "8000:8000"
     environment:
+      MINERU_MODEL_SOURCE: huggingface
+      MINERU_PREFETCH_MODELS: all
+      MINERU_TOOLS_CONFIG_JSON: /root/.mineru/mineru.json
       MINERU_API_ENABLE_FASTAPI_DOCS: "1"
-    entrypoint: mineru-api
+    entrypoint:
+      - /bin/bash
+      - /app/docker/global/start-with-models.sh
     command:
+      - mineru-api
       - --host
       - 0.0.0.0
       - --port
@@ -139,6 +168,7 @@ services:
     volumes:
       - mineru-hf-cache:/root/.cache/huggingface
       - mineru-ms-cache:/root/.cache/modelscope
+      - mineru-config:/root/.mineru
     deploy:
       resources:
         reservations:
@@ -159,13 +189,17 @@ services:
     ports:
       - "7860:7860"
     environment:
+      MINERU_MODEL_SOURCE: huggingface
+      MINERU_PREFETCH_MODELS: none
+      MINERU_TOOLS_CONFIG_JSON: /root/.mineru/mineru.json
       MINERU_GRADIO_BACKEND_OPTIONS: hybrid-auto-engine
       MINERU_GRADIO_DEFAULT_BACKEND: hybrid-auto-engine
       MINERU_GRADIO_BACKEND_API_URL: http://mineru-api-hybrid:8000
     entrypoint:
       - /bin/bash
-      - /app/docker/global/start-gradio-cpu.sh
+      - /app/docker/global/start-with-models.sh
     command:
+      - mineru-gradio
       - --server-name
       - 0.0.0.0
       - --server-port
@@ -173,7 +207,9 @@ services:
     volumes:
       - mineru-hf-cache:/root/.cache/huggingface
       - mineru-ms-cache:/root/.cache/modelscope
+      - mineru-config:/root/.mineru
 
 volumes:
   mineru-hf-cache:
   mineru-ms-cache:
+  mineru-config:
