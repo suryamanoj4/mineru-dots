@@ -1,24 +1,66 @@
 # PRD: Module 1 - Core Library & API Foundation
 
+## Task 0: Rebranding from MinerU to VParse
+
+This task must be completed first before any other work begins. The codebase must be rebranded from `mineru` to `vparse` in all locations while maintaining full backward compatibility.
+
+### Scope of Rebranding
+
+- **Package name**: `mineru` → `vparse` (in pyproject.toml, imports, directory structure)
+- **CLI commands**: `mineru` → `vparse`, `mineru-api` → `vparse-api`, `mineru-gradio` → `vparse-gradio`, etc.
+- **Config files**: `~/.mineru.json` → `~/.vparse.json`
+- **Environment variables**: `MINERU_*` → `VPARSE_*`
+- **PyPI package**: `mineru` → `vparse`
+- **Documentation**: All mentions of MinerU → VParse
+- **Exception classes**: `MinerUError` → `VParseError`, etc.
+
+### Backward Compatibility Requirements
+
+- Old CLI commands (`mineru`, `mineru-api`, etc.) must still work as aliases
+- Old config file location (`~/.mineru.json`) must be checked if `~/.vparse.json` doesn't exist
+- Old environment variables must work if new ones are not set
+- Old import paths (`from mineru import ...`) must work via module alias
+
+### Implementation Strategy
+
+1. Rename the `mineru/` directory to `vparse/`
+2. Update all Python imports and references in the codebase
+3. Create backward-compatible aliases (symlink or `import mineru = vparse`)
+4. Update pyproject.toml with new package name and CLI entry points
+5. Keep old entry points as aliases pointing to new commands
+6. Update all documentation and comments
+
+### Files to Modify
+
+| File | Change |
+|---|---|
+| `mineru/` → `vparse/` | Directory rename |
+| `pyproject.toml` | Update name, entry points, extras |
+| All Python files | Update imports: `import mineru` → `import vparse` |
+| All config files | Update default paths |
+| All docs | Update branding |
+
+---
+
 ## Problem Statement
 
-As a developer wanting to use MinerU in my Python projects, I can't simply `import mineru` and call an OCR function. The current codebase only exposes CLI commands (`mineru`, `mineru-api`, `mineru-gradio`, etc.) — there's no clean, importable Python library interface. To use MinerU programmatically, I'd need to dig into internal modules like `mineru.cli.common.do_parse()`, figure out the right parameters, manually construct data readers/writers, and handle resource cleanup myself. This makes MinerU unusable as a library dependency in other projects.
+As a developer wanting to use VParse in my Python projects, I can't simply `import vparse` and call an OCR function. The current codebase only exposes CLI commands (`vparse`, `vparse-api`, `vparse-gradio`, etc.) — there's no clean, importable Python library interface. To use VParse programmatically, I'd need to dig into internal modules like `vparse.cli.common.do_parse()`, figure out the right parameters, manually construct data readers/writers, and handle resource cleanup myself. This makes VParse unusable as a library dependency in other projects.
 
 ## Solution
 
-Create a clean, high-level Python library API on top of the existing CLI infrastructure. Users will be able to `from mineru import MinerU`, configure it with a fluent builder, process PDFs synchronously or asynchronously, and get structured results — all without touching CLI internals. The existing CLI commands will become thin wrappers over the new library API.
+Create a clean, high-level Python library API on top of the existing CLI infrastructure. Users will be able to `from vparse import VParse`, configure it with a fluent builder, process PDFs synchronously or asynchronously, and get structured results — all without touching CLI internals. The existing CLI commands will become thin wrappers over the new library API.
 
 ## User Stories
 
-1. As a developer, I want to `from mineru import MinerU` and call `ocr.process("document.pdf")`, so that I can use MinerU as a Python library in my projects.
+1. As a developer, I want to `from vparse import VParse` and call `ocr.process("document.pdf")`, so that I can use VParse as a Python library in my projects.
 
-2. As a developer, I want to use MinerU as a context manager (`with MinerU(...) as ocr:`), so that resources (models, GPU memory) are automatically cleaned up when I'm done.
+2. As a developer, I want to use VParse as a context manager (`with VParse(...) as ocr:`), so that resources (models, GPU memory) are automatically cleaned up when I'm done.
 
-3. As a developer, I want an async client (`AsyncMinerU`), so that I can process multiple PDFs concurrently in an asyncio application.
+3. As a developer, I want an async client (`AsyncVParse`), so that I can process multiple PDFs concurrently in an asyncio application.
 
 4. As a developer, I want a fluent config builder (`Config().set_backend("pipeline").set_device("cuda")...`), so that I can programmatically construct and validate configurations without editing JSON files or setting environment variables.
 
-5. As a developer, I want a clear exception hierarchy (`MinerUError`, `BackendError`, `ModelLoadError`, etc.), so that I can catch and handle specific error types in my application.
+5. As a developer, I want a clear exception hierarchy (`VParseError`, `BackendError`, `ModelLoadError`, etc.), so that I can catch and handle specific error types in my application.
 
 6. As a developer, I want type hints on all public APIs, so that my IDE provides autocomplete and mypy/Pyright can type-check my code.
 
@@ -34,24 +76,24 @@ Create a clean, high-level Python library API on top of the existing CLI infrast
 
 12. As a developer, I want to get processing progress callbacks, so that I can show progress bars or log status during long-running jobs.
 
-13. As a user, I want to install MinerU via `pip install mineru` from PyPI, so that I don't need to clone the repo to use it.
+13. As a user, I want to install VParse via `pip install vparse` from PyPI, so that I don't need to clone the repo to use it.
 
-14. As a developer, I want the existing CLI commands (`mineru`, `mineru-api`, etc.) to continue working exactly as before, so that upgrading doesn't break my scripts.
+14. As a developer, I want the existing CLI commands (`vparse`, `vparse-api`, etc.) to continue working exactly as before, so that upgrading doesn't break my scripts.
 
 ## Implementation Decisions
 
 ### 1. Public API Surface
 
-The public API will be defined in `mineru/__init__.py` and export only these symbols:
+The public API will be defined in `vparse/__init__.py` and export only these symbols:
 
 ```python
-# mineru/__init__.py
+# vparse/__init__.py
 from .version import __version__
-from .client import MinerU
-from .async_client import AsyncMinerU
+from .client import VParse
+from .async_client import AsyncVParse
 from .config import Config
 from .exceptions import (
-    MinerUError,
+    VParseError,
     BackendError,
     ModelLoadError,
     ConfigurationError,
@@ -64,10 +106,10 @@ from .data import DataReader, DataWriter, FileBasedDataReader, FileBasedDataWrit
 
 __all__ = [
     "__version__",
-    "MinerU",
-    "AsyncMinerU",
+    "VParse",
+    "AsyncVParse",
     "Config",
-    "MinerUError",
+    "VParseError",
     "BackendError",
     "ModelLoadError",
     "ConfigurationError",
@@ -84,14 +126,14 @@ __all__ = [
 ]
 ```
 
-### 2. MinerU Class (Sync Client)
+### 2. VParse Class (Sync Client)
 
-**File**: `mineru/client.py`
+**File**: `vparse/client.py`
 
-The `MinerU` class is a high-level wrapper around the existing `do_parse()` function in `mineru/cli/common.py`. It provides:
+The `VParse` class is a high-level wrapper around the existing `do_parse()` function in `vparse/cli/common.py`. It provides:
 
 ```python
-class MinerU:
+class VParse:
     """High-level OCR processor."""
 
     def __init__(
@@ -133,7 +175,7 @@ class MinerU:
     def get_version(self) -> str: ...
 
     # Context manager
-    def __enter__(self) -> "MinerU": ...
+    def __enter__(self) -> "VParse": ...
     def __exit__(self, exc_type, exc_val, exc_tb) -> None: ...
 ```
 
@@ -145,14 +187,14 @@ class MinerU:
 - `callback(progress, total)` for progress reporting
 - Context manager calls `cleanup()` on exit (model unload, memory release)
 
-### 3. AsyncMinerU Class (Async Client)
+### 3. AsyncVParse Class (Async Client)
 
-**File**: `mineru/async_client.py`
+**File**: `vparse/async_client.py`
 
-Mirrors `MinerU` but uses `aio_do_parse()` from `mineru/cli/common.py`:
+Mirrors `VParse` but uses `aio_do_parse()` from `vparse/cli/common.py`:
 
 ```python
-class AsyncMinerU:
+class AsyncVParse:
     """Async high-level OCR processor."""
 
     async def process(
@@ -167,18 +209,19 @@ class AsyncMinerU:
         self,
         input_paths: list[str | Path | bytes],
         output_dir: str | Path,
+        method: str = "auto",
         **kwargs,
     ) -> list[OCRResult]: ...
 
-    async def __aenter__(self) -> "AsyncMinerU": ...
+    async def __aenter__(self) -> "AsyncVParse": ...
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None: ...
 ```
 
 ### 4. Config Builder
 
-**File**: `mineru/config.py`
+**File**: `vparse/config.py`
 
-Fluent builder that wraps and unifies the existing config sources (`~/.mineru.json`, env vars, defaults):
+Fluent builder that wraps and unifies the existing config sources (`~/.vparse.json`, env vars, defaults):
 
 ```python
 class Config:
@@ -206,44 +249,44 @@ class Config:
 
 **Config hierarchy (later overrides earlier):**
 1. Hardcoded defaults
-2. `~/.mineru.json` (if `load_from_file()` called)
+2. `~/.vparse.json` (if `load_from_file()` called)
 3. Environment variables (if `load_from_env()` called)
 4. Programmatic `.set_*()` calls
 
-**Implementation**: Use Pydantic models for validation. The existing `mineru/data/utils/schemas.py` has `S3Config` and `PageInfo` — extend with `MinerUConfig` model.
+**Implementation**: Use Pydantic models for validation. The existing `vparse/data/utils/schemas.py` has `S3Config` and `PageInfo` — extend with `VParseConfig` model.
 
 ### 5. Exception Hierarchy
 
-**File**: `mineru/exceptions.py`
+**File**: `vparse/exceptions.py`
 
 ```python
-class MinerUError(Exception):
-    """Base exception for all MinerU errors."""
+class VParseError(Exception):
+    """Base exception for all VParse errors."""
 
-class BackendError(MinerUError):
+class BackendError(VParseError):
     """Backend-related errors (invalid backend name, unavailable, etc.)."""
 
 class ModelLoadError(BackendError):
     """Failed to load model weights."""
 
-class ConfigurationError(MinerUError):
+class ConfigurationError(VParseError):
     """Invalid configuration values."""
 
-class InputError(MinerUError):
+class InputError(VParseError):
     """Invalid input: file not found, unsupported format, corrupted PDF."""
 
-class ProcessingError(MinerUError):
+class ProcessingError(VParseError):
     """Error during OCR processing (model inference failure, etc.)."""
 
-class TimeoutError(MinerUError):
+class TimeoutError(VParseError):
     """Processing timeout."""
 ```
 
-All existing scattered exceptions (`mineru/data/utils/exceptions.py`, etc.) should subclass from these.
+All existing scattered exceptions (`vparse/data/utils/exceptions.py`, etc.) should subclass from these.
 
 ### 6. Result Object
 
-**File**: `mineru/result.py`
+**File**: `vparse/result.py`
 
 Structured result instead of raw JSON:
 
@@ -281,20 +324,20 @@ class OCRResult:
 
 ### 7. Refactor Existing CLI to Use Library
 
-The existing `mineru/cli/client.py` (Click-based CLI) and `mineru/cli/common.py` (`do_parse`, `aio_do_parse`) will be refactored:
+The existing `vparse/cli/client.py` (Click-based CLI) and `vparse/cli/common.py` (`do_parse`, `aio_do_parse`) will be refactored:
 
 - `do_parse()` and `aio_do_parse()` remain as internal functions (they contain the core logic)
-- `mineru/cli/client.py` will import and use `MinerU` class instead of calling `do_parse()` directly
-- CLI becomes a thin wrapper: parse Click options → create `MinerU` instance → call `process()`
+- `vparse/cli/client.py` will import and use `VParse` class instead of calling `do_parse()` directly
+- CLI becomes a thin wrapper: parse Click options → create `VParse` instance → call `process()`
 
 This ensures backward compatibility — all existing CLI flags continue to work.
 
 ### 8. Type Hints and py.typed
 
-- Create empty `mineru/py.typed` marker file
+- Create empty `vparse/py.typed` marker file
 - Add `include_package_data = true` to `pyproject.toml`
 - Add type hints to all public API files
-- Run `mypy mineru/client.py mineru/async_client.py mineru/config.py mineru/exceptions.py mineru/result.py --strict` to verify
+- Run `mypy vparse/client.py vparse/async_client.py vparse/config.py vparse/exceptions.py vparse/result.py --strict` to verify
 
 ### 9. PyPI Packaging
 
@@ -302,10 +345,10 @@ Update `pyproject.toml`:
 
 ```toml
 [tool.setuptools.package-data]
-mineru = ["py.typed"]
+vparse = ["py.typed"]
 
 [tool.setuptools.packages.find]
-include = ["mineru*"]
+include = ["vparse*"]
 
 [project]
 # Add classifiers
@@ -327,17 +370,17 @@ Existing entry points stay unchanged — they just use the new library internall
 
 ### 10. Internal Functions to Wrap
 
-The key internal functions that `MinerU` will call:
+The key internal functions that `VParse` will call:
 
 | Internal Function | Location | Used By |
 |---|---|---|
-| `do_parse()` | `mineru/cli/common.py` | `MinerU.process()` |
-| `aio_do_parse()` | `mineru/cli/common.py` | `AsyncMinerU.process()` |
-| `read_fn()` | `mineru/cli/common.py` | File reading |
-| `prepare_env()` | `mineru/cli/common.py` | Output directory setup |
-| `get_device()` | `mineru/utils/config_reader.py` | Device auto-detection |
-| `get_vlm_engine()` | `mineru/utils/engine_utils.py` | VLM engine selection |
-| `FileBasedDataWriter` | `mineru/data/data_reader_writer/filebase.py` | Output writing |
+| `do_parse()` | `vparse/cli/common.py` | `VParse.process()` |
+| `aio_do_parse()` | `vparse/cli/common.py` | `AsyncVParse.process()` |
+| `read_fn()` | `vparse/cli/common.py` | File reading |
+| `prepare_env()` | `vparse/cli/common.py` | Output directory setup |
+| `get_device()` | `vparse/utils/config_reader.py` | Device auto-detection |
+| `get_vlm_engine()` | `vparse/utils/engine_utils.py` | VLM engine selection |
+| `FileBasedDataWriter` | `vparse/data/data_reader_writer/filebase.py` | Output writing |
 
 These functions have stable interfaces and will not change.
 
@@ -362,11 +405,11 @@ These functions have stable interfaces and will not change.
 
 | Module | Test Type | Rationale |
 |---|---|---|
-| `mineru/client.py` | Integration | `MinerU.process()` with real PDF, verify `OCRResult` structure |
-| `mineru/config.py` | Unit | Config builder, hierarchy, validation |
-| `mineru/exceptions.py` | Unit | Exception hierarchy, string representation |
-| `mineru/result.py` | Unit | Property access, data extraction |
-| `mineru/cli/client.py` | Integration | CLI still works after refactoring (existing `test_e2e.py` covers this) |
+| `vparse/client.py` | Integration | `VParse.process()` with real PDF, verify `OCRResult` structure |
+| `vparse/config.py` | Unit | Config builder, hierarchy, validation |
+| `vparse/exceptions.py` | Unit | Exception hierarchy, string representation |
+| `vparse/result.py` | Unit | Property access, data extraction |
+| `vparse/cli/client.py` | Integration | CLI still works after refactoring (existing `test_e2e.py` covers this) |
 
 ### Prior Art
 
@@ -408,32 +451,32 @@ This PRD is designed to be **non-breaking**. The existing CLI commands, environm
 
 | File | Purpose |
 |---|---|
-| `mineru/__init__.py` | Redefine public API exports |
-| `mineru/client.py` | `MinerU` class (sync) |
-| `mineru/async_client.py` | `AsyncMinerU` class (async) |
-| `mineru/config.py` | `Config` builder |
-| `mineru/exceptions.py` | Exception hierarchy |
-| `mineru/result.py` | `OCRResult` structured result |
-| `mineru/py.typed` | Type marker file |
+| `vparse/__init__.py` | Redefine public API exports |
+| `vparse/client.py` | `VParse` class (sync) |
+| `vparse/async_client.py` | `AsyncVParse` class (async) |
+| `vparse/config.py` | `Config` builder |
+| `vparse/exceptions.py` | Exception hierarchy |
+| `vparse/result.py` | `OCRResult` structured result |
+| `vparse/py.typed` | Type marker file |
 
 ### Files to Modify
 
 | File | Change |
 |---|---|
-| `mineru/cli/client.py` | Use `MinerU` class instead of calling `do_parse()` directly |
+| `vparse/cli/client.py` | Use `VParse` class instead of calling `do_parse()` directly |
 | `pyproject.toml` | Add `py.typed`, classifiers |
-| `mineru/data/utils/schemas.py` | Extend with `MinerUConfig` Pydantic model |
-| `tests/unittest/test_e2e.py` | Add tests for new `MinerU` API |
+| `vparse/data/utils/schemas.py` | Extend with `VParseConfig` Pydantic model |
+| `tests/unittest/test_e2e.py` | Add tests for new `VParse` API |
 
 ### Implementation Order
 
-1. `mineru/exceptions.py` — foundation, no dependencies
-2. `mineru/config.py` — depends only on exceptions
-3. `mineru/result.py` — depends only on existing middle JSON schema
-4. `mineru/client.py` — depends on config, result, exceptions, and existing `do_parse()`
-5. `mineru/async_client.py` — mirrors sync client
-6. `mineru/__init__.py` — wire up all exports
-7. `mineru/py.typed` — add marker file
+1. `vparse/exceptions.py` — foundation, no dependencies
+2. `vparse/config.py` — depends only on exceptions
+3. `vparse/result.py` — depends only on existing middle JSON schema
+4. `vparse/client.py` — depends on config, result, exceptions, and existing `do_parse()`
+5. `vparse/async_client.py` — mirrors sync client
+6. `vparse/__init__.py` — wire up all exports
+7. `vparse/py.typed` — add marker file
 8. `pyproject.toml` — add packaging config
-9. `mineru/cli/client.py` — refactor to use `MinerU`
+9. `vparse/cli/client.py` — refactor to use `VParse`
 10. Tests — add test coverage for all new modules
