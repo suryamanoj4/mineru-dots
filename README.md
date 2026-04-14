@@ -295,6 +295,8 @@ docker compose --profile gpu up -d
 docker compose --profile hybrid up -d
 ```
 
+On the first `docker compose up`, the API container downloads only the models needed for that profile into persistent Docker volumes. The image stays lean, and later restarts reuse the mounted cache.
+
 See [Docker Deployment Documentation](https://opendatalab.github.io/MinerU/quick_start/docker_deployment/) for detailed instructions.
 
 ---

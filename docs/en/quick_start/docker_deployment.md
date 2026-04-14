@@ -54,8 +54,8 @@ cd /path/to/MinerU
 - The Compose file in this branch is focused on Gradio deployment profiles. The previous Compose services for the OpenAI-compatible server and API are not included here.
 - Start only one profile at a time because the `gpu` and `hybrid` profiles both rely on local GPU-backed inference.
 - The Compose services build from the local checkout, so your branch changes are included in the image.
-- Models are downloaded on demand at runtime instead of during `docker build`, which keeps image builds much faster.
-- Model caches are persisted in Docker volumes, so the first download is reused across container restarts.
+- Models are never downloaded during `docker build`; the API container prepares the required models on first startup instead.
+- Model caches and the generated `mineru.json` are persisted in Docker volumes, so the first download is reused across container restarts and recreations.
 - If you run commands from the repository root, keep passing `-f docker/compose.yaml` to follow-up commands such as `ps`, `logs`, `down`, and `restart`. Alternatively, `cd docker` first and then run `docker compose ...`.
 
 ---
@@ -88,7 +88,7 @@ docker compose -f docker/compose.yaml logs -f mineru-gradio-cpu
 ```
 
 Open `http://<server_ip>:7860` in your browser.
-The first container startup may take longer because pipeline models are prepared before Gradio starts. After that, requests use the persistent cache volume.
+The first `docker compose up` may take longer because the API container downloads pipeline models into the shared cache volume before it starts serving requests. After that, restarts reuse the same volume.
 
 ### Start GPU mode
 
@@ -118,7 +118,7 @@ docker compose -f docker/compose.yaml logs -f mineru-gradio-gpu
 ```
 
 Open `http://<server_ip>:7860` in your browser.
-The first parse request may take longer because VLM models will be downloaded into the persistent cache volume.
+The first `docker compose up` may take longer because the API container downloads the VLM model into the shared cache volume before it starts serving requests.
 
 ### Start Hybrid mode
 
@@ -129,4 +129,4 @@ docker compose -f docker/compose.yaml --profile hybrid up -d
 ```
 
 Open `http://<server_ip>:7860` in your browser.
-The first parse request may take longer because required models will be downloaded into the persistent cache volume.
+The first `docker compose up` may take longer because the API container downloads both pipeline and VLM models into the shared cache volume before it starts serving requests.
