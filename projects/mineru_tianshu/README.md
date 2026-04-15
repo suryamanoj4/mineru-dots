@@ -1,4 +1,4 @@
-# MinerU Tianshu (天枢)
+# VParse Tianshu (天枢)
 
 > 天枢 - 企业级多GPU文档解析服务  
 > 结合 SQLite 任务队列 + LitServe GPU负载均衡的最佳方案
@@ -18,7 +18,7 @@
 - ✅ **自动清理** - 定期清理旧结果文件,保留数据库记录
 
 ### 智能解析
-- ✅ **双解析器** - PDF/图片用 MinerU(GPU加速), Office/HTML等用 MarkItDown(快速)
+- ✅ **双解析器** - PDF/图片用 VParse(GPU加速), Office/HTML等用 MarkItDown(快速)
 - ✅ **内容获取** - API自动返回 Markdown 内容,支持图片上传到 MinIO
 - ✅ **RESTful API** - 支持任何编程语言接入
 - ✅ **实时查询** - 随时查看任务进度和状态
@@ -32,7 +32,7 @@
                     ↓
          LitServe Worker Pool (主动拉取 + GPU自动负载均衡)
                     ↓
-              MinerU / MarkItDown 解析
+              VParse / MarkItDown 解析
                     ↓
          Task Scheduler (可选监控组件)
 ```
@@ -41,7 +41,7 @@
 - ✅ **Worker 主动模式**: Workers 持续循环拉取任务,无需调度器触发
 - ✅ **并发安全**: SQLite 使用原子操作防止任务重复处理
 - ✅ **自动负载均衡**: LitServe 自动分配任务到空闲 GPU
-- ✅ **智能解析**: PDF/图片用 MinerU,其他格式用 MarkItDown
+- ✅ **智能解析**: PDF/图片用 VParse,其他格式用 MarkItDown
 
 ## 🚀 快速开始
 
@@ -53,7 +53,7 @@ pip install -r requirements.txt
 ```
 
 > **支持的文件格式**:
-> - 📄 **PDF 和图片** (.pdf, .png, .jpg, .jpeg, .bmp, .tiff, .webp) - 使用 MinerU 解析（GPU 加速）
+> - 📄 **PDF 和图片** (.pdf, .png, .jpg, .jpeg, .bmp, .tiff, .webp) - 使用 VParse 解析（GPU 加速）
 > - 📊 **其他所有格式** (Office、HTML、文本等) - 使用 MarkItDown 解析（快速处理）
 >   - Office: .docx, .doc, .xlsx, .xls, .pptx, .ppt
 >   - 网页: .html, .htm
@@ -113,7 +113,7 @@ mineru_tianshu/
 **核心组件说明**:
 - `task_db.py`: 使用原子操作保证并发安全,支持旧任务清理
 - `api_server.py`: 查询接口自动返回Markdown内容,支持MinIO图片上传
-- `litserve_worker.py`: Worker主动循环拉取任务,支持MinerU和MarkItDown双解析
+- `litserve_worker.py`: Worker主动循环拉取任务,支持VParse和MarkItDown双解析
 - `task_scheduler.py`: 可选组件,仅用于监控和健康检查(默认5分钟监控,15分钟健康检查)
 
 ## 📚 使用示例
@@ -383,7 +383,7 @@ nvidia-smi  # 应显示GPU信息
 
 **检查依赖**
 ```bash
-pip list | grep -E "(mineru|litserve|torch)"
+pip list | grep -E "(vparse|litserve|torch)"
 ```
 
 ### 问题2: 任务一直 pending
@@ -420,7 +420,7 @@ python start_all.py --workers-per-device 1
 
 **设置显存限制**
 ```bash
-export MINERU_VIRTUAL_VRAM_SIZE=6
+export VPARSE_VIRTUAL_VRAM_SIZE=6
 python start_all.py
 ```
 
@@ -481,7 +481,7 @@ python start_all.py --cleanup-old-files-days 0
 ## 🛠️ 技术栈
 
 - **Web**: FastAPI + Uvicorn
-- **解析器**: MinerU (PDF/图片) + MarkItDown (Office/文本/HTML等)
+- **解析器**: VParse (PDF/图片) + MarkItDown (Office/文本/HTML等)
 - **GPU 调度**: LitServe (自动负载均衡)
 - **存储**: SQLite (并发安全) + MinIO (可选)
 - **日志**: Loguru
@@ -542,7 +542,7 @@ python start_all.py --cleanup-old-files-days 0
 ## 📝 核心依赖
 
 ```txt
-mineru[core]>=2.5.0      # MinerU 核心
+vparse[core]>=2.5.0      # VParse 核心
 fastapi>=0.115.0         # Web 框架
 litserve>=0.2.0          # GPU 负载均衡
 markitdown>=0.1.3        # Office 文档解析
@@ -555,7 +555,7 @@ minio>=7.2.0             # MinIO 对象存储
 
 ## 📄 许可证
 
-遵循 MinerU 主项目许可证
+遵循 VParse 主项目许可证
 
 ---
 

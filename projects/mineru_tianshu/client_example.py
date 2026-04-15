@@ -1,5 +1,5 @@
 """
-MinerU Tianshu - Client Example
+VParse Tianshu - Client Example
 天枢客户端示例
 
 演示如何使用 Python 客户端提交任务和查询状态

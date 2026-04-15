@@ -2454,7 +2454,7 @@ wheels = [
 ]
 
 [[package]]
-name = "mineru"
+name = "vparse"
 source = { editable = "." }
 dependencies = [
     { name = "beautifulsoup4" },
@@ -2649,17 +2649,17 @@ requires-dist = [
     { name = "loguru", specifier = ">=0.7.2" },
     { name = "magika", specifier = ">=0.6.2,<1.1.0" },
     { name = "matplotlib", marker = "extra == 'pipeline'", specifier = ">=3.10,<4" },
-    { name = "mineru", extras = ["api"], marker = "extra == 'core'" },
-    { name = "mineru", extras = ["core"], marker = "extra == 'all'" },
-    { name = "mineru", extras = ["core"], marker = "extra == 'test'" },
-    { name = "mineru", extras = ["gradio"], marker = "extra == 'core'" },
-    { name = "mineru", extras = ["lite"], marker = "extra == 'core'" },
-    { name = "mineru", extras = ["lmdeploy"], marker = "sys_platform == 'windows' and extra == 'all'" },
-    { name = "mineru", extras = ["mlx"], marker = "sys_platform == 'darwin' and extra == 'all'" },
-    { name = "mineru", extras = ["pipeline"], marker = "extra == 'core'" },
-    { name = "mineru", extras = ["tesseract"], marker = "extra == 'lite'" },
-    { name = "mineru", extras = ["vllm"], marker = "sys_platform == 'linux' and extra == 'all'" },
-    { name = "mineru", extras = ["vlm"], marker = "extra == 'core'" },
+    { name = "vparse", extras = ["api"], marker = "extra == 'core'" },
+    { name = "vparse", extras = ["core"], marker = "extra == 'all'" },
+    { name = "vparse", extras = ["core"], marker = "extra == 'test'" },
+    { name = "vparse", extras = ["gradio"], marker = "extra == 'core'" },
+    { name = "vparse", extras = ["lite"], marker = "extra == 'core'" },
+    { name = "vparse", extras = ["lmdeploy"], marker = "sys_platform == 'windows' and extra == 'all'" },
+    { name = "vparse", extras = ["mlx"], marker = "sys_platform == 'darwin' and extra == 'all'" },
+    { name = "vparse", extras = ["pipeline"], marker = "extra == 'core'" },
+    { name = "vparse", extras = ["tesseract"], marker = "extra == 'lite'" },
+    { name = "vparse", extras = ["vllm"], marker = "sys_platform == 'linux' and extra == 'all'" },
+    { name = "vparse", extras = ["vlm"], marker = "extra == 'core'" },
     { name = "mineru-vl-utils", marker = "extra == 'vlm'", specifier = ">=0.1.19.1,<1" },
     { name = "mlx-vlm", marker = "extra == 'mlx'", specifier = ">=0.3.3,<0.4" },
     { name = "modelscope", marker = "extra == 'pipeline'", specifier = ">=1.26.0" },

@@ -6,35 +6,35 @@ import litserve as ls
 from fastapi import HTTPException
 from loguru import logger
 
-from mineru.cli.common import do_parse, read_fn
-from mineru.utils.config_reader import get_device
-from mineru.utils.model_utils import get_vram
+from vparse.cli.common import do_parse, read_fn
+from vparse.utils.config_reader import get_device
+from vparse.utils.model_utils import get_vram
 from _config_endpoint import config_endpoint
 
-class MinerUAPI(ls.LitAPI):
+class VParseAPI(ls.LitAPI):
     def __init__(self, output_dir='/tmp'):
         super().__init__()
         self.output_dir = output_dir
 
     def setup(self, device):
-        """Setup environment variables exactly like MinerU CLI does"""
+        """Setup environment variables exactly like VParse CLI does"""
         logger.info(f"Setting up on device: {device}")
                 
-        if os.getenv('MINERU_DEVICE_MODE', None) == None:
-            os.environ['MINERU_DEVICE_MODE'] = device if device != 'auto' else get_device()
+        if os.getenv('VPARSE_DEVICE_MODE', None) == None:
+            os.environ['VPARSE_DEVICE_MODE'] = device if device != 'auto' else get_device()
 
-        device_mode = os.environ['MINERU_DEVICE_MODE']
-        if os.getenv('MINERU_VIRTUAL_VRAM_SIZE', None) == None:
+        device_mode = os.environ['VPARSE_DEVICE_MODE']
+        if os.getenv('VPARSE_VIRTUAL_VRAM_SIZE', None) == None:
             if device_mode.startswith("cuda") or device_mode.startswith("npu"):
                 vram = get_vram(device_mode)
-                os.environ['MINERU_VIRTUAL_VRAM_SIZE'] = str(vram)
+                os.environ['VPARSE_VIRTUAL_VRAM_SIZE'] = str(vram)
             else:
-                os.environ['MINERU_VIRTUAL_VRAM_SIZE'] = '1'
-        logger.info(f"MINERU_VIRTUAL_VRAM_SIZE: {os.environ['MINERU_VIRTUAL_VRAM_SIZE']}")
+                os.environ['VPARSE_VIRTUAL_VRAM_SIZE'] = '1'
+        logger.info(f"VPARSE_VIRTUAL_VRAM_SIZE: {os.environ['VPARSE_VIRTUAL_VRAM_SIZE']}")
 
-        if os.getenv('MINERU_MODEL_SOURCE', None) in ['huggingface', None]:
+        if os.getenv('VPARSE_MODEL_SOURCE', None) in ['huggingface', None]:
             config_endpoint()
-        logger.info(f"MINERU_MODEL_SOURCE: {os.environ['MINERU_MODEL_SOURCE']}")
+        logger.info(f"VPARSE_MODEL_SOURCE: {os.environ['VPARSE_MODEL_SOURCE']}")
 
 
     def decode_request(self, request):
@@ -59,7 +59,7 @@ class MinerUAPI(ls.LitAPI):
         }
 
     def predict(self, inputs):
-        """Call MinerU's do_parse - same as CLI"""
+        """Call VParse's do_parse - same as CLI"""
         input_path = inputs['input_path']
         output_dir = Path(self.output_dir)
 
@@ -98,11 +98,11 @@ class MinerUAPI(ls.LitAPI):
 
 if __name__ == '__main__':
     server = ls.LitServer(
-        MinerUAPI(output_dir='/tmp/mineru_output'),
+        VParseAPI(output_dir='/tmp/vparse_output'),
         accelerator='auto',
         devices='auto',
         workers_per_device=1,
         timeout=False
     )
-    logger.info("Starting MinerU server on port 8000")
+    logger.info("Starting VParse server on port 8000")
     server.run(port=8000, generate_client_file=False) 

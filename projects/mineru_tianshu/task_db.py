@@ -1,5 +1,5 @@
 """
-MinerU Tianshu - SQLite Task Database Manager
+VParse Tianshu - SQLite Task Database Manager
 天枢任务数据库管理器
 
 负责任务的持久化存储、状态管理和原子性操作

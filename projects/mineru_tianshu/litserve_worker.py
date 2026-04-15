@@ -1,5 +1,5 @@
 """
-MinerU Tianshu - LitServe Worker
+VParse Tianshu - LitServe Worker
 天枢 LitServe Worker
 
 使用 LitServe 实现 GPU 资源的自动负载均衡
@@ -16,13 +16,13 @@ from pathlib import Path
 import litserve as ls
 from loguru import logger
 
-# 添加父目录到路径以导入 MinerU
+# 添加父目录到路径以导入 VParse
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from task_db import TaskDB
-from mineru.cli.common import do_parse, read_fn
-from mineru.utils.config_reader import get_device
-from mineru.utils.model_utils import get_vram, clean_memory
+from vparse.cli.common import do_parse, read_fn
+from vparse.utils.config_reader import get_device
+from vparse.utils.model_utils import get_vram, clean_memory
 
 # 尝试导入 markitdown
 try:
@@ -33,20 +33,20 @@ except ImportError:
     logger.warning("⚠️  markitdown not available, Office format parsing will be disabled")
 
 
-class MinerUWorkerAPI(ls.LitAPI):
+class VParseWorkerAPI(ls.LitAPI):
     """
     LitServe API Worker
     
     Worker 主动循环拉取任务，利用 LitServe 的自动 GPU 负载均衡
     支持两种解析方式：
-    - PDF/图片 -> MinerU 解析（GPU 加速）
+    - PDF/图片 -> VParse 解析（GPU 加速）
     - 其他所有格式 -> MarkItDown 解析（快速处理）
     
     新模式：每个 worker 启动后持续循环拉取任务，处理完一个立即拉取下一个
     """
     
     # 支持的文件格式定义
-    # MinerU 专用格式：PDF 和图片
+    # VParse 专用格式：PDF 和图片
     PDF_IMAGE_FORMATS = {'.pdf', '.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.tif', '.webp'}
     # 其他所有格式都使用 MarkItDown 解析
     
@@ -88,25 +88,25 @@ class MinerUWorkerAPI(ls.LitAPI):
             device_id = str(device).split(':')[-1]
             os.environ['CUDA_VISIBLE_DEVICES'] = device_id
             # 设置为 cuda:0，因为对进程来说只能看到一张卡（逻辑ID变为0）
-            os.environ['MINERU_DEVICE_MODE'] = 'cuda:0'
-            device_mode = os.environ['MINERU_DEVICE_MODE']
+            os.environ['VPARSE_DEVICE_MODE'] = 'cuda:0'
+            device_mode = os.environ['VPARSE_DEVICE_MODE']
             logger.info(f"🔒 CUDA_VISIBLE_DEVICES={device_id} (Physical GPU {device_id} → Logical GPU 0)")
         else:
-            # 配置 MinerU 环境
-            if os.getenv('MINERU_DEVICE_MODE', None) is None:
-                os.environ['MINERU_DEVICE_MODE'] = device if device != 'auto' else get_device()
-            device_mode = os.environ['MINERU_DEVICE_MODE']
+            # 配置 VParse 环境
+            if os.getenv('VPARSE_DEVICE_MODE', None) is None:
+                os.environ['VPARSE_DEVICE_MODE'] = device if device != 'auto' else get_device()
+            device_mode = os.environ['VPARSE_DEVICE_MODE']
         
         # 配置显存
-        if os.getenv('MINERU_VIRTUAL_VRAM_SIZE', None) is None:
+        if os.getenv('VPARSE_VIRTUAL_VRAM_SIZE', None) is None:
             if device_mode.startswith("cuda") or device_mode.startswith("npu"):
                 try:
                     vram = get_vram(device_mode)
-                    os.environ['MINERU_VIRTUAL_VRAM_SIZE'] = str(vram)
+                    os.environ['VPARSE_VIRTUAL_VRAM_SIZE'] = str(vram)
                 except:
-                    os.environ['MINERU_VIRTUAL_VRAM_SIZE'] = '8'  # 默认值
+                    os.environ['VPARSE_VIRTUAL_VRAM_SIZE'] = '8'  # 默认值
             else:
-                os.environ['MINERU_VIRTUAL_VRAM_SIZE'] = '1'
+                os.environ['VPARSE_VIRTUAL_VRAM_SIZE'] = '1'
         
         # 初始化 MarkItDown（如果可用）
         if MARKITDOWN_AVAILABLE:
@@ -115,7 +115,7 @@ class MinerUWorkerAPI(ls.LitAPI):
         
         logger.info(f"✅ Worker {self.worker_id} ready")
         logger.info(f"   Device: {device_mode}")
-        logger.info(f"   VRAM: {os.environ['MINERU_VIRTUAL_VRAM_SIZE']}GB")
+        logger.info(f"   VRAM: {os.environ['VPARSE_VIRTUAL_VRAM_SIZE']}GB")
         
         # 启动 worker 循环拉取任务（在独立线程中）
         if self.enable_worker_loop:
@@ -223,8 +223,8 @@ class MinerUWorkerAPI(ls.LitAPI):
             file_type = self._get_file_type(file_path)
             
             if file_type == 'pdf_image':
-                # 使用 MinerU 解析 PDF 和图片
-                self._parse_with_mineru(
+                # 使用 VParse 解析 PDF 和图片
+                self._parse_with_vparse(
                     file_path=Path(file_path),
                     file_name=file_name,
                     task_id=task_id,
@@ -232,7 +232,7 @@ class MinerUWorkerAPI(ls.LitAPI):
                     options=options,
                     output_path=output_path
                 )
-                parse_method = 'MinerU'
+                parse_method = 'VParse'
                 
             else:  # file_type == 'markitdown'
                 # 使用 markitdown 解析所有其他格式
@@ -284,7 +284,7 @@ class MinerUWorkerAPI(ls.LitAPI):
             file_path: 文件路径
             
         Returns:
-            'pdf_image': PDF 或图片格式，使用 MinerU 解析
+            'pdf_image': PDF 或图片格式，使用 VParse 解析
             'markitdown': 其他所有格式，使用 markitdown 解析
         """
         suffix = Path(file_path).suffix.lower()
@@ -295,10 +295,10 @@ class MinerUWorkerAPI(ls.LitAPI):
             # 所有非 PDF/图片格式都使用 markitdown
             return 'markitdown'
     
-    def _parse_with_mineru(self, file_path: Path, file_name: str, task_id: str, 
+    def _parse_with_vparse(self, file_path: Path, file_name: str, task_id: str, 
                            backend: str, options: dict, output_path: Path):
         """
-        使用 MinerU 解析 PDF 和图片格式
+        使用 VParse 解析 PDF 和图片格式
         
         Args:
             file_path: 文件路径
@@ -308,13 +308,13 @@ class MinerUWorkerAPI(ls.LitAPI):
             options: 解析选项
             output_path: 输出路径
         """
-        logger.info(f"📄 Using MinerU to parse: {file_name}")
+        logger.info(f"📄 Using VParse to parse: {file_name}")
         
         try:
             # 读取文件
             pdf_bytes = read_fn(file_path)
             
-            # 执行解析（MinerU 的 ModelSingleton 会自动复用模型）
+            # 执行解析（VParse 的 ModelSingleton 会自动复用模型）
             do_parse(
                 output_dir=str(output_path),
                 pdf_file_names=[Path(file_name).stem],
@@ -326,7 +326,7 @@ class MinerUWorkerAPI(ls.LitAPI):
                 table_enable=options.get('table_enable', True),
             )
         finally:
-            # 使用 MinerU 自带的内存清理函数
+            # 使用 VParse 自带的内存清理函数
             # 这个函数只清理推理产生的中间结果，不会卸载模型
             try:
                 clean_memory()
@@ -446,7 +446,7 @@ def start_litserve_workers(
         enable_worker_loop: 是否启用 worker 自动循环拉取任务
     """
     logger.info("=" * 60)
-    logger.info("🚀 Starting MinerU Tianshu LitServe Worker Pool")
+    logger.info("🚀 Starting VParse Tianshu LitServe Worker Pool")
     logger.info("=" * 60)
     logger.info(f"📂 Output Directory: {output_dir}")
     logger.info(f"🎮 Accelerator: {accelerator}")
@@ -459,7 +459,7 @@ def start_litserve_workers(
     logger.info("=" * 60)
     
     # 创建 LitServe 服务器
-    api = MinerUWorkerAPI(
+    api = VParseWorkerAPI(
         output_dir=output_dir,
         poll_interval=poll_interval,
         enable_worker_loop=enable_worker_loop
@@ -505,7 +505,7 @@ def start_litserve_workers(
 if __name__ == '__main__':
     import argparse
     
-    parser = argparse.ArgumentParser(description='MinerU Tianshu LitServe Worker Pool')
+    parser = argparse.ArgumentParser(description='VParse Tianshu LitServe Worker Pool')
     parser.add_argument('--output-dir', type=str, default='/tmp/mineru_tianshu_output',
                        help='Output directory for processed files')
     parser.add_argument('--accelerator', type=str, default='auto',

@@ -1,5 +1,5 @@
 """
-MinerU Tianshu - API Server
+VParse Tianshu - API Server
 天枢API服务器
 
 提供RESTful API接口用于任务提交、查询和管理
@@ -23,7 +23,7 @@ from task_db import TaskDB
 
 # 初始化 FastAPI 应用
 app = FastAPI(
-    title="MinerU Tianshu API",
+    title="VParse Tianshu API",
     description="天枢 - 企业级多GPU文档解析服务",
     version="1.0.0"
 )
@@ -232,7 +232,7 @@ def get_images_info(image_dir: Path, upload_to_minio: bool = False):
 async def root():
     """API根路径"""
     return {
-        "service": "MinerU Tianshu",
+        "service": "VParse Tianshu",
         "version": "1.0.0",
         "description": "天枢 - 企业级多GPU文档解析服务",
         "docs": "/docs"
@@ -241,7 +241,7 @@ async def root():
 
 @app.post("/api/v1/tasks/submit")
 async def submit_task(
-    file: UploadFile = File(..., description="文档文件: PDF/图片(MinerU解析) 或 Office/HTML/文本等(MarkItDown解析)"),
+    file: UploadFile = File(..., description="文档文件: PDF/图片(VParse解析) 或 Office/HTML/文本等(MarkItDown解析)"),
     backend: str = Form('pipeline', description="处理后端: pipeline/vlm-transformers/vlm-vllm-engine"),
     lang: str = Form('ch', description="语言: ch/en/korean/japan等"),
     method: str = Form('auto', description="解析方法: auto/txt/ocr"),
@@ -310,7 +310,7 @@ async def get_task_data(
     """
     按需获取任务的解析数据
 
-    支持灵活获取 MinerU 解析后的数据，包括：
+    支持灵活获取 VParse 解析后的数据，包括：
     - Markdown 内容
     - Content List JSON（结构化内容列表）
     - Middle JSON（中间处理结果）
@@ -360,7 +360,7 @@ async def get_task_data(
 
     logger.info(f"📦 Getting complete data for task {task_id}, fields: {fields}")
 
-    # 查找文件（递归搜索，MinerU 输出结构：task_id/filename/auto/*.md）
+    # 查找文件（递归搜索，VParse 输出结构：task_id/filename/auto/*.md）
     try:
         # 1. 处理 Markdown 文件
         if 'md' in fields:
@@ -557,7 +557,7 @@ async def get_task_status(
         
         if result_dir.exists():
             logger.info(f"✅ Result directory exists")
-            # 递归查找 Markdown 文件（MinerU 输出结构：task_id/filename/auto/*.md）
+            # 递归查找 Markdown 文件（VParse 输出结构：task_id/filename/auto/*.md）
             md_files = list(result_dir.rglob('*.md'))
             logger.info(f"📄 Found {len(md_files)} markdown files: {[f.relative_to(result_dir) for f in md_files]}")
             
@@ -739,7 +739,7 @@ if __name__ == '__main__':
     # 从环境变量读取端口，默认为8000
     api_port = int(os.getenv('API_PORT', '8000'))
     
-    logger.info("🚀 Starting MinerU Tianshu API Server...")
+    logger.info("🚀 Starting VParse Tianshu API Server...")
     logger.info(f"📖 API Documentation: http://localhost:{api_port}/docs")
     
     uvicorn.run(

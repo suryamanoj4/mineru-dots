@@ -1,21 +1,21 @@
-# Deploying MinerU with Docker
+# Deploying VParse with Docker
 
-MinerU provides a convenient Docker deployment method, which helps quickly set up the environment and solve some tricky environment compatibility issues.
+VParse provides a convenient Docker deployment method, which helps quickly set up the environment and solve some tricky environment compatibility issues.
 
 ## Build Docker Image using Dockerfile
 
 ```bash
-docker build -t mineru:gpu -f docker/global/Dockerfile .
-docker build -t mineru:cpu -f docker/global/Dockerfile.cpu .
+docker build -t vparse:gpu -f docker/global/Dockerfile .
+docker build -t vparse:cpu -f docker/global/Dockerfile.cpu .
 ```
 
 > [!TIP]
-> The [Dockerfile](https://github.com/opendatalab/MinerU/blob/master/docker/global/Dockerfile) uses `vllm/vllm-openai:v0.10.1.1` as the base image by default. This version of vLLM v1 engine has limited support for GPU models. 
+> The [Dockerfile](https://github.com/opendatalab/VParse/blob/master/docker/global/Dockerfile) uses `vllm/vllm-openai:v0.10.1.1` as the base image by default. This version of vLLM v1 engine has limited support for GPU models. 
 > This version supports a limited range of GPU models and may only function on Ampere, Ada Lovelace, and Hopper architectures. If you cannot use vLLM for accelerated inference on Volta, Turing, or Blackwell GPUs, you can resolve this issue by changing the base image to `vllm/vllm-openai:v0.11.0`.
 
 ## Docker Description
 
-MinerU's Docker uses `vllm/vllm-openai` as the base image, so it includes the `vllm` inference acceleration framework and necessary dependencies by default. Therefore, on compatible devices, you can directly use `vllm` to accelerate VLM model inference.
+VParse's Docker uses `vllm/vllm-openai` as the base image, so it includes the `vllm` inference acceleration framework and necessary dependencies by default. Therefore, on compatible devices, you can directly use `vllm` to accelerate VLM model inference.
 
 > [!NOTE]
 > Requirements for using `vllm` to accelerate VLM model inference:
@@ -32,20 +32,20 @@ docker run --gpus all \
   --shm-size 32g \
   -p 30000:30000 -p 7860:7860 -p 8000:8000 \
   --ipc=host \
-  -it mineru:gpu \
+  -it vparse:gpu \
   /bin/bash
 ```
 
-After executing this command, you will enter the Docker container's interactive terminal with some ports mapped for potential services. You can directly run MinerU-related commands within the container to use MinerU's features.
-You can also directly start MinerU services by replacing `/bin/bash` with service startup commands. For detailed instructions, please refer to the [Start the service via command](https://opendatalab.github.io/MinerU/usage/quick_usage/#advanced-usage-via-api-webui-http-clientserver).
+After executing this command, you will enter the Docker container's interactive terminal with some ports mapped for potential services. You can directly run VParse-related commands within the container to use VParse's features.
+You can also directly start VParse services by replacing `/bin/bash` with service startup commands. For detailed instructions, please refer to the [Start the service via command](https://opendatalab.github.io/VParse/usage/quick_usage/#advanced-usage-via-api-webui-http-clientserver).
 
 ## Start Services Directly with Docker Compose
 
-We provide a [compose.yaml](https://github.com/opendatalab/MinerU/blob/master/docker/compose.yaml) file that you can use to quickly start MinerU services.
+We provide a [compose.yaml](https://github.com/opendatalab/VParse/blob/master/docker/compose.yaml) file that you can use to quickly start VParse services.
 
 ```bash
 # Run from the repository root
-cd /path/to/MinerU
+cd /path/to/VParse
 ```
 
 >[!NOTE]
@@ -84,7 +84,7 @@ To inspect the running CPU container:
 
 ```bash
 docker compose -f docker/compose.yaml ps
-docker compose -f docker/compose.yaml logs -f mineru-gradio-cpu
+docker compose -f docker/compose.yaml logs -f vparse-gradio-cpu
 ```
 
 Open `http://<server_ip>:7860` in your browser.
@@ -114,7 +114,7 @@ To inspect the running GPU container:
 
 ```bash
 docker compose -f docker/compose.yaml ps
-docker compose -f docker/compose.yaml logs -f mineru-gradio-gpu
+docker compose -f docker/compose.yaml logs -f vparse-gradio-gpu
 ```
 
 Open `http://<server_ip>:7860` in your browser.

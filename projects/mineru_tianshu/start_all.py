@@ -1,5 +1,5 @@
 """
-MinerU Tianshu - Unified Startup Script
+VParse Tianshu - Unified Startup Script
 天枢统一启动脚本
 
 一键启动所有服务：API Server + LitServe Workers + Task Scheduler
@@ -37,7 +37,7 @@ class TianshuLauncher:
     def start_services(self):
         """启动所有服务"""
         logger.info("=" * 70)
-        logger.info("🚀 MinerU Tianshu - Starting All Services")
+        logger.info("🚀 VParse Tianshu - Starting All Services")
         logger.info("=" * 70)
         logger.info("天枢 - 企业级多GPU文档解析服务")
         logger.info("")
@@ -184,7 +184,7 @@ class TianshuLauncher:
 def main():
     """主函数"""
     parser = argparse.ArgumentParser(
-        description='MinerU Tianshu - 统一启动脚本',
+        description='VParse Tianshu - 统一启动脚本',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:

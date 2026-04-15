@@ -1,6 +1,6 @@
 # Changelog
 
-This document records the update history of MinerU project for version 2.6.7 and earlier. For the latest version updates, please check the project [README](https://github.com/opendatalab/MinerU/blob/master/README.md).
+This document records the update history of VParse project for version 2.6.7 and earlier. For the latest version updates, please check the project [README](https://github.com/opendatalab/VParse/blob/master/README.md).
 
 ---
 
@@ -12,11 +12,11 @@ This document records the update history of MinerU project for version 2.6.7 and
 
 ### 2.6.6 (2025/12/02)
 
-**`mineru-api` tool optimizations**
+**`vparse-api` tool optimizations**
 
-- Added descriptive text to `mineru-api` interface parameters to improve API documentation readability.
-- You can use the environment variable `MINERU_API_ENABLE_FASTAPI_DOCS` to control whether the auto-generated interface documentation page is enabled (enabled by default).
-- Added concurrency configuration options for the `vlm-vllm-async-engine`, `vlm-lmdeploy-engine`, and `vlm-http-client` backends. Users can use the environment variable `MINERU_API_MAX_CONCURRENT_REQUESTS` to set the maximum number of concurrent API requests (unlimited by default).
+- Added descriptive text to `vparse-api` interface parameters to improve API documentation readability.
+- You can use the environment variable `VPARSE_API_ENABLE_FASTAPI_DOCS` to control whether the auto-generated interface documentation page is enabled (enabled by default).
+- Added concurrency configuration options for the `vlm-vllm-async-engine`, `vlm-lmdeploy-engine`, and `vlm-http-client` backends. Users can use the environment variable `VPARSE_API_MAX_CONCURRENT_REQUESTS` to set the maximum number of concurrent API requests (unlimited by default).
 
 ### 2.6.5 (2025/11/26)
 
@@ -24,19 +24,19 @@ This document records the update history of MinerU project for version 2.6.7 and
 
 ### 2.6.4 (2025/11/04)
 
-- Added timeout configuration for PDF image rendering, default is 300 seconds, can be configured via environment variable `MINERU_PDF_RENDER_TIMEOUT` to prevent long blocking of the rendering process caused by some abnormal PDF files.
-- Added CPU thread count configuration options for ONNX models, default is the system CPU core count, can be configured via environment variables `MINERU_INTRA_OP_NUM_THREADS` and `MINERU_INTER_OP_NUM_THREADS` to reduce CPU resource contention conflicts in high concurrency scenarios.
+- Added timeout configuration for PDF image rendering, default is 300 seconds, can be configured via environment variable `VPARSE_PDF_RENDER_TIMEOUT` to prevent long blocking of the rendering process caused by some abnormal PDF files.
+- Added CPU thread count configuration options for ONNX models, default is the system CPU core count, can be configured via environment variables `VPARSE_INTRA_OP_NUM_THREADS` and `VPARSE_INTER_OP_NUM_THREADS` to reduce CPU resource contention conflicts in high concurrency scenarios.
 
 ### 2.6.3 (2025/10/31)
 
-- Added support for a new backend `vlm-mlx-engine`, enabling MLX-accelerated inference for the MinerU2.5 model on Apple Silicon devices. Compared to the `vlm-transformers` backend, `vlm-mlx-engine` delivers a 100%–200% speed improvement.
+- Added support for a new backend `vlm-mlx-engine`, enabling MLX-accelerated inference for the VParse2.5 model on Apple Silicon devices. Compared to the `vlm-transformers` backend, `vlm-mlx-engine` delivers a 100%–200% speed improvement.
 - Bug fixes: #3849, #3859
 
 ### 2.6.2 (2025/10/24)
 
 **`pipeline` backend optimizations**
 
-- Added experimental support for Chinese formulas, which can be enabled by setting the environment variable `export MINERU_FORMULA_CH_SUPPORT=1`. This feature may cause a slight decrease in MFR speed and failures in recognizing some long formulas. It is recommended to enable it only when parsing Chinese formulas is needed. To disable this feature, set the environment variable to `0`.
+- Added experimental support for Chinese formulas, which can be enabled by setting the environment variable `export VPARSE_FORMULA_CH_SUPPORT=1`. This feature may cause a slight decrease in MFR speed and failures in recognizing some long formulas. It is recommended to enable it only when parsing Chinese formulas is needed. To disable this feature, set the environment variable to `0`.
 - `OCR` speed significantly improved by 200%~300%, thanks to the optimization solution provided by [@cjsdurj](https://github.com/cjsdurj)
 - `OCR` models optimized for improved accuracy and coverage of Latin script recognition, and updated Cyrillic, Arabic, Devanagari, Telugu (te), and Tamil (ta) language systems to `ppocr-v5` version, with accuracy improved by over 40% compared to previous models 
 
@@ -49,7 +49,7 @@ This document records the update history of MinerU project for version 2.6.7 and
 **General optimizations**
 
 - Cross-page table merging effect optimized, added support for cross-page continuation table merging, improving table merging effectiveness in multi-column merge scenarios
-- Added environment variable configuration option `MINERU_TABLE_MERGE_ENABLE` for table merging feature. Table merging is enabled by default and can be disabled by setting this variable to `0`
+- Added environment variable configuration option `VPARSE_TABLE_MERGE_ENABLE` for table merging feature. Table merging is enabled by default and can be disabled by setting this variable to `0`
 
 ---
 
@@ -57,23 +57,23 @@ This document records the update history of MinerU project for version 2.6.7 and
 
 ### 2.5.4 (2025/09/26)
 
-- 🎉🎉 The MinerU2.5 [Technical Report](https://arxiv.org/abs/2509.22186) is now available! We welcome you to read it for a comprehensive overview of its model architecture, training strategy, data engineering and evaluation results.
+- 🎉🎉 The VParse2.5 [Technical Report](https://arxiv.org/abs/2509.22186) is now available! We welcome you to read it for a comprehensive overview of its model architecture, training strategy, data engineering and evaluation results.
 - Fixed an issue where some `PDF` files were mistakenly identified as `AI` files, causing parsing failures
 
 ### 2.5.3 (2025/09/20)
 
-- Dependency version range adjustment to enable Turing and earlier architecture GPUs to use vLLM acceleration for MinerU2.5 model inference.
+- Dependency version range adjustment to enable Turing and earlier architecture GPUs to use vLLM acceleration for VParse2.5 model inference.
 - `pipeline` backend compatibility fixes for torch 2.8.0.
 - Reduced default concurrency for vLLM async backend to lower server pressure and avoid connection closure issues caused by high load.
-- More compatibility-related details can be found in the [announcement](https://github.com/opendatalab/MinerU/discussions/3548)
+- More compatibility-related details can be found in the [announcement](https://github.com/opendatalab/VParse/discussions/3548)
 
 ### 2.5.2 (2025/09/19)
 
-We are officially releasing MinerU2.5, currently the most powerful multimodal large model for document parsing.
+We are officially releasing VParse2.5, currently the most powerful multimodal large model for document parsing.
 
-With only 1.2B parameters, MinerU2.5's accuracy on the OmniDocBench benchmark comprehensively surpasses top-tier multimodal models like Gemini 2.5 Pro, GPT-4o, and Qwen2.5-VL-72B. It also significantly outperforms leading specialized models such as dots.ocr, MonkeyOCR, and PP-StructureV3.
+With only 1.2B parameters, VParse2.5's accuracy on the OmniDocBench benchmark comprehensively surpasses top-tier multimodal models like Gemini 2.5 Pro, GPT-4o, and Qwen2.5-VL-72B. It also significantly outperforms leading specialized models such as dots.ocr, MonkeyOCR, and PP-StructureV3.
 
-The model has been released on [HuggingFace](https://huggingface.co/opendatalab/MinerU2.5-2509-1.2B) and [ModelScope](https://modelscope.cn/models/opendatalab/MinerU2.5-2509-1.2B) platforms. Welcome to download and use!
+The model has been released on [HuggingFace](https://huggingface.co/opendatalab/VParse2.5-2509-1.2B) and [ModelScope](https://modelscope.cn/models/opendatalab/VParse2.5-2509-1.2B) platforms. Welcome to download and use!
 
 **Core Highlights**
 
@@ -90,10 +90,10 @@ The model has been released on [HuggingFace](https://huggingface.co/opendatalab/
 
 Additionally, with the release of vlm 2.5, we have made some adjustments to the repository:
 
-- The vlm backend has been upgraded to version 2.5, supporting the MinerU2.5 model and no longer compatible with the MinerU2.0-2505-0.9B model. The last version supporting the 2.0 model is mineru-2.2.2.
-- VLM inference-related code has been moved to [mineru_vl_utils](https://github.com/opendatalab/mineru-vl-utils), reducing coupling with the main mineru repository and facilitating independent iteration in the future.
-- The vlm accelerated inference framework has been switched from `sglang` to `vllm`, achieving full compatibility with the vllm ecosystem, allowing users to use the MinerU2.5 model and accelerated inference on any platform that supports the vllm framework.
-- Due to major upgrades in the vlm model supporting more layout types, we have made some adjustments to the structure of the parsing intermediate file `middle.json` and result file `content_list.json`. Please refer to the [documentation](https://opendatalab.github.io/MinerU/reference/output_files/) for details.
+- The vlm backend has been upgraded to version 2.5, supporting the VParse2.5 model and no longer compatible with the VParse2.0-2505-0.9B model. The last version supporting the 2.0 model is vparse-2.2.2.
+- VLM inference-related code has been moved to [mineru_vl_utils](https://github.com/opendatalab/mineru-vl-utils), reducing coupling with the main vparse repository and facilitating independent iteration in the future.
+- The vlm accelerated inference framework has been switched from `sglang` to `vllm`, achieving full compatibility with the vllm ecosystem, allowing users to use the VParse2.5 model and accelerated inference on any platform that supports the vllm framework.
+- Due to major upgrades in the vlm model supporting more layout types, we have made some adjustments to the structure of the parsing intermediate file `middle.json` and result file `content_list.json`. Please refer to the [documentation](https://opendatalab.github.io/VParse/reference/output_files/) for details.
 
 **Other Repository Optimizations**
 
@@ -171,12 +171,12 @@ Additionally, with the release of vlm 2.5, we have made some adjustments to the 
 
 **Usability improvements**
 
-- Updated `compose.yaml` to facilitate direct startup of `sglang-server`, `mineru-api`, and `mineru-gradio` services
-- Launched brand new [online documentation site](https://opendatalab.github.io/MinerU/), simplified readme, providing better documentation experience
+- Updated `compose.yaml` to facilitate direct startup of `sglang-server`, `vparse-api`, and `vparse-gradio` services
+- Launched brand new [online documentation site](https://opendatalab.github.io/VParse/), simplified readme, providing better documentation experience
 
 ### 2.1.0 (2025/07/05)
 
-This is the first major update of MinerU 2, which includes a large number of new features and improvements, covering significant performance optimizations, user experience enhancements, and bug fixes. The detailed update contents are as follows:
+This is the first major update of VParse 2, which includes a large number of new features and improvements, covering significant performance optimizations, user experience enhancements, and bug fixes. The detailed update contents are as follows:
 
 **Performance Optimizations**
 
@@ -186,10 +186,10 @@ This is the first major update of MinerU 2, which includes a large number of new
 
 **Experience Enhancements**
 
-- Built-in ready-to-use `fastapi service` and `gradio webui`. For detailed usage instructions, please refer to [Documentation](https://opendatalab.github.io/MinerU/usage/quick_usage/#advanced-usage-via-api-webui-sglang-clientserver).
+- Built-in ready-to-use `fastapi service` and `gradio webui`. For detailed usage instructions, please refer to [Documentation](https://opendatalab.github.io/VParse/usage/quick_usage/#advanced-usage-via-api-webui-sglang-clientserver).
 - Adapted to `sglang` version `0.4.8`, significantly reducing the GPU memory requirements for the `vlm-sglang` backend. It can now run on graphics cards with as little as `8GB GPU memory` (Turing architecture or newer).
 - Added transparent parameter passing for all commands related to `sglang`, allowing the `sglang-engine` backend to receive all `sglang` parameters consistently with the `sglang-server`.
-- Supports feature extensions based on configuration files, including `custom formula delimiters`, `enabling heading classification`, and `customizing local model directories`. For detailed usage instructions, please refer to [Documentation](https://opendatalab.github.io/MinerU/usage/quick_usage/#extending-mineru-functionality-with-configuration-files).
+- Supports feature extensions based on configuration files, including `custom formula delimiters`, `enabling heading classification`, and `customizing local model directories`. For detailed usage instructions, please refer to [Documentation](https://opendatalab.github.io/VParse/usage/quick_usage/#extending-vparse-functionality-with-configuration-files).
 
 **New Features**
 
@@ -216,13 +216,13 @@ This is the first major update of MinerU 2, which includes a large number of new
 - Fixed a configuration file key-value update error that occurred when downloading model type was set to `all`
 - Fixed the issue where the formula and table feature toggle switches were not working in `command line mode`, causing the features to remain enabled.
 - Fixed compatibility issues with sglang version 0.4.7 in the `sglang-engine` mode.
-- Updated Dockerfile and installation documentation for deploying the full version of MinerU in sglang environment
+- Updated Dockerfile and installation documentation for deploying the full version of VParse in sglang environment
 
 ### 2.0.0 (2025/06/13)
 
 **New Architecture**
 
-MinerU 2.0 has been deeply restructured in code organization and interaction methods, significantly improving system usability, maintainability, and extensibility.
+VParse 2.0 has been deeply restructured in code organization and interaction methods, significantly improving system usability, maintainability, and extensibility.
 
 - **Removal of Third-party Dependency Limitations**: Completely eliminated the dependency on `pymupdf`, moving the project toward a more open and compliant open-source direction.
 - **Ready-to-use, Easy Configuration**: No need to manually edit JSON configuration files; most parameters can now be set directly via command line or API.
@@ -233,19 +233,19 @@ MinerU 2.0 has been deeply restructured in code organization and interaction met
 
 **New Model**
 
-MinerU 2.0 integrates our latest small-parameter, high-performance multimodal document parsing model, achieving end-to-end high-speed, high-precision document understanding.
+VParse 2.0 integrates our latest small-parameter, high-performance multimodal document parsing model, achieving end-to-end high-speed, high-precision document understanding.
 
 - **Small Model, Big Capabilities**: With parameters under 1B, yet surpassing traditional 72B-level vision-language models (VLMs) in parsing accuracy.
 - **Multiple Functions in One**: A single model covers multilingual recognition, handwriting recognition, layout analysis, table parsing, formula recognition, reading order sorting, and other core tasks.
 - **Ultimate Inference Speed**: Achieves peak throughput exceeding 10,000 tokens/s through `sglang` acceleration on a single NVIDIA 4090 card, easily handling large-scale document processing requirements.
-- **Online Experience**: You can experience our brand-new VLM model on [MinerU.net](https://mineru.net/OpenSourceTools/Extractor), [Hugging Face](https://huggingface.co/spaces/opendatalab/MinerU), and [ModelScope](https://www.modelscope.cn/studios/OpenDataLab/MinerU).
+- **Online Experience**: You can experience our brand-new VLM model on [VParse.net](https://vparse.net/OpenSourceTools/Extractor), [Hugging Face](https://huggingface.co/spaces/opendatalab/VParse), and [ModelScope](https://www.modelscope.cn/studios/OpenDataLab/VParse).
 
 **Incompatible Changes Notice**
 
 To improve overall architectural rationality and long-term maintainability, this version contains some incompatible changes:
 
-- Python package name changed from `magic-pdf` to `mineru`, and the command-line tool changed from `magic-pdf` to `mineru`. Please update your scripts and command calls accordingly.
-- For modular system design and ecosystem consistency considerations, MinerU 2.0 no longer includes the LibreOffice document conversion module. If you need to process Office documents, we recommend converting them to PDF format through an independently deployed LibreOffice service before proceeding with subsequent parsing operations.
+- Python package name changed from `magic-pdf` to `vparse`, and the command-line tool changed from `magic-pdf` to `vparse`. Please update your scripts and command calls accordingly.
+- For modular system design and ecosystem consistency considerations, VParse 2.0 no longer includes the LibreOffice document conversion module. If you need to process Office documents, we recommend converting them to PDF format through an independently deployed LibreOffice service before proceeding with subsequent parsing operations.
 
 ---
 
@@ -311,7 +311,7 @@ The default `ocr` model (`ch`) has been updated to `PP-OCRv4_server_rec_doc` (mo
 Fixed several compatibility issues
 
 - Added support for Python 3.13
-- Made final adaptations for outdated Linux systems (such as CentOS 7) with no guarantee of continued support in future versions, [installation instructions](https://github.com/opendatalab/MinerU/issues/1004)
+- Made final adaptations for outdated Linux systems (such as CentOS 7) with no guarantee of continued support in future versions, [installation instructions](https://github.com/opendatalab/VParse/issues/1004)
 
 ### 1.3.0 (2025/04/03)
 
@@ -369,7 +369,7 @@ This version includes several fixes and improvements to enhance parsing efficien
 
 In this version we have focused on improving parsing accuracy and efficiency:
 
-**Model capability upgrade** (requires re-executing the [model download process](https://github.com/opendatalab/MinerU/blob/master/docs/how_to_download_models_en.md) to obtain incremental updates of model files)
+**Model capability upgrade** (requires re-executing the [model download process](https://github.com/opendatalab/VParse/blob/master/docs/how_to_download_models_en.md) to obtain incremental updates of model files)
 
 - The layout recognition model has been upgraded to the latest `doclayout_yolo(2501)` model, improving layout recognition accuracy.
 - The formula parsing model has been upgraded to the latest `unimernet(2501)` model, improving formula recognition accuracy.
@@ -380,7 +380,7 @@ In this version we have focused on improving parsing accuracy and efficiency:
 
 **Parsing effect optimization**
 
-- Added a new heading classification feature (testing version, enabled by default) to the online demo ([mineru.net](https://mineru.net/OpenSourceTools/Extractor)/[huggingface](https://huggingface.co/spaces/opendatalab/MinerU)/[modelscope](https://www.modelscope.cn/studios/OpenDataLab/MinerU)), which supports hierarchical classification of headings, thereby enhancing document structuring.
+- Added a new heading classification feature (testing version, enabled by default) to the online demo ([vparse.net](https://vparse.net/OpenSourceTools/Extractor)/[huggingface](https://huggingface.co/spaces/opendatalab/VParse)/[modelscope](https://www.modelscope.cn/studios/OpenDataLab/VParse)), which supports hierarchical classification of headings, thereby enhancing document structuring.
 
 ### 1.0.1 (2025/01/10)
 
@@ -389,12 +389,12 @@ This is our first official release, where we have introduced a completely new AP
 **New API Interface**
 
 - For the data-side API, we have introduced the Dataset class, designed to provide a robust and flexible data processing framework. This framework currently supports a variety of document formats, including images (.jpg and .png), PDFs, Word documents (.doc and .docx), and PowerPoint presentations (.ppt and .pptx). It ensures effective support for data processing tasks ranging from simple to complex.
-- For the user-side API, we have meticulously designed the MinerU processing workflow as a series of composable Stages. Each Stage represents a specific processing step, allowing users to define new Stages according to their needs and creatively combine these stages to customize their data processing workflows.
+- For the user-side API, we have meticulously designed the VParse processing workflow as a series of composable Stages. Each Stage represents a specific processing step, allowing users to define new Stages according to their needs and creatively combine these stages to customize their data processing workflows.
 
 **Enhanced Compatibility**
 
 - By optimizing the dependency environment and configuration items, we ensure stable and efficient operation on ARM architecture Linux systems.
-- We have deeply integrated with Huawei Ascend NPU acceleration, providing autonomous and controllable high-performance computing capabilities. This supports the localization and development of AI application platforms in China. [Ascend NPU Acceleration](https://github.com/opendatalab/MinerU/blob/master/docs/README_Ascend_NPU_Acceleration_zh_CN.md)
+- We have deeply integrated with Huawei Ascend NPU acceleration, providing autonomous and controllable high-performance computing capabilities. This supports the localization and development of AI application platforms in China. [Ascend NPU Acceleration](https://github.com/opendatalab/VParse/blob/master/docs/README_Ascend_NPU_Acceleration_zh_CN.md)
 
 **Automatic Language Identification**
 
@@ -433,11 +433,11 @@ This is a major new version with extensive code refactoring, addressing numerous
 - Integrated [PDF-Extract-Kit 1.0](https://github.com/opendatalab/PDF-Extract-Kit):
   - Added the self-developed `doclayout_yolo` model, which speeds up processing by more than 10 times compared to the original solution while maintaining similar parsing effects, and can be freely switched with `layoutlmv3` via the configuration file.
   - Upgraded formula parsing to `unimernet 0.2.1`, improving formula parsing accuracy while significantly reducing memory usage.
-  - Due to the repository change for `PDF-Extract-Kit 1.0`, you need to re-download the model. Please refer to [How to Download Models](https://github.com/opendatalab/MinerU/blob/master/docs/how_to_download_models_en.md) for detailed steps.
+  - Due to the repository change for `PDF-Extract-Kit 1.0`, you need to re-download the model. Please refer to [How to Download Models](https://github.com/opendatalab/VParse/blob/master/docs/how_to_download_models_en.md) for detailed steps.
 
 ### 0.8.1 (2024/09/27)
 
-Fixed some bugs, and providing a [localized deployment version](https://github.com/opendatalab/MinerU/blob/master/projects/web_demo/README.md) of the [online demo](https://opendatalab.com/OpenSourceTools/Extractor/PDF/) and the [front-end interface](https://github.com/opendatalab/MinerU/blob/master/projects/web/README.md).
+Fixed some bugs, and providing a [localized deployment version](https://github.com/opendatalab/VParse/blob/master/projects/web_demo/README.md) of the [online demo](https://opendatalab.com/OpenSourceTools/Extractor/PDF/) and the [front-end interface](https://github.com/opendatalab/VParse/blob/master/projects/web/README.md).
 
 ### 0.8.0 (2024/09/09)
 
@@ -457,5 +457,5 @@ Optimized dependency conflict issues and installation documentation
 
 ### Initial Open-Source Release (2024/07/05)
 
-MinerU project's first open-source release
+VParse project's first open-source release
 
