@@ -7,6 +7,8 @@ import sys
 import time
 import tempfile
 import zipfile
+import asyncio
+import base64
 from pathlib import Path
 
 import click
@@ -19,7 +21,8 @@ log_level = os.getenv("MINERU_LOG_LEVEL", "INFO").upper()
 logger.remove()  # 移除默认handler
 logger.add(sys.stderr, level=log_level)  # 添加新handler
 
-from mineru.cli.common import prepare_env, read_fn, aio_do_parse, pdf_suffixes, image_suffixes
+from mineru.cli.common import prepare_env, read_fn, aio_do_parse, do_parse, pdf_suffixes, image_suffixes
+from mineru.cli.streaming import iter_stream_parse, get_final_parse_dir, cleanup_stream_session
 from mineru.utils.cli_parser import arg_parse
 from mineru.utils.engine_utils import get_vlm_engine
 from mineru.utils.hash_utils import str_sha256
@@ -139,6 +142,146 @@ def parse_pdf_via_api(
         return None
 
 
+async def stream_pdf_via_api(
+    doc_path,
+    output_dir,
+    end_page_id,
+    is_ocr,
+    formula_enable,
+    table_enable,
+    language,
+    backend,
+    url,
+    backend_api_url,
+):
+    os.makedirs(output_dir, exist_ok=True)
+
+    file_name = f'{safe_stem(Path(doc_path).stem)}_{time.strftime("%y%m%d_%H%M%S")}'
+    parse_method = "vlm" if backend.startswith("vlm") else ('ocr' if is_ocr else 'auto')
+    if backend.startswith("hybrid"):
+        env_name = f"hybrid_{parse_method}"
+    else:
+        env_name = parse_method
+    request_url = f"{backend_api_url.rstrip('/')}/file_parse_stream"
+
+    with open(doc_path, "rb") as file_obj:
+        response = requests.post(
+            request_url,
+            files={
+                "files": (
+                    Path(doc_path).name,
+                    file_obj,
+                    "application/pdf",
+                )
+            },
+            data={
+                "lang_list": language,
+                "backend": backend,
+                "parse_method": parse_method,
+                "formula_enable": str(formula_enable).lower(),
+                "table_enable": str(table_enable).lower(),
+                "server_url": url or "",
+                "start_page_id": "0",
+                "end_page_id": str(end_page_id),
+            },
+            timeout=(30, 1800),
+        )
+
+    response.raise_for_status()
+    job = response.json()
+    job_id = job["job_id"]
+    status_url = f"{backend_api_url.rstrip('/')}/file_parse_stream/{job_id}"
+    layout_url = f"{backend_api_url.rstrip('/')}/file_parse_stream/{job_id}/layout"
+    download_url = f"{backend_api_url.rstrip('/')}/file_parse_stream/{job_id}/download"
+
+    last_layout_pdf = None
+    last_completed_pages = -1
+    last_rendered_md = None
+    last_plain_md = None
+    last_status = None
+    while True:
+        status_response = requests.get(status_url, timeout=(30, 1800))
+        status_response.raise_for_status()
+        status = status_response.json()
+
+        should_refresh_layout = (
+            status.get("layout_url")
+            and (
+                status.get("completed_pages", 0) != last_completed_pages
+                or status.get("status") != last_status
+            )
+        )
+        if should_refresh_layout:
+            layout_response = requests.get(layout_url, timeout=(30, 1800))
+            if layout_response.ok:
+                layout_tmp = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+                layout_tmp.write(layout_response.content)
+                layout_tmp.close()
+                last_layout_pdf = layout_tmp.name
+
+        rendered_md = status.get("preview_md_rendered") or status.get("preview_md") or ""
+        plain_md = status.get("preview_md") or ""
+        changed = (
+            rendered_md != last_rendered_md
+            or plain_md != last_plain_md
+            or status.get("completed_pages", 0) != last_completed_pages
+            or status.get("status") != last_status
+        )
+
+        if changed:
+            yield {
+                "status": status["status"],
+                "preview_md_rendered": rendered_md,
+                "preview_md": plain_md,
+                "layout_pdf": last_layout_pdf,
+                "completed_pages": status.get("completed_pages", 0),
+                "total_pages": status.get("total_pages", 0),
+                "error": status.get("error"),
+                "file_name": file_name,
+                "download_url": download_url,
+            }
+            last_rendered_md = rendered_md
+            last_plain_md = plain_md
+            last_completed_pages = status.get("completed_pages", 0)
+            last_status = status.get("status")
+
+        if status["status"] == "completed":
+            zip_response = requests.get(download_url, timeout=(30, 1800))
+            zip_response.raise_for_status()
+            with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp_zip:
+                tmp_zip.write(zip_response.content)
+                archive_zip_path = tmp_zip.name
+            _, local_md_dir = prepare_env(output_dir, file_name, env_name)
+            with zipfile.ZipFile(archive_zip_path, 'r') as zipf:
+                zipf.extractall(local_md_dir)
+
+            extracted_root = Path(local_md_dir)
+            md_matches = list(extracted_root.rglob("*.md"))
+            if not md_matches:
+                raise FileNotFoundError("No markdown file found in streamed API response.")
+            final_md_path = md_matches[0]
+            final_txt = final_md_path.read_text(encoding="utf-8")
+            final_md = replace_image_with_base64(final_txt, str(final_md_path.parent))
+            final_layout_pdf = None
+            layout_matches = list(extracted_root.rglob("*_layout.pdf"))
+            if layout_matches:
+                final_layout_pdf = str(layout_matches[0])
+            yield {
+                "status": "completed",
+                "preview_md_rendered": final_md,
+                "preview_md": final_txt,
+                "layout_pdf": final_layout_pdf or last_layout_pdf,
+                "archive_zip_path": archive_zip_path,
+                "file_name": file_name,
+            }
+            return
+
+        if status["status"] == "failed":
+            raise RuntimeError(status.get("error") or "Streaming parse failed.")
+
+        await asyncio.sleep(1)
+
+
 def compress_directory_to_zip(directory_path, output_zip_path):
     """压缩指定目录到一个 ZIP 文件。
 
@@ -187,12 +330,111 @@ def replace_image_with_base64(markdown_text, image_dir_path):
     return re.sub(pattern, replace, markdown_text)
 
 
-async def to_markdown(file_path, end_pages=10, is_ocr=False, formula_enable=True, table_enable=True, language="ch", backend="pipeline", url=None):
+async def to_markdown(
+    file_path,
+    end_pages=10,
+    is_ocr=False,
+    formula_enable=True,
+    table_enable=True,
+    language="ch",
+    backend="pipeline",
+    url=None,
+    stream_output=False,
+):
+    idle_progress = "Pages: 0/0"
     # 如果language包含()，则提取括号前的内容作为实际语言
     if '(' in language and ')' in language:
         language = language.split('(')[0].strip()
     file_path = to_pdf(file_path)
     backend_api_url = os.getenv("MINERU_GRADIO_BACKEND_API_URL", "").strip()
+
+    if stream_output:
+        if backend_api_url:
+            async for update in stream_pdf_via_api(
+                file_path,
+                './output',
+                end_pages - 1,
+                is_ocr,
+                formula_enable,
+                table_enable,
+                language,
+                backend,
+                url,
+                backend_api_url,
+            ):
+                progress_text = f"Pages: {update.get('completed_pages', 0)}/{update.get('total_pages', 0)}"
+                yield (
+                    update.get("preview_md_rendered") or update["preview_md"],
+                    update["preview_md"],
+                    update.get("archive_zip_path"),
+                    update.get("layout_pdf"),
+                    progress_text,
+                )
+            return
+
+        output_dir = "./output"
+        os.makedirs(output_dir, exist_ok=True)
+        file_name = f'{safe_stem(Path(file_path).stem)}_{time.strftime("%y%m%d_%H%M%S")}'
+        parse_method = "vlm" if backend.startswith("vlm") else ('ocr' if is_ocr else 'auto')
+        pdf_data = read_fn(file_path)
+        last_layout_pdf = file_path
+
+        final_update = None
+        for update in iter_stream_parse(
+            output_dir=output_dir,
+            pdf_file_name=file_name,
+            pdf_bytes=pdf_data,
+            lang=language,
+            backend=backend,
+            parse_method=parse_method,
+            formula_enable=formula_enable,
+            table_enable=table_enable,
+            server_url=url,
+            start_page_id=0,
+            end_page_id=end_pages - 1,
+        ):
+            final_update = update
+            session_root = Path(update["session_root"])
+            last_layout_pdf = update["current_layout_pdf"] or last_layout_pdf
+            txt_preview = update["preview_md"]
+            md_preview = replace_image_with_base64(txt_preview, str(session_root))
+            progress_text = f"Pages: {update['completed_pages']}/{update['total_pages']}"
+            yield md_preview, txt_preview, None, last_layout_pdf, progress_text
+
+        if final_update is None:
+            yield None, None, None, last_layout_pdf, idle_progress
+            return
+
+        do_parse(
+            output_dir=output_dir,
+            pdf_file_names=[file_name],
+            pdf_bytes_list=[pdf_data],
+            p_lang_list=[language],
+            backend=backend,
+            parse_method=parse_method,
+            formula_enable=formula_enable,
+            table_enable=table_enable,
+            server_url=url,
+            start_page_id=0,
+            end_page_id=end_pages - 1,
+        )
+
+        final_parse_dir = get_final_parse_dir(output_dir, file_name, backend, parse_method)
+        archive_zip_path = os.path.join('./output', str_sha256(str(final_parse_dir)) + '.zip')
+        zip_archive_success = compress_directory_to_zip(str(final_parse_dir), archive_zip_path)
+        if zip_archive_success == 0:
+            logger.info('Compression successful')
+        else:
+            logger.error('Compression failed')
+
+        final_md_path = Path(final_parse_dir) / f"{file_name}.md"
+        final_layout_pdf = Path(final_parse_dir) / f"{file_name}_layout.pdf"
+        final_txt = final_md_path.read_text(encoding="utf-8")
+        final_md = replace_image_with_base64(final_txt, str(final_parse_dir))
+        cleanup_stream_session(str(final_update["session_root"]))
+        yield final_md, final_txt, archive_zip_path, str(final_layout_pdf) if final_layout_pdf.exists() else last_layout_pdf, f"Pages: {final_update['total_pages']}/{final_update['total_pages']}"
+        return
+
     # 获取识别的md文件以及压缩包文件路径
     if backend_api_url:
         parse_result = parse_pdf_via_api(
@@ -208,10 +450,25 @@ async def to_markdown(file_path, end_pages=10, is_ocr=False, formula_enable=True
             backend_api_url,
         )
         if parse_result is None:
-            return None, None, None, None
+            yield None, None, None, None, idle_progress
+            return
         local_md_dir, file_name, archive_zip_path = parse_result
     else:
-        local_md_dir, file_name = await parse_pdf(file_path, './output', end_pages - 1, is_ocr, formula_enable, table_enable, language, backend, url)
+        parse_result = await parse_pdf(
+            file_path,
+            './output',
+            end_pages - 1,
+            is_ocr,
+            formula_enable,
+            table_enable,
+            language,
+            backend,
+            url,
+        )
+        if parse_result is None:
+            yield None, None, None, None, idle_progress
+            return
+        local_md_dir, file_name = parse_result
         archive_zip_path = os.path.join('./output', str_sha256(local_md_dir) + '.zip')
         zip_archive_success = compress_directory_to_zip(local_md_dir, archive_zip_path)
         if zip_archive_success == 0:
@@ -225,7 +482,7 @@ async def to_markdown(file_path, end_pages=10, is_ocr=False, formula_enable=True
     # 返回转换后的PDF路径
     new_pdf_path = os.path.join(local_md_dir, file_name + '_layout.pdf')
 
-    return md_content, txt_content, archive_zip_path, new_pdf_path
+    yield md_content, txt_content, archive_zip_path, new_pdf_path, idle_progress
 
 
 latex_delimiters_type_a = [
@@ -241,6 +498,10 @@ latex_delimiters_type_all = latex_delimiters_type_a + latex_delimiters_type_b
 header_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'header.html')
 with open(header_path, mode='r', encoding='utf-8') as header_file:
     header = header_file.read()
+logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'viswam-logo.svg')
+with open(logo_path, mode='rb') as logo_file:
+    logo_b64 = base64.b64encode(logo_file.read()).decode('ascii')
+header = header.replace('{{VISWAM_LOGO_SRC}}', f'data:image/svg+xml;base64,{logo_b64}')
 
 other_lang = [
     'ch (Chinese, English, Chinese Traditional)',
@@ -564,12 +825,14 @@ def main(ctx,
                         gr.Markdown(i18n("recognition_options"))
                         table_enable = gr.Checkbox(label=i18n("table_enable"), value=True, info=i18n("table_info"))
                         formula_enable = gr.Checkbox(label=get_formula_label(preferred_option), value=True, info=get_formula_info(preferred_option))
+                        stream_output = gr.Checkbox(label="Stream output", value=False, info="Write staged page-by-page previews while parsing.")
                     with gr.Column(visible=False) as ocr_options:
                         language = gr.Dropdown(all_lang, label=i18n("ocr_language"), value='ch (Chinese, English, Chinese Traditional)', info=i18n("ocr_language_info"))
                         is_ocr = gr.Checkbox(label=i18n("force_ocr"), value=False, info=i18n("force_ocr_info"))
                 with gr.Row():
                     change_bu = gr.Button(i18n("convert"))
                     clear_bu = gr.ClearButton(value=i18n("clear"))
+                stream_progress = gr.Markdown("Pages: 0/0")
                 pdf_show = PDF(label=i18n("pdf_preview"), interactive=False, visible=True, height=800)
                 if example_enable:
                     example_root = os.path.join(os.getcwd(), 'examples')
@@ -617,7 +880,7 @@ def main(ctx,
             # api_visibility="private"  # gradio 6 以上版本使用
             api_name=False  # gradio 6 以下版本使用
         )
-        clear_bu.add([input_file, md, pdf_show, md_text, output_file, is_ocr])
+        clear_bu.add([input_file, md, pdf_show, md_text, output_file, is_ocr, stream_progress])
 
         input_file.change(
             fn=to_pdf,
@@ -628,8 +891,8 @@ def main(ctx,
         )
         change_bu.click(
             fn=to_markdown,
-            inputs=[input_file, max_pages, is_ocr, formula_enable, table_enable, language, backend, url],
-            outputs=[md, md_text, output_file, pdf_show],
+            inputs=[input_file, max_pages, is_ocr, formula_enable, table_enable, language, backend, url, stream_output],
+            outputs=[md, md_text, output_file, pdf_show, stream_progress],
             api_name="to_markdown" if api_enable else False,  # gradio 6 以下版本使用
             # api_visibility="public" if api_enable else "private"  # gradio 6 以上版本使用
         )

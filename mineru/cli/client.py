@@ -18,6 +18,7 @@ from mineru.utils.guess_suffix_or_lang import guess_suffix_by_path
 from mineru.utils.model_utils import get_vram
 from ..version import __version__
 from .common import do_parse, read_fn, pdf_suffixes, image_suffixes
+from .streaming import stream_parse
 
 
 def get_checkpoint_path(output_dir: str, input_folder_name: str) -> Path:
@@ -211,6 +212,12 @@ def save_checkpoint(checkpoint_path: Path, checkpoint: dict):
     help="Resume from checkpoint if previously interrupted. Default is False (disabled).",
     default=False,
 )
+@click.option(
+    "--stream/--no-stream",
+    "stream",
+    help="Write staged per-page streaming outputs instead of waiting for the full document to finish.",
+    default=False,
+)
 def main(
     ctx,
     input_path,
@@ -228,6 +235,7 @@ def main(
     model_source,
     batch_size,
     resume,
+    stream,
     **kwargs,
 ):
 
@@ -324,20 +332,40 @@ def main(
 
             for path, file_name, pdf_bytes in batch_data:
                 try:
-                    do_parse(
-                        output_dir=output_dir,
-                        pdf_file_names=[file_name],
-                        pdf_bytes_list=[pdf_bytes],
-                        p_lang_list=[lang],
-                        backend=backend,
-                        parse_method=method,
-                        formula_enable=formula_enable,
-                        table_enable=table_enable,
-                        server_url=server_url,
-                        start_page_id=start_page_id,
-                        end_page_id=end_page_id,
-                        **kwargs,
-                    )
+                    if stream:
+                        stream_session = stream_parse(
+                            output_dir=output_dir,
+                            pdf_file_name=file_name,
+                            pdf_bytes=pdf_bytes,
+                            lang=lang,
+                            backend=backend,
+                            parse_method=method,
+                            formula_enable=formula_enable,
+                            table_enable=table_enable,
+                            server_url=server_url,
+                            start_page_id=start_page_id,
+                            end_page_id=end_page_id,
+                            page_callback=lambda update: logger.info(
+                                f"{path.name}: streamed page {update['completed_pages']}/{update['total_pages']}"
+                            ),
+                            **kwargs,
+                        )
+                        logger.info(f"Streaming output dir: {stream_session}")
+                    else:
+                        do_parse(
+                            output_dir=output_dir,
+                            pdf_file_names=[file_name],
+                            pdf_bytes_list=[pdf_bytes],
+                            p_lang_list=[lang],
+                            backend=backend,
+                            parse_method=method,
+                            formula_enable=formula_enable,
+                            table_enable=table_enable,
+                            server_url=server_url,
+                            start_page_id=start_page_id,
+                            end_page_id=end_page_id,
+                            **kwargs,
+                        )
 
                     checkpoint["processed"].append(path.name)
 
@@ -363,29 +391,52 @@ def main(
 
     def parse_doc(path_list: list[Path]):
         try:
-            file_name_list = []
-            pdf_bytes_list = []
-            lang_list = []
-            for path in path_list:
-                file_name = str(Path(path).stem)
-                pdf_bytes = read_fn(path)
-                file_name_list.append(file_name)
-                pdf_bytes_list.append(pdf_bytes)
-                lang_list.append(lang)
-            do_parse(
-                output_dir=output_dir,
-                pdf_file_names=file_name_list,
-                pdf_bytes_list=pdf_bytes_list,
-                p_lang_list=lang_list,
-                backend=backend,
-                parse_method=method,
-                formula_enable=formula_enable,
-                table_enable=table_enable,
-                server_url=server_url,
-                start_page_id=start_page_id,
-                end_page_id=end_page_id,
-                **kwargs,
-            )
+            if stream:
+                for path in path_list:
+                    file_name = str(Path(path).stem)
+                    pdf_bytes = read_fn(path)
+                    stream_session = stream_parse(
+                        output_dir=output_dir,
+                        pdf_file_name=file_name,
+                        pdf_bytes=pdf_bytes,
+                        lang=lang,
+                        backend=backend,
+                        parse_method=method,
+                        formula_enable=formula_enable,
+                        table_enable=table_enable,
+                        server_url=server_url,
+                        start_page_id=start_page_id,
+                        end_page_id=end_page_id,
+                        page_callback=lambda update, current_path=path: logger.info(
+                            f"{current_path.name}: streamed page {update['completed_pages']}/{update['total_pages']}"
+                        ),
+                        **kwargs,
+                    )
+                    logger.info(f"Streaming output dir: {stream_session}")
+            else:
+                file_name_list = []
+                pdf_bytes_list = []
+                lang_list = []
+                for path in path_list:
+                    file_name = str(Path(path).stem)
+                    pdf_bytes = read_fn(path)
+                    file_name_list.append(file_name)
+                    pdf_bytes_list.append(pdf_bytes)
+                    lang_list.append(lang)
+                do_parse(
+                    output_dir=output_dir,
+                    pdf_file_names=file_name_list,
+                    pdf_bytes_list=pdf_bytes_list,
+                    p_lang_list=lang_list,
+                    backend=backend,
+                    parse_method=method,
+                    formula_enable=formula_enable,
+                    table_enable=table_enable,
+                    server_url=server_url,
+                    start_page_id=start_page_id,
+                    end_page_id=end_page_id,
+                    **kwargs,
+                )
         except Exception as e:
             logger.exception(e)
 
