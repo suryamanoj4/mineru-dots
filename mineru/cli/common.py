@@ -248,22 +248,6 @@ def _process_pipeline(
                 ocr_engine=ocr_engine,
             )
 
-        for idx, model_list in enumerate(infer_results):
-            model_json = copy.deepcopy(model_list)
-            pdf_file_name = pdf_file_names[idx]
-            local_image_dir, local_md_dir = prepare_env(output_dir, pdf_file_name, pipeline_subdir)
-            image_writer, md_writer = FileBasedDataWriter(local_image_dir), FileBasedDataWriter(local_md_dir)
-
-            images_list = all_image_lists[idx]
-            pdf_doc = all_pdf_docs[idx]
-            _lang = lang_list[idx]
-            _ocr_enable = ocr_enabled_list[idx]
-
-            middle_json = pipeline_result_to_middle_json(
-                model_list, images_list, pdf_doc, image_writer,
-                _lang, _ocr_enable, p_formula_enable
-            )
-
             pdf_info = middle_json["pdf_info"]
             pdf_bytes = pdf_bytes_list[idx]
 

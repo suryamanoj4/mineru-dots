@@ -261,7 +261,12 @@ If you only need the high-performance `lite` backend (Tesseract-based) and want 
 ```bash
 pip install "mineru[lite]"
 ```
-*Note: This mode requires Tesseract-OCR to be installed on your system.*
+
+> ⚠️ **IMPORTANT: System Requirement**  
+> The `lite` backend requires the Tesseract-OCR engine to be installed on your system:  
+> - **Ubuntu/Linux**: `sudo apt install tesseract-ocr`  
+> - **macOS**: `brew install tesseract`  
+> - **Windows**: [Download Tesseract Binary](https://github.com/UB-Mannheim/tesseract/wiki)
 
 ### Quick Start
 
