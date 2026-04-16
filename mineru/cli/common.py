@@ -219,30 +219,34 @@ def _process_pipeline(
     from mineru.backend.pipeline.model_json_to_middle_json import result_to_middle_json as pipeline_result_to_middle_json
     from mineru.backend.pipeline.pipeline_analyze import doc_analyze as pipeline_doc_analyze
 
+    ocr_engine = os.getenv("MINERU_OCR_ENGINE", "paddle")
     pipeline_subdir = get_pipeline_subdir(backend, parse_method)
 
-    infer_results, all_image_lists, all_pdf_docs, lang_list, ocr_enabled_list = (
-        pipeline_doc_analyze(
-            pdf_bytes_list, p_lang_list, parse_method=parse_method,
-            formula_enable=p_formula_enable, table_enable=p_table_enable,
+    with temporary_env(MINERU_OCR_ENGINE=ocr_engine):
+        infer_results, all_image_lists, all_pdf_docs, lang_list, ocr_enabled_list = (
+            pipeline_doc_analyze(
+                pdf_bytes_list, p_lang_list, parse_method=parse_method,
+                formula_enable=p_formula_enable, table_enable=p_table_enable,
+                ocr_engine=ocr_engine,
+            )
         )
-    )
 
-    for idx, model_list in enumerate(infer_results):
-        model_json = copy.deepcopy(model_list)
-        pdf_file_name = pdf_file_names[idx]
-        local_image_dir, local_md_dir = prepare_env(output_dir, pdf_file_name, pipeline_subdir)
-        image_writer, md_writer = FileBasedDataWriter(local_image_dir), FileBasedDataWriter(local_md_dir)
+        for idx, model_list in enumerate(infer_results):
+            model_json = copy.deepcopy(model_list)
+            pdf_file_name = pdf_file_names[idx]
+            local_image_dir, local_md_dir = prepare_env(output_dir, pdf_file_name, pipeline_subdir)
+            image_writer, md_writer = FileBasedDataWriter(local_image_dir), FileBasedDataWriter(local_md_dir)
 
-        images_list = all_image_lists[idx]
-        pdf_doc = all_pdf_docs[idx]
-        _lang = lang_list[idx]
-        _ocr_enable = ocr_enabled_list[idx]
+            images_list = all_image_lists[idx]
+            pdf_doc = all_pdf_docs[idx]
+            _lang = lang_list[idx]
+            _ocr_enable = ocr_enabled_list[idx]
 
-        middle_json = pipeline_result_to_middle_json(
-            model_list, images_list, pdf_doc, image_writer,
-            _lang, _ocr_enable, p_formula_enable,
-        )
+            middle_json = pipeline_result_to_middle_json(
+                model_list, images_list, pdf_doc, image_writer,
+                _lang, _ocr_enable, p_formula_enable,
+                ocr_engine=ocr_engine,
+            )
 
         for idx, model_list in enumerate(infer_results):
             model_json = copy.deepcopy(model_list)
@@ -327,9 +331,6 @@ async def _async_process_vlm(
         server_url=None,
         **kwargs,
 ):
-    from mineru.backend.vlm.vlm_analyze import doc_analyze as vlm_doc_analyze
-    """同步处理vlm后端逻辑"""
-
     from mineru.backend.vlm.vlm_analyze import aio_doc_analyze as aio_vlm_doc_analyze
     """异步处理vlm后端逻辑"""
 
@@ -374,9 +375,6 @@ def _process_vlm(
 ):
     from mineru.backend.vlm.vlm_analyze import doc_analyze as vlm_doc_analyze
     """同步处理vlm后端逻辑"""
-
-    from mineru.backend.vlm.vlm_analyze import aio_doc_analyze as aio_vlm_doc_analyze
-    """异步处理vlm后端逻辑"""
 
     parse_method = "vlm"
     f_draw_span_bbox = False
