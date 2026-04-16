@@ -1,9 +1,7 @@
 FROM python:3.11-slim
 
-COPY --from=ghcr.io/astral-sh/uv:0.8.15 /uv /uvx /bin/
-
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+    apt-get install -y \
         fonts-noto-core \
         fonts-noto-cjk \
         fontconfig \
@@ -18,10 +16,11 @@ WORKDIR /app
 COPY . /app
 
 # CPU mode should use CPU-only PyTorch wheels to avoid pulling CUDA/NVIDIA packages.
-RUN uv pip install --system \
+RUN python3 -m pip install -U pip && \
+    python3 -m pip install \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         torch torchvision && \
-    uv pip install --system '.[pipeline,api,gradio]' && \
-    rm -rf /root/.cache/uv
+    python3 -m pip install '.[pipeline,api,gradio]' && \
+    python3 -m pip cache purge
 
 ENTRYPOINT ["/bin/bash", "-c", "exec \"$@\"", "--"]
