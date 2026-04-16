@@ -14,8 +14,8 @@ services:
       MINERU_TOOLS_CONFIG_JSON: /root/.mineru/mineru.json
       MINERU_API_ENABLE_FASTAPI_DOCS: "1"
     entrypoint:
-      - /bin/bash
-      - /app/docker/global/start-with-models.sh
+      - python3
+      - /app/docker/global/start-with-models.py
     command:
       - mineru-api
       - --host
@@ -50,8 +50,8 @@ services:
       MINERU_GRADIO_DEFAULT_BACKEND: pipeline
       MINERU_GRADIO_BACKEND_API_URL: http://mineru-api-cpu:8000
     entrypoint:
-      - /bin/bash
-      - /app/docker/global/start-with-models.sh
+      - python3
+      - /app/docker/global/start-with-models.py
     command:
       - mineru-gradio
       - --server-name
@@ -78,8 +78,8 @@ services:
       MINERU_TOOLS_CONFIG_JSON: /root/.mineru/mineru.json
       MINERU_API_ENABLE_FASTAPI_DOCS: "1"
     entrypoint:
-      - /bin/bash
-      - /app/docker/global/start-with-models.sh
+      - python3
+      - /app/docker/global/start-with-models.py
     command:
       - mineru-api
       - --host
@@ -123,8 +123,8 @@ services:
       MINERU_GRADIO_DEFAULT_BACKEND: vlm-auto-engine
       MINERU_GRADIO_BACKEND_API_URL: http://mineru-api-gpu:8000
     entrypoint:
-      - /bin/bash
-      - /app/docker/global/start-with-models.sh
+      - python3
+      - /app/docker/global/start-with-models.py
     command:
       - mineru-gradio
       - --server-name
@@ -151,8 +151,8 @@ services:
       MINERU_TOOLS_CONFIG_JSON: /root/.mineru/mineru.json
       MINERU_API_ENABLE_FASTAPI_DOCS: "1"
     entrypoint:
-      - /bin/bash
-      - /app/docker/global/start-with-models.sh
+      - python3
+      - /app/docker/global/start-with-models.py
     command:
       - mineru-api
       - --host
@@ -196,8 +196,8 @@ services:
       MINERU_GRADIO_DEFAULT_BACKEND: hybrid-auto-engine
       MINERU_GRADIO_BACKEND_API_URL: http://mineru-api-hybrid:8000
     entrypoint:
-      - /bin/bash
-      - /app/docker/global/start-with-models.sh
+      - python3
+      - /app/docker/global/start-with-models.py
     command:
       - mineru-gradio
       - --server-name

@@ -2,4 +2,4 @@
 set -euo pipefail
 
 export MINERU_PREFETCH_MODELS="${MINERU_PREFETCH_MODELS:-pipeline}"
-exec /app/docker/global/start-with-models.sh mineru-gradio "$@"
+exec python3 /app/docker/global/start-with-models.py mineru-gradio "$@"
