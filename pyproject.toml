@@ -30,8 +30,6 @@ dependencies = [
     "pypdf>=5.6.0",
     "reportlab",
     "pdftext>=0.6.3",
-    "modelscope>=1.26.0",
-    "huggingface-hub>=0.32.4",
     "json-repair>=0.46.2",
     "opencv-python>=4.11.0.86",
     "fast-langdetect>=0.2.3,<0.3.0",
@@ -39,8 +37,6 @@ dependencies = [
     "openai>=1.70.0,<3",
     "beautifulsoup4>=4.13.5,<5",
     "magika>=0.6.2,<1.1.0",
-    "mineru-vl-utils>=0.1.19.1,<1",
-    "qwen-vl-utils>=0.0.14,<1",
 ]
 
 [project.optional-dependencies]
@@ -55,10 +51,20 @@ dev = [
     "ruff>=0.8.0",
     "vulture>=2.0",
 ]
+tesseract = [
+    "pytesseract>=0.3.10",
+]
+lite = [
+    "mineru[tesseract]",
+]
 vlm = [
     "torch>=2.6.0,<3",
     "transformers>=4.51.1,!=4.57.2,<5.0.0",
     "accelerate>=1.5.1",
+    "mineru-vl-utils>=0.1.19.1,<1",
+    "qwen-vl-utils>=0.0.14,<1",
+    "modelscope>=1.26.0",
+    "huggingface-hub>=0.32.4",
 ]
 vllm = [
     "vllm>=0.10.1.1,<0.12",
@@ -83,6 +89,8 @@ pipeline = [
     "torchvision",
     "transformers>=4.49.0,!=4.51.0,<5.0.0",
     "onnxruntime>1.17.0",
+    "modelscope>=1.26.0",
+    "huggingface-hub>=0.32.4",
 ]
 api = [
     "fastapi",
@@ -94,6 +102,7 @@ gradio = [
     "gradio-pdf==0.0.22",
 ]
 core = [
+    "mineru[lite]",
     "mineru[vlm]",
     "mineru[pipeline]",
     "mineru[api]",

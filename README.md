@@ -95,7 +95,7 @@ https://github.com/user-attachments/assets/4bea02c9-6d54-4cd6-97ed-dff14340982c
 | Feature | Status | Expected Completion |
 |---------|--------|---------------------|
 | **vParse Rebranding** | 🚧 In Progress | Package rename, CLI commands, documentation |
-| **Tesseract Integration** | 📋 Planned | Pipeline-lite backend for lightweight OCR |
+| **Tesseract Integration** | ✅ Done | Lightweight `lite` backend for fast OCR |
 | **Multi-Model VLM Support** | 📋 Planned | Qwen2-VL, InternVL2, Got-OCR2.0, Nougat |
 | **KV Cache Optimization** | 📋 Planned | Memory optimization for bulk VLM processing |
 | **Bulk Processing API** | 📋 Planned | Job queue, progress tracking, checkpoint/resume |
@@ -249,7 +249,27 @@ vParse currently supports **three main backends** with different trade-offs:
 
 ---
 
-## Quick Start
+### Installation
+
+#### 1. Full Installation (All Features)
+```bash
+pip install "mineru[all]"
+```
+
+#### 2. CPU/Lite Installation (Fast & Lightweight)
+If you only need the high-performance `lite` backend (Tesseract-based) and want to avoid heavy dependencies like PyTorch and PaddleOCR:
+```bash
+pip install "mineru[lite]"
+```
+
+> ⚠️ **IMPORTANT: System Requirement**  
+> The `lite` backend requires the Tesseract-OCR engine to be installed on your system:  
+> - **Ubuntu/Linux**: `sudo apt install tesseract-ocr`  
+> - **macOS**: `brew install tesseract`  
+> - **Windows**: [Download Tesseract Binary](https://github.com/UB-Mannheim/tesseract/wiki)
+
+### Quick Start
+
 
 > ⚠️ **Note**: During the rebranding period, CLI commands still use `mineru` prefix. Future versions will use `vparse`.
 
@@ -381,7 +401,7 @@ vParse is undergoing active development with a comprehensive roadmap to become a
 
 | Wave | Focus | Timeline | Key Deliverables |
 |------|-------|----------|------------------|
-| **Wave 1** | Foundation | Weeks 1-4 | Unified API, Tesseract, pipeline-lite, PyPI package |
+| **Wave 1** | Foundation | Weeks 1-4 | Unified API, Tesseract `lite` backend, PyPI package |
 | **Wave 2** | Multi-Model VLM | Weeks 5-8 | Qwen2-VL, InternVL2, model auto-selection |
 | **Wave 3** | Memory & Performance | Weeks 9-12 | KV cache optimization, streaming, OOM prevention |
 | **Wave 4** | Bulk Processing & Docker | Weeks 13-16 | Job queue, Redis/Celery, production Docker |

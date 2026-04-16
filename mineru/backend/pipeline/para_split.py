@@ -13,7 +13,7 @@ class ListLineTag:
     IS_LIST_END_LINE = 'is_list_end_line'
 
 
-def __process_blocks(blocks):
+def __process_blocks(blocks, ocr_engine=None):
     # 对所有block预处理
     # 1.通过title和interline_equation将block分组
     # 2.bbox边界根据line信息重置
@@ -27,13 +27,14 @@ def __process_blocks(blocks):
         # 如果当前块是 text 类型
         if current_block['type'] == 'text':
             current_block['bbox_fs'] = copy.deepcopy(current_block['bbox'])
-            if 'lines' in current_block and len(current_block['lines']) > 0:
-                current_block['bbox_fs'] = [
-                    min([line['bbox'][0] for line in current_block['lines']]),
-                    min([line['bbox'][1] for line in current_block['lines']]),
-                    max([line['bbox'][2] for line in current_block['lines']]),
-                    max([line['bbox'][3] for line in current_block['lines']]),
-                ]
+            if ocr_engine != "tesseract":
+                if 'lines' in current_block and len(current_block['lines']) > 0:
+                    current_block['bbox_fs'] = [
+                        min([line['bbox'][0] for line in current_block['lines']]),
+                        min([line['bbox'][1] for line in current_block['lines']]),
+                        max([line['bbox'][2] for line in current_block['lines']]),
+                        max([line['bbox'][3] for line in current_block['lines']]),
+                    ]
             current_group.append(current_block)
 
         # 检查下一个块是否存在
@@ -311,8 +312,8 @@ def __is_list_group(text_blocks_group):
     return True
 
 
-def __para_merge_page(blocks):
-    page_text_blocks_groups = __process_blocks(blocks)
+def __para_merge_page(blocks, ocr_engine=None):
+    page_text_blocks_groups = __process_blocks(blocks, ocr_engine=ocr_engine)
     for text_blocks_group in page_text_blocks_groups:
         if len(text_blocks_group) > 0:
             # 需要先在合并前对所有block判断是否为list or index block
@@ -352,7 +353,7 @@ def __para_merge_page(blocks):
             continue
 
 
-def para_split(page_info_list):
+def para_split(page_info_list, ocr_engine=None):
     all_blocks = []
     for page_info in page_info_list:
         blocks = copy.deepcopy(page_info['preproc_blocks'])
@@ -361,7 +362,7 @@ def para_split(page_info_list):
             block['page_size'] = page_info['page_size']
         all_blocks.extend(blocks)
 
-    __para_merge_page(all_blocks)
+    __para_merge_page(all_blocks, ocr_engine=ocr_engine)
     for page_info in page_info_list:
         page_info['para_blocks'] = []
         for block in all_blocks:

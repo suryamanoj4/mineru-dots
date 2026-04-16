@@ -9,6 +9,7 @@ from ...model.mfd.yolo_v8 import YOLOv8MFDModel
 from ...model.mfr.unimernet.Unimernet import UnimernetModel
 from ...model.mfr.pp_formulanet_plus_m.predict_formula import FormulaRecognizer
 from mineru.model.ocr.pytorch_paddle import PytorchPaddleOCR
+from mineru.model.ocr.tesseract import TesseractOCRModel
 from ...model.ori_cls.paddle_ori_cls import PaddleOrientationClsModel
 from ...model.table.cls.paddle_table_cls import PaddleTableClsModel
 # from ...model.table.rec.RapidTable import RapidTableModel
@@ -28,14 +29,15 @@ else:
     MFR_MODEL = "unimernet_small"
 
 
-def img_orientation_cls_model_init():
+def img_orientation_cls_model_init(ocr_engine=None):
     atom_model_manager = AtomModelSingleton()
     ocr_engine = atom_model_manager.get_atom_model(
         atom_model_name=AtomicModel.OCR,
         det_db_box_thresh=0.5,
         det_db_unclip_ratio=1.6,
         lang="ch_lite",
-        enable_merge_det_boxes=False
+        enable_merge_det_boxes=False,
+        ocr_engine=ocr_engine,
     )
     cls_model = PaddleOrientationClsModel(ocr_engine)
     return cls_model
@@ -45,27 +47,29 @@ def table_cls_model_init():
     return PaddleTableClsModel()
 
 
-def wired_table_model_init(lang=None):
+def wired_table_model_init(lang=None, ocr_engine=None):
     atom_model_manager = AtomModelSingleton()
     ocr_engine = atom_model_manager.get_atom_model(
         atom_model_name=AtomicModel.OCR,
         det_db_box_thresh=0.5,
         det_db_unclip_ratio=1.6,
         lang=lang,
-        enable_merge_det_boxes=False
+        enable_merge_det_boxes=False,
+        ocr_engine=ocr_engine,
     )
     table_model = UnetTableModel(ocr_engine)
     return table_model
 
 
-def wireless_table_model_init(lang=None):
+def wireless_table_model_init(lang=None, ocr_engine=None):
     atom_model_manager = AtomModelSingleton()
     ocr_engine = atom_model_manager.get_atom_model(
         atom_model_name=AtomicModel.OCR,
         det_db_box_thresh=0.5,
         det_db_unclip_ratio=1.6,
         lang=lang,
-        enable_merge_det_boxes=False
+        enable_merge_det_boxes=False,
+        ocr_engine=ocr_engine,
     )
     table_model = RapidTableModel(ocr_engine)
     return table_model
@@ -95,27 +99,62 @@ def doclayout_yolo_model_init(weight, device='cpu'):
     model = DocLayoutYOLOModel(weight, device)
     return model
 
+def resolve_ocr_engine(ocr_engine=None) -> str:
+    engine = ocr_engine or os.getenv("MINERU_OCR_ENGINE", "paddle")
+    engine = str(engine).strip().lower()
+
+    engine_aliases = {
+        "paddle": "paddle",
+        "paddleocr": "paddle",
+        "pytorch_paddle": "paddle",
+        "tesseract": "tesseract",
+        "tess": "tesseract",
+    }
+
+    if engine not in engine_aliases:
+        raise ValueError(
+            f"Unsupported OCR engine: {ocr_engine!r}. "
+            "Supported values are: paddle, tesseract."
+        )
+
+    return engine_aliases[engine]
+
 def ocr_model_init(det_db_box_thresh=0.3,
                    lang=None,
                    det_db_unclip_ratio=1.8,
-                   enable_merge_det_boxes=True
+                   enable_merge_det_boxes=True,
+                   ocr_engine=None,
+                   **kwargs,
                    ):
-    if lang is not None and lang != '':
-        model = PytorchPaddleOCR(
-            det_db_box_thresh=det_db_box_thresh,
-            lang=lang,
-            use_dilation=True,
-            det_db_unclip_ratio=det_db_unclip_ratio,
-            enable_merge_det_boxes=enable_merge_det_boxes,
-        )
-    else:
-        model = PytorchPaddleOCR(
-            det_db_box_thresh=det_db_box_thresh,
-            use_dilation=True,
-            det_db_unclip_ratio=det_db_unclip_ratio,
-            enable_merge_det_boxes=enable_merge_det_boxes,
-        )
-    return model
+    selected_engine = resolve_ocr_engine(ocr_engine)
+
+    if selected_engine == "paddle":
+        if lang is not None and lang != '':
+            model = PytorchPaddleOCR(
+                det_db_box_thresh=det_db_box_thresh,
+                lang=lang,
+                use_dilation=True,
+                det_db_unclip_ratio=det_db_unclip_ratio,
+                enable_merge_det_boxes=enable_merge_det_boxes,
+            )
+        else:
+            model = PytorchPaddleOCR(
+                det_db_box_thresh=det_db_box_thresh,
+                use_dilation=True,
+                det_db_unclip_ratio=det_db_unclip_ratio,
+                enable_merge_det_boxes=enable_merge_det_boxes,
+            )
+        return model
+
+    return TesseractOCRModel(
+        lang=lang or "eng",
+        oem=kwargs.get("oem", 3),
+        psm=kwargs.get("psm", 3),
+        config=kwargs.get("config", ""),
+        tesseract_cmd=kwargs.get("tesseract_cmd"),
+        tessdata_dir=kwargs.get("tessdata_dir"),
+        min_confidence=kwargs.get("min_confidence", 0.0),
+    )
 
 
 class AtomModelSingleton:
@@ -130,15 +169,17 @@ class AtomModelSingleton:
     def get_atom_model(self, atom_model_name: str, **kwargs):
 
         lang = kwargs.get('lang', None)
+        ocr_engine = resolve_ocr_engine(kwargs.get("ocr_engine", None))
 
         if atom_model_name in [AtomicModel.WiredTable, AtomicModel.WirelessTable]:
             key = (
                 atom_model_name,
                 lang
             )
-        elif atom_model_name in [AtomicModel.OCR]:
+        elif atom_model_name in [AtomicModel.OCR, AtomicModel.Tesseract, "ocr", "tesseract"]:
             key = (
-                atom_model_name,
+                AtomicModel.OCR,
+                ocr_engine,
                 kwargs.get('det_db_box_thresh', 0.3),
                 lang,
                 kwargs.get('det_db_unclip_ratio', 1.8),
@@ -168,25 +209,36 @@ def atom_model_init(model_name: str, **kwargs):
             kwargs.get('mfr_weight_dir'),
             kwargs.get('device')
         )
-    elif model_name == AtomicModel.OCR:
+    elif model_name in [AtomicModel.OCR, AtomicModel.Tesseract, "ocr", "tesseract"]:
         atom_model = ocr_model_init(
             kwargs.get('det_db_box_thresh', 0.3),
             kwargs.get('lang'),
             kwargs.get('det_db_unclip_ratio', 1.8),
-            kwargs.get('enable_merge_det_boxes', True)
+            kwargs.get('enable_merge_det_boxes', True),
+            ocr_engine=kwargs.get("ocr_engine", None) or (
+                "tesseract" if model_name in [AtomicModel.Tesseract, "tesseract"] else None
+            ),
+            oem=kwargs.get("oem", 3),
+            psm=kwargs.get("psm", 3),
+            config=kwargs.get("config", ""),
+            tesseract_cmd=kwargs.get("tesseract_cmd"),
+            tessdata_dir=kwargs.get("tessdata_dir"),
+            min_confidence=kwargs.get("min_confidence", 0.0),
         )
     elif model_name == AtomicModel.WirelessTable:
         atom_model = wireless_table_model_init(
             kwargs.get('lang'),
+            kwargs.get("ocr_engine", None),
         )
     elif model_name == AtomicModel.WiredTable:
         atom_model = wired_table_model_init(
             kwargs.get('lang'),
+            kwargs.get("ocr_engine", None),
         )
     elif model_name == AtomicModel.TableCls:
         atom_model = table_cls_model_init()
     elif model_name == AtomicModel.ImgOrientationCls:
-        atom_model = img_orientation_cls_model_init()
+        atom_model = img_orientation_cls_model_init(kwargs.get("ocr_engine", None))
     else:
         logger.error('model name not allow')
         exit(1)
@@ -206,6 +258,7 @@ class MineruPipelineModel:
         self.apply_table = self.table_config.get('enable', True)
         self.lang = kwargs.get('lang', None)
         self.device = kwargs.get('device', 'cpu')
+        self.ocr_engine = resolve_ocr_engine(kwargs.get("ocr_engine", None))
         logger.info(
             'DocAnalysis init, this may take some times......'
         )
@@ -248,17 +301,20 @@ class MineruPipelineModel:
         self.ocr_model = atom_model_manager.get_atom_model(
             atom_model_name=AtomicModel.OCR,
             det_db_box_thresh=0.3,
-            lang=self.lang
+            lang=self.lang,
+            ocr_engine=self.ocr_engine,
         )
         # init table model
         if self.apply_table:
             self.wired_table_model = atom_model_manager.get_atom_model(
                 atom_model_name=AtomicModel.WiredTable,
                 lang=self.lang,
+                ocr_engine=self.ocr_engine,
             )
             self.wireless_table_model = atom_model_manager.get_atom_model(
                 atom_model_name=AtomicModel.WirelessTable,
                 lang=self.lang,
+                ocr_engine=self.ocr_engine,
             )
             self.table_cls_model = atom_model_manager.get_atom_model(
                 atom_model_name=AtomicModel.TableCls,
@@ -266,6 +322,7 @@ class MineruPipelineModel:
             self.img_orientation_cls_model = atom_model_manager.get_atom_model(
                 atom_model_name=AtomicModel.ImgOrientationCls,
                 lang=self.lang,
+                ocr_engine=self.ocr_engine,
             )
 
         logger.info('DocAnalysis init done!')
