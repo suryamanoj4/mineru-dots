@@ -16,15 +16,9 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from typing import List, Optional
 from loguru import logger
+from vparse.utils.compat import get_env_with_legacy
 
-def _get_env_with_legacy(new_key: str, legacy_key: str, default=None):
-    value = os.getenv(new_key)
-    if value is not None:
-        return value
-    return os.getenv(legacy_key, default)
-
-
-log_level = _get_env_with_legacy("VPARSE_LOG_LEVEL", "MINERU_LOG_LEVEL", "INFO").upper()
+log_level = get_env_with_legacy("VPARSE_LOG_LEVEL", "MINERU_LOG_LEVEL", "INFO").upper()
 logger.remove()  # 移除默认handler
 logger.add(sys.stderr, level=log_level)  # 添加新handler
 
@@ -49,7 +43,7 @@ async def limit_concurrency():
         if _request_semaphore._value == 0:
             raise HTTPException(
                 status_code=503,
-                detail=f"Server is at maximum capacity: {_get_env_with_legacy('VPARSE_API_MAX_CONCURRENT_REQUESTS', 'MINERU_API_MAX_CONCURRENT_REQUESTS', 'unset')}. Please try again later.",
+                detail=f"Server is at maximum capacity: {get_env_with_legacy('VPARSE_API_MAX_CONCURRENT_REQUESTS', 'MINERU_API_MAX_CONCURRENT_REQUESTS', 'unset')}. Please try again later.",
             )
         async with _request_semaphore:
             yield
@@ -60,7 +54,7 @@ async def limit_concurrency():
 def create_app():
     # By default, the OpenAPI documentation endpoints (openapi_url, docs_url, redoc_url) are enabled.
     # To disable the FastAPI docs and schema endpoints, set the environment variable VPARSE_API_ENABLE_FASTAPI_DOCS=0.
-    enable_docs = str(_get_env_with_legacy("VPARSE_API_ENABLE_FASTAPI_DOCS", "MINERU_API_ENABLE_FASTAPI_DOCS", "1")).lower() in (
+    enable_docs = str(get_env_with_legacy("VPARSE_API_ENABLE_FASTAPI_DOCS", "MINERU_API_ENABLE_FASTAPI_DOCS", "1")).lower() in (
         "1",
         "true",
         "yes",
@@ -75,7 +69,7 @@ def create_app():
     global _request_semaphore
     try:
         max_concurrent_requests = int(
-            _get_env_with_legacy("VPARSE_API_MAX_CONCURRENT_REQUESTS", "MINERU_API_MAX_CONCURRENT_REQUESTS", "0")
+            get_env_with_legacy("VPARSE_API_MAX_CONCURRENT_REQUESTS", "MINERU_API_MAX_CONCURRENT_REQUESTS", "0")
         )
     except ValueError:
         max_concurrent_requests = 0

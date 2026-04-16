@@ -4,6 +4,7 @@ import sys
 from loguru import logger
 
 from vparse.backend.vlm.utils import set_lmdeploy_backend
+from vparse.utils.compat import get_env_with_legacy
 from vparse.utils.models_download_utils import auto_download_and_get_model_root_path
 
 
@@ -53,12 +54,12 @@ def main():
     if not has_log_level_arg:
         args.extend(["--log-level", "ERROR"])
 
-    device_type = os.getenv("VPARSE_LMDEPLOY_DEVICE", os.getenv("MINERU_LMDEPLOY_DEVICE", device_type))
+    device_type = get_env_with_legacy("VPARSE_LMDEPLOY_DEVICE", "MINERU_LMDEPLOY_DEVICE", device_type)
     if device_type == "":
         device_type = "cuda"
     elif device_type not in ["cuda", "ascend", "maca", "camb"]:
         raise ValueError(f"Unsupported lmdeploy device type: {device_type}")
-    lm_backend = os.getenv("VPARSE_LMDEPLOY_BACKEND", os.getenv("MINERU_LMDEPLOY_BACKEND", lm_backend))
+    lm_backend = get_env_with_legacy("VPARSE_LMDEPLOY_BACKEND", "MINERU_LMDEPLOY_BACKEND", lm_backend)
     if lm_backend == "":
         lm_backend = set_lmdeploy_backend(device_type)
     elif lm_backend not in ["pytorch", "turbomind"]:

@@ -14,20 +14,14 @@ from vparse.utils.draw_bbox import draw_layout_bbox, draw_span_bbox, draw_line_s
 from vparse.utils.engine_utils import get_vlm_engine
 from vparse.utils.enum_class import MakeMode
 from vparse.utils.guess_suffix_or_lang import guess_suffix_by_bytes
+from vparse.utils.compat import get_env_with_legacy
 from vparse.utils.pdf_image_tools import images_bytes_to_pdf_bytes
 from vparse.backend.vlm.vlm_middle_json_mkcontent import union_make as vlm_union_make
 from vparse.backend.vlm.vlm_analyze import doc_analyze as vlm_doc_analyze
 from vparse.backend.vlm.vlm_analyze import aio_doc_analyze as aio_vlm_doc_analyze
 from vparse.utils.pdf_page_id import get_end_page_id
 
-def _get_env_with_legacy(new_key: str, legacy_key: str, default=None):
-    value = os.getenv(new_key)
-    if value is not None:
-        return value
-    return os.getenv(legacy_key, default)
-
-
-if _get_env_with_legacy("VPARSE_LMDEPLOY_DEVICE", "MINERU_LMDEPLOY_DEVICE", "") == "maca":
+if get_env_with_legacy("VPARSE_LMDEPLOY_DEVICE", "MINERU_LMDEPLOY_DEVICE", "") == "maca":
     import torch
     torch.backends.cudnn.enabled = False
 

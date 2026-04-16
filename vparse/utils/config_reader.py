@@ -1,7 +1,9 @@
 # Copyright (c) Opendatalab. All rights reserved.
 import json
 import os
+import sys
 from loguru import logger
+from vparse.utils.compat import get_config_file_path, get_env_with_legacy
 
 try:
     import torch
@@ -14,36 +16,18 @@ except ImportError:
     torch_npu = None
 
 
-def _get_env_with_legacy(new_key: str, legacy_key: str, default=None):
-    value = os.getenv(new_key)
-    if value is not None:
-        return value
-    return os.getenv(legacy_key, default)
-
-
-def _resolve_config_file_name() -> str:
-    return _get_env_with_legacy("VPARSE_TOOLS_CONFIG_JSON", "MINERU_TOOLS_CONFIG_JSON", "vparse.json")
+def _resolve_config_path() -> str:
+    return get_config_file_path(prefer_existing=True)
 
 
 def read_config():
-    config_file_name = _resolve_config_file_name()
-    if os.path.isabs(config_file_name):
-        config_file = config_file_name
-    else:
-        home_dir = os.path.expanduser("~")
-        config_file = os.path.join(home_dir, config_file_name)
-        if config_file_name == "vparse.json":
-            legacy_config_file = os.path.join(home_dir, "mineru.json")
-            if not os.path.exists(config_file) and os.path.exists(legacy_config_file):
-                config_file = legacy_config_file
-
+    config_file = _resolve_config_path()
     if not os.path.exists(config_file):
-        # logger.warning(f'{config_file} not found, using default configuration')
         return None
-    else:
-        with open(config_file, "r", encoding="utf-8") as f:
-            config = json.load(f)
-        return config
+
+    with open(config_file, "r", encoding="utf-8") as f:
+        config = json.load(f)
+    return config
 
 
 def get_s3_config(bucket_name: str):
@@ -57,7 +41,7 @@ def get_s3_config(bucket_name: str):
         access_key, secret_key, storage_endpoint = bucket_info[bucket_name]
 
     if access_key is None or secret_key is None or storage_endpoint is None:
-        raise Exception(f"ak, sk or endpoint not found in {_resolve_config_file_name()}")
+        raise Exception(f"ak, sk or endpoint not found in {_resolve_config_path()}")
 
     # logger.info(f"get_s3_config: ak={access_key}, sk={secret_key}, endpoint={storage_endpoint}")
 
@@ -89,7 +73,7 @@ def parse_bucket_key(s3_full_path: str):
 
 
 def get_device():
-    device_mode = _get_env_with_legacy("VPARSE_DEVICE_MODE", "MINERU_DEVICE_MODE", None)
+    device_mode = get_env_with_legacy("VPARSE_DEVICE_MODE", "MINERU_DEVICE_MODE", None)
     if device_mode is not None:
         return device_mode
 
@@ -142,7 +126,7 @@ def get_device():
 
 
 def get_formula_enable(formula_enable):
-    formula_enable_env = _get_env_with_legacy("VPARSE_FORMULA_ENABLE", "MINERU_FORMULA_ENABLE")
+    formula_enable_env = get_env_with_legacy("VPARSE_FORMULA_ENABLE", "MINERU_FORMULA_ENABLE")
     formula_enable = (
         formula_enable
         if formula_enable_env is None
@@ -152,7 +136,7 @@ def get_formula_enable(formula_enable):
 
 
 def get_table_enable(table_enable):
-    table_enable_env = _get_env_with_legacy("VPARSE_TABLE_ENABLE", "MINERU_TABLE_ENABLE")
+    table_enable_env = get_env_with_legacy("VPARSE_TABLE_ENABLE", "MINERU_TABLE_ENABLE")
     table_enable = (
         table_enable if table_enable_env is None else table_enable_env.lower() == "true"
     )
@@ -190,6 +174,11 @@ def get_local_models_dir():
     models_dir = config.get("models-dir")
     if models_dir is None:
         logger.warning(
-            f"'models-dir' not found in {_resolve_config_file_name()}, use None as default"
+            f"'models-dir' not found in {_resolve_config_path()}, use None as default"
         )
     return models_dir
+
+
+_module = sys.modules[__name__]
+sys.modules.setdefault("vparse.utils.config_reader", _module)
+sys.modules.setdefault("mineru.utils.config_reader", _module)

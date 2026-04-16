@@ -16,6 +16,7 @@ from .model_output_to_middle_json import result_to_middle_json
 from ...data.data_reader_writer import DataWriter
 from vparse.utils.pdf_image_tools import load_images_from_pdf
 from ...utils.check_sys_env import is_mac_os_version_supported
+from ...utils.compat import get_env_with_legacy
 from ...utils.config_reader import get_device
 
 from ...utils.enum_class import ImageType
@@ -220,7 +221,7 @@ class ModelSingleton:
                     if "cache_max_entry_count" not in kwargs:
                         kwargs["cache_max_entry_count"] = 0.5
 
-                    device_type = os.getenv("VPARSE_LMDEPLOY_DEVICE", os.getenv("MINERU_LMDEPLOY_DEVICE", ""))
+                    device_type = get_env_with_legacy("VPARSE_LMDEPLOY_DEVICE", "MINERU_LMDEPLOY_DEVICE", "")
                     if device_type == "":
                         if "lmdeploy_device" in kwargs:
                             device_type = kwargs.pop("lmdeploy_device")
@@ -230,7 +231,7 @@ class ModelSingleton:
                                 )
                         else:
                             device_type = "cuda"
-                    lm_backend = os.getenv("VPARSE_LMDEPLOY_BACKEND", os.getenv("MINERU_LMDEPLOY_BACKEND", ""))
+                    lm_backend = get_env_with_legacy("VPARSE_LMDEPLOY_BACKEND", "MINERU_LMDEPLOY_BACKEND", "")
                     if lm_backend == "":
                         if "lmdeploy_backend" in kwargs:
                             lm_backend = kwargs.pop("lmdeploy_backend")

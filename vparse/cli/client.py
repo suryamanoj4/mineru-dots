@@ -7,15 +7,9 @@ import sys
 import click
 from pathlib import Path
 from loguru import logger
+from vparse.utils.compat import get_env_with_legacy
 
-def _get_env_with_legacy(new_key: str, legacy_key: str, default=None):
-    value = os.getenv(new_key)
-    if value is not None:
-        return value
-    return os.getenv(legacy_key, default)
-
-
-log_level = _get_env_with_legacy("VPARSE_LOG_LEVEL", "MINERU_LOG_LEVEL", "INFO").upper()
+log_level = get_env_with_legacy("VPARSE_LOG_LEVEL", "MINERU_LOG_LEVEL", "INFO").upper()
 logger.remove()  # 移除默认handler
 logger.add(sys.stderr, level=log_level)  # 添加新handler
 
@@ -259,10 +253,7 @@ def main(
                 return get_device()
 
         if os.getenv("VPARSE_DEVICE_MODE", None) is None:
-            if os.getenv("MINERU_DEVICE_MODE", None) is not None:
-                os.environ["VPARSE_DEVICE_MODE"] = os.getenv("MINERU_DEVICE_MODE")
-            else:
-                os.environ["VPARSE_DEVICE_MODE"] = get_device_mode()
+            os.environ["VPARSE_DEVICE_MODE"] = get_device_mode()
 
         def get_virtual_vram_size() -> int:
             if virtual_vram is not None:
@@ -271,16 +262,10 @@ def main(
                 return get_vram(get_device_mode())
 
         if os.getenv("VPARSE_VIRTUAL_VRAM_SIZE", None) is None:
-            if os.getenv("MINERU_VIRTUAL_VRAM_SIZE", None) is not None:
-                os.environ["VPARSE_VIRTUAL_VRAM_SIZE"] = os.getenv("MINERU_VIRTUAL_VRAM_SIZE")
-            else:
-                os.environ["VPARSE_VIRTUAL_VRAM_SIZE"] = str(get_virtual_vram_size())
+            os.environ["VPARSE_VIRTUAL_VRAM_SIZE"] = str(get_virtual_vram_size())
 
         if os.getenv("VPARSE_MODEL_SOURCE", None) is None:
-            if os.getenv("MINERU_MODEL_SOURCE", None) is not None:
-                os.environ["VPARSE_MODEL_SOURCE"] = os.getenv("MINERU_MODEL_SOURCE")
-            else:
-                os.environ["VPARSE_MODEL_SOURCE"] = model_source
+            os.environ["VPARSE_MODEL_SOURCE"] = model_source
 
     os.makedirs(output_dir, exist_ok=True)
 

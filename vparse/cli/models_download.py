@@ -5,6 +5,7 @@ import click
 import requests
 from loguru import logger
 
+from vparse.utils.compat import get_config_file_path, get_env_with_legacy
 from vparse.utils.enum_class import ModelPath
 from vparse.utils.models_download_utils import auto_download_and_get_model_root_path
 
@@ -42,7 +43,8 @@ def load_template_json(url):
 def download_and_modify_json(url, local_filename, modifications):
     """下载JSON并修改内容"""
     if os.path.exists(local_filename):
-        data = json.load(open(local_filename))
+        with open(local_filename, "r", encoding="utf-8") as f:
+            data = json.load(f)
         config_version = data.get('config_version', '0.0.0')
         if config_version < '1.3.1':
             data = load_template_json(url)
@@ -76,11 +78,8 @@ def has_pipeline_models(model_dir):
 def configure_model(model_dir, model_type):
     """配置模型"""
     json_url = 'https://gcore.jsdelivr.net/gh/opendatalab/VParse@master/vparse.template.json'
-    config_file_name = os.getenv('VPARSE_TOOLS_CONFIG_JSON')
-    if config_file_name is None:
-        config_file_name = os.getenv('MINERU_TOOLS_CONFIG_JSON', 'vparse.json')
-    home_dir = os.path.expanduser('~')
-    config_file = os.path.join(home_dir, config_file_name)
+    config_file = get_config_file_path(prefer_existing=True)
+    os.makedirs(os.path.dirname(config_file), exist_ok=True)
 
     json_mods = {
         'models-dir': {
@@ -156,8 +155,11 @@ def download_models(model_source, model_type):
         )
 
     if os.getenv('VPARSE_MODEL_SOURCE', None) is None:
-        legacy_source = os.getenv('MINERU_MODEL_SOURCE', None)
-        os.environ['VPARSE_MODEL_SOURCE'] = legacy_source if legacy_source is not None else model_source
+        os.environ['VPARSE_MODEL_SOURCE'] = get_env_with_legacy(
+            'VPARSE_MODEL_SOURCE',
+            'MINERU_MODEL_SOURCE',
+            model_source,
+        )
 
     # 如果未显式指定则交互式输入模型类型
     if model_type is None:

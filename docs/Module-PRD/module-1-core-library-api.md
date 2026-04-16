@@ -2,30 +2,30 @@
 
 ## Task 0: Rebranding from MinerU to VParse
 
-This task must be completed first before any other work begins. The codebase must be rebranded from `vparse` to `vparse` in all locations while maintaining full backward compatibility.
+This task must be completed first before any other work begins. The codebase must be rebranded from `mineru` to `vparse` in all locations while maintaining full backward compatibility.
 
 ### Scope of Rebranding
 
-- **Package name**: `vparse` → `vparse` (in pyproject.toml, imports, directory structure)
-- **CLI commands**: `vparse` → `vparse`, `vparse-api` → `vparse-api`, `vparse-gradio` → `vparse-gradio`, etc.
-- **Config files**: `~/.vparse.json` → `~/.vparse.json`
-- **Environment variables**: `VPARSE_*` → `VPARSE_*`
-- **PyPI package**: `vparse` → `vparse`
-- **Documentation**: All mentions of VParse → VParse
-- **Exception classes**: `VParseError` → `VParseError`, etc.
+- **Package name**: `mineru` → `vparse` (in pyproject.toml, imports, directory structure)
+- **CLI commands**: `mineru` → `vparse`, `mineru-api` → `vparse-api`, `mineru-gradio` → `vparse-gradio`, etc.
+- **Config files**: `~/.mineru.json` → `~/.vparse.json`
+- **Environment variables**: `MINERU_*` → `VPARSE_*`
+- **PyPI package**: `mineru` → `vparse`
+- **Documentation**: All mentions of MinerU → VParse
+- **Exception classes**: `MinerUError` → `VParseError`, etc.
 
 ### Backward Compatibility Requirements
 
-- Old CLI commands (`vparse`, `vparse-api`, etc.) must still work as aliases
-- Old config file location (`~/.vparse.json`) must be checked if `~/.vparse.json` doesn't exist
+- Old CLI commands (`mineru`, `mineru-api`, etc.) must still work as aliases
+- Old config file location (`~/.mineru.json`) must be checked if `~/.vparse.json` doesn't exist
 - Old environment variables must work if new ones are not set
-- Old import paths (`from vparse import ...`) must work via module alias
+- Old import paths (`from mineru import ...`) must work via module alias
 
 ### Implementation Strategy
 
-1. Rename the `vparse/` directory to `vparse/`
+1. Rename the `mineru/` directory to `vparse/`
 2. Update all Python imports and references in the codebase
-3. Create backward-compatible aliases (symlink or `import vparse = vparse`)
+3. Create backward-compatible aliases (symlink or `import mineru = vparse`)
 4. Update pyproject.toml with new package name and CLI entry points
 5. Keep old entry points as aliases pointing to new commands
 6. Update all documentation and comments
@@ -34,9 +34,9 @@ This task must be completed first before any other work begins. The codebase mus
 
 | File | Change |
 |---|---|
-| `vparse/` → `vparse/` | Directory rename |
+| `mineru/` → `vparse/` | Directory rename |
 | `pyproject.toml` | Update name, entry points, extras |
-| All Python files | Update imports: `import vparse` → `import vparse` |
+| All Python files | Update imports: `import mineru` → `import vparse` |
 | All config files | Update default paths |
 | All docs | Update branding |
 

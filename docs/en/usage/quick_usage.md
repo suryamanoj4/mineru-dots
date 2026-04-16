@@ -61,10 +61,10 @@ If you need to adjust parsing options through custom parameters, you can also ch
 
 ## Extending VParse Functionality with Configuration Files
 
-VParse is now ready to use out of the box, but also supports extending functionality through configuration files. You can edit `vparse.json` file in your user directory to add custom configurations.  
+VParse is now ready to use out of the box, but also supports extending functionality through configuration files. You can edit `~/.vparse.json` to add custom configurations. Legacy config files such as `~/.mineru.json`, `~/vparse.json`, and `~/mineru.json` are still recognized for backward compatibility.  
 
 >[!IMPORTANT]
->The `vparse.json` file will be automatically generated when you use the built-in model download command `vparse-models-download`, or you can create it by copying the [configuration template file](https://github.com/opendatalab/VParse/blob/master/vparse.template.json) to your user directory and renaming it to `vparse.json`.  
+>The `~/.vparse.json` file will be automatically generated when you use the built-in model download command `vparse-models-download`, or you can create it by copying the [configuration template file](https://github.com/opendatalab/VParse/blob/master/vparse.template.json) to your user directory and renaming it to `.vparse.json`.  
 
 Here are some available configuration options:  
 

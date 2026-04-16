@@ -1,6 +1,11 @@
 # Copyright (c) Opendatalab. All rights reserved.
 
-class FileNotExisted(Exception):
+import sys
+
+from vparse.exceptions import BackendError, ConfigurationError, InputError, ProcessingError
+
+
+class FileNotExisted(InputError):
 
     def __init__(self, path):
         self.path = path
@@ -9,7 +14,7 @@ class FileNotExisted(Exception):
         return f'File {self.path} does not exist.'
 
 
-class InvalidConfig(Exception):
+class InvalidConfig(ConfigurationError):
     def __init__(self, msg):
         self.msg = msg
 
@@ -17,7 +22,7 @@ class InvalidConfig(Exception):
         return f'Invalid config: {self.msg}'
 
 
-class InvalidParams(Exception):
+class InvalidParams(InputError):
     def __init__(self, msg):
         self.msg = msg
 
@@ -25,16 +30,30 @@ class InvalidParams(Exception):
         return f'Invalid params: {self.msg}'
 
 
-class EmptyData(Exception):
+class EmptyData(ProcessingError):
     def __init__(self, msg):
         self.msg = msg
 
     def __str__(self):
         return f'Empty data: {self.msg}'
 
-class CUDA_NOT_AVAILABLE(Exception):
+class CUDA_NOT_AVAILABLE(BackendError):
     def __init__(self, msg):
         self.msg = msg
 
     def __str__(self):
         return f'CUDA not available: {self.msg}'
+
+
+__all__ = [
+    "FileNotExisted",
+    "InvalidConfig",
+    "InvalidParams",
+    "EmptyData",
+    "CUDA_NOT_AVAILABLE",
+]
+
+
+_module = sys.modules[__name__]
+sys.modules.setdefault("vparse.data.utils.exceptions", _module)
+sys.modules.setdefault("mineru.data.utils.exceptions", _module)

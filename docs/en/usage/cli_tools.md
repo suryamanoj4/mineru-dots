@@ -82,7 +82,8 @@ Here are the environment variables and their descriptions:
   
 - `VPARSE_TOOLS_CONFIG_JSON`: 
     * Used to specify configuration file path
-    * defaults to `vparse.json` in user directory, can specify other configuration file paths through environment variables.
+    * defaults to `~/.vparse.json`; if it does not exist, VParse falls back to legacy files such as `~/.mineru.json`, `~/vparse.json`, and `~/mineru.json`.
+    * you can specify a different configuration file path through environment variables.
   
 - `VPARSE_FORMULA_ENABLE`:
     * Used to enable formula parsing

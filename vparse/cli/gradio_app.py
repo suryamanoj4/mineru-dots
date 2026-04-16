@@ -20,18 +20,11 @@ from loguru import logger
 from vparse.cli.common import prepare_env, read_fn, aio_do_parse, do_parse, pdf_suffixes, image_suffixes
 from vparse.cli.streaming import iter_stream_parse, get_final_parse_dir, cleanup_stream_session
 from vparse.utils.cli_parser import arg_parse
+from vparse.utils.compat import get_env_with_legacy
 from vparse.utils.engine_utils import get_vlm_engine
 from vparse.utils.hash_utils import str_sha256
 
-
-def _get_env_with_legacy(new_key: str, legacy_key: str, default=None):
-    value = os.getenv(new_key)
-    if value is not None:
-        return value
-    return os.getenv(legacy_key, default)
-
-
-log_level = _get_env_with_legacy("VPARSE_LOG_LEVEL", "MINERU_LOG_LEVEL", "INFO").upper()
+log_level = get_env_with_legacy("VPARSE_LOG_LEVEL", "MINERU_LOG_LEVEL", "INFO").upper()
 logger.remove()  # 移除默认handler
 logger.add(sys.stderr, level=log_level)  # 添加新handler
 
@@ -359,7 +352,7 @@ async def to_markdown(
     if '(' in language and ')' in language:
         language = language.split('(')[0].strip()
     file_path = to_pdf(file_path)
-    backend_api_url = _get_env_with_legacy("VPARSE_GRADIO_BACKEND_API_URL", "MINERU_GRADIO_BACKEND_API_URL", "").strip()
+    backend_api_url = get_env_with_legacy("VPARSE_GRADIO_BACKEND_API_URL", "MINERU_GRADIO_BACKEND_API_URL", "").strip()
 
     if stream_output:
         if backend_api_url:
@@ -765,9 +758,9 @@ def main(ctx,
 
     kwargs.update(arg_parse(ctx))
 
-    configured_backend_options = backend_options or _get_env_with_legacy("VPARSE_GRADIO_BACKEND_OPTIONS", "MINERU_GRADIO_BACKEND_OPTIONS")
-    configured_default_backend = default_backend or _get_env_with_legacy("VPARSE_GRADIO_DEFAULT_BACKEND", "MINERU_GRADIO_DEFAULT_BACKEND")
-    configured_backend_api_url = backend_api_url or _get_env_with_legacy("VPARSE_GRADIO_BACKEND_API_URL", "MINERU_GRADIO_BACKEND_API_URL")
+    configured_backend_options = backend_options or get_env_with_legacy("VPARSE_GRADIO_BACKEND_OPTIONS", "MINERU_GRADIO_BACKEND_OPTIONS")
+    configured_default_backend = default_backend or get_env_with_legacy("VPARSE_GRADIO_DEFAULT_BACKEND", "MINERU_GRADIO_DEFAULT_BACKEND")
+    configured_backend_api_url = backend_api_url or get_env_with_legacy("VPARSE_GRADIO_BACKEND_API_URL", "MINERU_GRADIO_BACKEND_API_URL")
     if configured_backend_api_url:
         os.environ["VPARSE_GRADIO_BACKEND_API_URL"] = configured_backend_api_url
     startup_backend_options = None

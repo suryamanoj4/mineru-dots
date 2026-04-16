@@ -36,31 +36,30 @@
 
 > **This project has been rebranded from MinerU → VParse**
 >
-> **Current Stage**: Early development & refactoring phase
 > - ✅ **Core OCR functionality**: Stable and production-ready
 > - ✅ **Rebranding completed**: Package name, CLI commands, and documentation now use VParse branding
+> - ✅ **Backward compatibility retained**: Legacy `mineru*` commands/imports remain available as aliases
 > - 📋 **Roadmap**: Comprehensive development plan available at [ROADMAP.md](ROADMAP.md)
-> - 🔧 **Breaking changes expected**: Internal APIs and module structures will be refactored
 >
 > **What this means for users**:
 > - Current functionality works as documented
 > - Use `vparse` as the primary package name
 > - Use `vparse` CLI commands as primary commands
-> - We recommend pinning to current version if stability is critical: `pip install vparse==2.7.6`
+> - Legacy `mineru` imports and CLI commands continue to work during migration
 >
 > **See [ROADMAP.md](ROADMAP.md) for complete development plan and contribution guide.**
 
 ---
 
-# vParse (formerly VParse)
+# VParse (formerly MinerU)
 
-> **vParse is built on top of [VParse](https://github.com/opendatalab/VParse) by customizing and extending the original tool to meet specific OCR and document parsing needs.** We extend VParse's powerful document understanding capabilities with additional backend support, Docker deployment, multi-model VLM integration, and production-grade optimizations.
+> **VParse is built on top of [VParse](https://github.com/opendatalab/VParse) by customizing and extending the original tool to meet specific OCR and document parsing needs.** We extend VParse's powerful document understanding capabilities with additional backend support, Docker deployment, multi-model VLM integration, and production-grade optimizations.
 
 ## Project Introduction
 
-**vParse** (previously known as VParse) is a comprehensive document parsing and OCR toolkit that converts PDFs and images into machine-readable formats (e.g., markdown, JSON, HTML, DOCX). It supports multiple OCR backends, VLM models, and deployment methods.
+**VParse** (previously known as MinerU) is a comprehensive document parsing and OCR toolkit that converts PDFs and images into machine-readable formats (e.g., markdown, JSON, HTML, DOCX). It supports multiple OCR backends, VLM models, and deployment methods.
 
-vParse originated from [VParse](https://github.com/opendatalab/VParse), which was born during the pre-training process of [InternLM](https://github.com/InternLM/InternLM). We are extending it into a one-stop OCR toolkit with enhanced backend support, Docker deployment capabilities, and optimized performance for bulk processing.
+VParse originated from [VParse](https://github.com/opendatalab/VParse), which was born during the pre-training process of [InternLM](https://github.com/InternLM/InternLM). We are extending it into a one-stop OCR toolkit with enhanced backend support, Docker deployment capabilities, and optimized performance for bulk processing.
 
 If you encounter any issues or if the results are not as expected, please submit an issue on [GitHub Issues](https://github.com/opendatalab/VParse/issues) and **attach the relevant PDF**.
 
@@ -90,11 +89,10 @@ https://github.com/user-attachments/assets/4bea02c9-6d54-4cd6-97ed-dff14340982c
 | **Output Formats** | ✅ Stable | Markdown, JSON (middle, model, content_list), images |
 | **Domestic Hardware** | ✅ Stable | Ascend, Hygon, Enflame, MooreThreads, IluvatarCorex, Cambricon, METAX, Kunlunxin, Tecorigin, Biren |
 
-### 🚧 Under Active Development
+### 📋 Planned Enhancements
 
 | Feature | Status | Expected Completion |
 |---------|--------|---------------------|
-| **vParse Rebranding** | 🚧 In Progress | Package rename, CLI commands, documentation |
 | **Tesseract Integration** | ✅ Done | Lightweight `lite` backend for fast OCR |
 | **Multi-Model VLM Support** | 📋 Planned | Qwen2-VL, InternVL2, Got-OCR2.0, Nougat |
 | **KV Cache Optimization** | 📋 Planned | Memory optimization for bulk VLM processing |
@@ -113,7 +111,7 @@ For detailed development plan with 15 modules and 148 tasks, see **[ROADMAP.md](
 
 ### Backend Comparison
 
-vParse currently supports **three main backends** with different trade-offs:
+VParse currently supports **three main backends** with different trade-offs:
 
 <table>
   <thead>
@@ -253,13 +251,13 @@ vParse currently supports **three main backends** with different trade-offs:
 
 #### 1. Full Installation (All Features)
 ```bash
-pip install "mineru[all]"
+pip install "vparse[all]"
 ```
 
 #### 2. CPU/Lite Installation (Fast & Lightweight)
 If you only need the high-performance `lite` backend (Tesseract-based) and want to avoid heavy dependencies like PyTorch and PaddleOCR:
 ```bash
-pip install "mineru[lite]"
+pip install "vparse[lite]"
 ```
 
 > ⚠️ **IMPORTANT: System Requirement**  
@@ -271,7 +269,7 @@ pip install "mineru[lite]"
 ### Quick Start
 
 
-> ⚠️ **Note**: During the rebranding period, CLI commands still use `vparse` prefix. Future versions will use `vparse`.
+> ⚠️ **Note**: `vparse` is the primary CLI prefix. Legacy `mineru*` commands remain available as backward-compatible aliases.
 
 If you encounter any installation issues, please first consult the <a href="#faq">FAQ</a>. </br>
 If the parsing results are not as expected, refer to the <a href="#known-issues">Known Issues</a>. </br>
@@ -301,7 +299,7 @@ uv pip install -e .[all]
 
 #### Deploy Using Docker
 
-vParse provides Docker deployment with Docker Compose:
+VParse provides Docker deployment with Docker Compose:
 
 ```bash
 cd docker
@@ -321,7 +319,7 @@ See [Docker Deployment Documentation](https://opendatalab.github.io/VParse/quick
 
 ---
 
-### Using vParse
+### Using VParse
 
 #### CLI Usage
 
@@ -375,7 +373,7 @@ For detailed usage instructions, see the [Usage Guide](https://opendatalab.githu
 
 ## Development Roadmap
 
-vParse is undergoing active development with a comprehensive roadmap to become a one-stop OCR toolkit.
+VParse is undergoing active development with a comprehensive roadmap to become a one-stop OCR toolkit.
 
 ### Planned Modules (15 Total)
 
@@ -436,10 +434,10 @@ vParse is undergoing active development with a comprehensive roadmap to become a
 
 ## Contributing
 
-We welcome contributions! During the rebranding phase, please note:
+We welcome contributions. Please note:
 
-1. **Current codebase**: Still uses `vparse` namespace - this is intentional for backward compatibility
-2. **Future changes**: Will introduce `vparse` namespace with proper migration path
+1. **Primary namespace**: The codebase now uses the `vparse` namespace by default
+2. **Compatibility namespace**: The legacy `mineru` namespace remains available for backward compatibility
 3. **Contributing to roadmap**: See [ROADMAP.md](ROADMAP.md) for detailed task breakdown
 4. **Pick a task**: Each module has specific files to create/modify and implementation details
 
@@ -514,4 +512,4 @@ Some models in this project are trained based on YOLO. Since YOLO follows the AG
 
 **Last Updated**: April 8, 2026  
 **Project Status**: Active Development & Rebranding  
-**Version**: 2.7.6 (vParse development branch)
+**Version**: 2.7.6 (VParse development branch)

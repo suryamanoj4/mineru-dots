@@ -16,17 +16,11 @@ from ...model.table.cls.paddle_table_cls import PaddleTableClsModel
 from ...model.table.rec.slanet_plus.main import RapidTableModel
 from ...model.table.rec.unet_table.main import UnetTableModel
 from ...utils.config_reader import get_device
+from ...utils.compat import get_env_with_legacy
 from ...utils.enum_class import ModelPath
 from ...utils.models_download_utils import auto_download_and_get_model_root_path
 
-def _get_env_with_legacy(new_key: str, legacy_key: str, default=None):
-    value = os.getenv(new_key)
-    if value is not None:
-        return value
-    return os.getenv(legacy_key, default)
-
-
-MFR_MODEL = _get_env_with_legacy('VPARSE_FORMULA_CH_SUPPORT', 'MINERU_FORMULA_CH_SUPPORT', 'False')
+MFR_MODEL = get_env_with_legacy('VPARSE_FORMULA_CH_SUPPORT', 'MINERU_FORMULA_CH_SUPPORT', 'False')
 if MFR_MODEL.lower() in ['true', '1', 'yes']:
     MFR_MODEL = "pp_formulanet_plus_m"
 elif MFR_MODEL.lower() in ['false', '0', 'no']:
@@ -362,7 +356,7 @@ def ocr_det_batch_setting(device):
     import torch
     from packaging import version
 
-    device_type = _get_env_with_legacy("VPARSE_LMDEPLOY_DEVICE", "MINERU_LMDEPLOY_DEVICE", "")
+    device_type = get_env_with_legacy("VPARSE_LMDEPLOY_DEVICE", "MINERU_LMDEPLOY_DEVICE", "")
 
     if (
             version.parse(torch.__version__) >= version.parse("2.8.0")

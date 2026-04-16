@@ -17,6 +17,7 @@ from vparse.backend.pipeline.model_init import HybridModelSingleton
 from vparse.backend.vlm.vlm_analyze import ModelSingleton
 from vparse.backend.vlm.dots_ocr_client import DotsOCRClient
 from vparse.data.data_reader_writer import DataWriter
+from vparse.utils.compat import get_env_with_legacy
 from vparse.utils.config_reader import get_device
 from vparse.utils.enum_class import ImageType, NotExtractType
 from vparse.utils.model_utils import crop_img, get_vram, clean_memory
@@ -38,13 +39,6 @@ MFR_BASE_BATCH_SIZE = 16
 OCR_DET_BASE_BATCH_SIZE = 16
 
 not_extract_list = [item.value for item in NotExtractType]
-
-
-def _get_env_with_legacy(new_key: str, legacy_key: str, default=None):
-    value = os.getenv(new_key)
-    if value is not None:
-        return value
-    return os.getenv(legacy_key, default)
 
 
 def ocr_classify(
@@ -418,7 +412,7 @@ def get_batch_ratio(device):
     例如：
     export VPARSE_HYBRID_BATCH_RATIO=4
     """
-    env_val = _get_env_with_legacy("VPARSE_HYBRID_BATCH_RATIO", "MINERU_HYBRID_BATCH_RATIO")
+    env_val = get_env_with_legacy("VPARSE_HYBRID_BATCH_RATIO", "MINERU_HYBRID_BATCH_RATIO")
     if env_val:
         try:
             batch_ratio = int(env_val)
@@ -453,7 +447,7 @@ def _should_enable_vlm_ocr(
     ocr_enable: bool, language: str, inline_formula_enable: bool
 ) -> bool:
     """判断是否启用VLM OCR"""
-    force_enable = _get_env_with_legacy("VPARSE_FORCE_VLM_OCR_ENABLE", "MINERU_FORCE_VLM_OCR_ENABLE", "0").lower() in (
+    force_enable = get_env_with_legacy("VPARSE_FORCE_VLM_OCR_ENABLE", "MINERU_FORCE_VLM_OCR_ENABLE", "0").lower() in (
         "1",
         "true",
         "yes",
@@ -461,7 +455,7 @@ def _should_enable_vlm_ocr(
     if force_enable:
         return True
 
-    force_pipeline = _get_env_with_legacy("VPARSE_HYBRID_FORCE_PIPELINE_ENABLE", "MINERU_HYBRID_FORCE_PIPELINE_ENABLE", "0").lower() in (
+    force_pipeline = get_env_with_legacy("VPARSE_HYBRID_FORCE_PIPELINE_ENABLE", "MINERU_HYBRID_FORCE_PIPELINE_ENABLE", "0").lower() in (
         "1",
         "true",
         "yes",

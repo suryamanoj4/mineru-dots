@@ -19,24 +19,24 @@ Durable decisions that apply across all phases:
 
 ## Phase 1: Rebranding from MinerU to VParse
 
-**Task**: Complete rebranding of the codebase from `vparse` to `vparse`
+**Task**: Complete rebranding of the codebase from `mineru` to `vparse`
 
 ### What to build
 
-Rename all references from `vparse` to `vparse` while maintaining full backward compatibility through aliases.
+Rename all references from `mineru` to `vparse` while maintaining full backward compatibility through aliases.
 
 ### Acceptance criteria
 
-- [ ] Package directory renamed: `vparse/` → `vparse/`
-- [ ] All Python imports updated: `import vparse` → `import vparse`
-- [ ] CLI entry points renamed: `vparse` → `vparse`, `vparse-api` → `vparse-api`, etc.
-- [ ] Old CLI commands (`vparse`, `vparse-api`, etc.) still work as aliases
-- [ ] Config file location: check `~/.vparse.json` if `~/.vparse.json` doesn't exist
-- [ ] Environment variables: `VPARSE_*` → `VPARSE_*` (old ones still work)
+- [ ] Package directory renamed: `mineru/` → `vparse/`
+- [ ] All Python imports updated: `import mineru` → `import vparse`
+- [ ] CLI entry points renamed: `mineru` → `vparse`, `mineru-api` → `vparse-api`, etc.
+- [ ] Old CLI commands (`mineru`, `mineru-api`, etc.) still work as aliases
+- [ ] Config file location: check `~/.mineru.json` if `~/.vparse.json` doesn't exist
+- [ ] Environment variables: `MINERU_*` → `VPARSE_*` (old ones still work)
 - [ ] pyproject.toml updated with new package name and entry points
-- [ ] Exception classes renamed: `VParseError` → `VParseError`
+- [ ] Exception classes renamed: `MinerUError` → `VParseError`
 - [ ] All documentation updated
-- [ ] `from vparse import ...` still works via backward-compatible imports
+- [ ] `from mineru import ...` still works via backward-compatible imports
 
 ---
 

@@ -6,6 +6,7 @@ from loguru import logger
 import numpy as np
 
 from vparse.utils.boxbase import get_minbox_if_overlap_by_ratio
+from vparse.utils.compat import get_env_with_legacy
 
 try:
     import torch
@@ -448,9 +449,7 @@ def clean_vram(device, vram_threshold=8):
 
 
 def get_vram(device) -> int:
-    env_vram = os.getenv("VPARSE_VIRTUAL_VRAM_SIZE")
-    if env_vram is None:
-        env_vram = os.getenv("MINERU_VIRTUAL_VRAM_SIZE")
+    env_vram = get_env_with_legacy("VPARSE_VIRTUAL_VRAM_SIZE", "MINERU_VIRTUAL_VRAM_SIZE")
 
     # 如果环境变量已配置,尝试解析并返回
     if env_vram is not None:

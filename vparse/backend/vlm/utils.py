@@ -4,6 +4,7 @@ from loguru import logger
 from packaging import version
 
 from vparse.utils.check_sys_env import is_windows_environment, is_linux_environment
+from vparse.utils.compat import get_env_with_legacy
 from vparse.utils.config_reader import get_device
 from vparse.utils.model_utils import get_vram
 
@@ -179,7 +180,7 @@ def mod_kwargs_by_device_type(kwargs_or_args: dict | list, vllm_mode: str) -> di
     Returns:
         修改后的配置参数
     """
-    device_type = os.getenv("VPARSE_VLLM_DEVICE", os.getenv("MINERU_VLLM_DEVICE", ""))
+    device_type = get_env_with_legacy("VPARSE_VLLM_DEVICE", "MINERU_VLLM_DEVICE", "")
     config = _get_device_config(device_type)
 
     if config is None:

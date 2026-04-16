@@ -1,11 +1,6 @@
 import os
 
-
-def _get_env_with_legacy(new_key: str, legacy_key: str, default=None):
-    value = os.getenv(new_key)
-    if value is not None:
-        return value
-    return os.getenv(legacy_key, default)
+from vparse.utils.compat import get_env_with_legacy
 
 
 def get_op_num_threads(env_name: str) -> int:
@@ -14,12 +9,12 @@ def get_op_num_threads(env_name: str) -> int:
 
 
 def get_load_images_timeout() -> int:
-    env_value = _get_env_with_legacy('VPARSE_PDF_RENDER_TIMEOUT', 'MINERU_PDF_RENDER_TIMEOUT', None)
+    env_value = get_env_with_legacy('VPARSE_PDF_RENDER_TIMEOUT', 'MINERU_PDF_RENDER_TIMEOUT', None)
     return get_value_from_string(env_value, 300)
 
 
 def get_load_images_threads() -> int:
-    env_value = _get_env_with_legacy('VPARSE_PDF_RENDER_THREADS', 'MINERU_PDF_RENDER_THREADS', None)
+    env_value = get_env_with_legacy('VPARSE_PDF_RENDER_THREADS', 'MINERU_PDF_RENDER_THREADS', None)
     return get_value_from_string(env_value, 4)
 
 

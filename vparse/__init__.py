@@ -1,8 +1,28 @@
-# Copyright (c) Opendatalab. All rights reserved.
-import os
+"""Top-level package for VParse with MinerU compatibility aliases."""
 
-# Backward compatibility: allow legacy MINERU_* env vars when VPARSE_* is unset.
-for env_key, env_value in list(os.environ.items()):
-    if env_key.startswith("MINERU_"):
-        vparse_key = f"VPARSE_{env_key[len('MINERU_'):]}"
-        os.environ.setdefault(vparse_key, env_value)
+from .exceptions import (
+    BackendError,
+    ConfigurationError,
+    InputError,
+    MinerUError,
+    ModelLoadError,
+    ProcessingError,
+    TimeoutError,
+    VParseError,
+)
+from .utils.compat import alias_legacy_env_vars
+from .version import __version__
+
+alias_legacy_env_vars()
+
+__all__ = [
+    "__version__",
+    "VParseError",
+    "MinerUError",
+    "BackendError",
+    "ModelLoadError",
+    "ConfigurationError",
+    "InputError",
+    "ProcessingError",
+    "TimeoutError",
+]

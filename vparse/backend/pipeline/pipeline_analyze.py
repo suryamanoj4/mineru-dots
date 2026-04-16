@@ -5,6 +5,7 @@ from PIL import Image
 from loguru import logger
 
 from .model_init import VParsePipelineModel, resolve_ocr_engine
+from ...utils.compat import get_env_with_legacy
 from vparse.utils.config_reader import get_device
 from ...utils.enum_class import ImageType
 from ...utils.pdf_classify import classify
@@ -206,7 +207,7 @@ def batch_image_analyze(
     # 检测torch的版本号
     import torch
     from packaging import version
-    device_type = os.getenv("VPARSE_LMDEPLOY_DEVICE", os.getenv("MINERU_LMDEPLOY_DEVICE", ""))
+    device_type = get_env_with_legacy("VPARSE_LMDEPLOY_DEVICE", "MINERU_LMDEPLOY_DEVICE", "")
     if (
             version.parse(torch.__version__) >= version.parse("2.8.0")
             or str(device).startswith('mps')
