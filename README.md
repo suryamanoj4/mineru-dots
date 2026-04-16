@@ -249,7 +249,22 @@ vParse currently supports **three main backends** with different trade-offs:
 
 ---
 
-## Quick Start
+### Installation
+
+#### 1. Full Installation (All Features)
+```bash
+pip install "mineru[all]"
+```
+
+#### 2. CPU/Lite Installation (Fast & Lightweight)
+If you only need the high-performance `lite` backend (Tesseract-based) and want to avoid heavy dependencies like PyTorch and PaddleOCR:
+```bash
+pip install "mineru[lite]"
+```
+*Note: This mode requires Tesseract-OCR to be installed on your system.*
+
+### Quick Start
+
 
 > ⚠️ **Note**: During the rebranding period, CLI commands still use `mineru` prefix. Future versions will use `vparse`.
 

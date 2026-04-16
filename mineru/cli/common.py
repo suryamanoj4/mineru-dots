@@ -15,9 +15,6 @@ from mineru.utils.engine_utils import get_vlm_engine
 from mineru.utils.enum_class import MakeMode
 from mineru.utils.guess_suffix_or_lang import guess_suffix_by_bytes
 from mineru.utils.pdf_image_tools import images_bytes_to_pdf_bytes
-from mineru.backend.vlm.vlm_middle_json_mkcontent import union_make as vlm_union_make
-from mineru.backend.vlm.vlm_analyze import doc_analyze as vlm_doc_analyze
-from mineru.backend.vlm.vlm_analyze import aio_doc_analyze as aio_vlm_doc_analyze
 from mineru.utils.pdf_page_id import get_end_page_id
 
 if os.getenv("MINERU_LMDEPLOY_DEVICE", "") == "maca":
@@ -161,6 +158,7 @@ def _process_output(
     image_dir = str(os.path.basename(local_image_dir))
 
     if f_dump_md:
+        from mineru.backend.vlm.vlm_middle_json_mkcontent import union_make as vlm_union_make
         make_func = pipeline_union_make if is_pipeline else vlm_union_make
         md_content_str = make_func(pdf_info, f_make_md_mode, image_dir)
         md_writer.write_string(
@@ -169,6 +167,7 @@ def _process_output(
         )
 
     if f_dump_content_list:
+        from mineru.backend.vlm.vlm_middle_json_mkcontent import union_make as vlm_union_make
         make_func = pipeline_union_make if is_pipeline else vlm_union_make
         content_list = make_func(pdf_info, MakeMode.CONTENT_LIST, image_dir)
         md_writer.write_string(
@@ -312,7 +311,6 @@ def _process_lite(
             f_make_md_mode, middle_json, infer_result, is_pipeline=True
         )
 
-
 async def _async_process_vlm(
         output_dir,
         pdf_file_names,
@@ -329,7 +327,12 @@ async def _async_process_vlm(
         server_url=None,
         **kwargs,
 ):
-    """异步处理VLM后端逻辑"""
+    from mineru.backend.vlm.vlm_analyze import doc_analyze as vlm_doc_analyze
+    """同步处理vlm后端逻辑"""
+
+    from mineru.backend.vlm.vlm_analyze import aio_doc_analyze as aio_vlm_doc_analyze
+    """异步处理vlm后端逻辑"""
+
     parse_method = "vlm"
     f_draw_span_bbox = False
     if not backend.endswith("client"):
@@ -353,7 +356,6 @@ async def _async_process_vlm(
             f_make_md_mode, middle_json, infer_result, is_pipeline=False
         )
 
-
 def _process_vlm(
         output_dir,
         pdf_file_names,
@@ -370,7 +372,12 @@ def _process_vlm(
         server_url=None,
         **kwargs,
 ):
-    """同步处理VLM后端逻辑"""
+    from mineru.backend.vlm.vlm_analyze import doc_analyze as vlm_doc_analyze
+    """同步处理vlm后端逻辑"""
+
+    from mineru.backend.vlm.vlm_analyze import aio_doc_analyze as aio_vlm_doc_analyze
+    """异步处理vlm后端逻辑"""
+
     parse_method = "vlm"
     f_draw_span_bbox = False
     if not backend.endswith("client"):
