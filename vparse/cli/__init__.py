@@ -1,9 +1,7 @@
-# Copyright (c) Opendatalab. All rights reserved.
+"""CLI package for vParse.
 
-from .pytorch_paddle import PytorchPaddleOCR
-from .tesseract import TesseractOCRModel
+Keep package import side effects minimal so module-level imports like
+``mineru.cli.models_download`` do not pull in optional runtime components.
+"""
 
-__all__ = [
-    "PytorchPaddleOCR",
-    "TesseractOCRModel",
-]
+__all__: list[str] = []
