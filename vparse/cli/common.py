@@ -221,7 +221,7 @@ def _process_pipeline(
     from vparse.backend.pipeline.model_json_to_middle_json import result_to_middle_json as pipeline_result_to_middle_json
     from vparse.backend.pipeline.pipeline_analyze import doc_analyze as pipeline_doc_analyze
 
-    ocr_engine = _get_env_with_legacy("VPARSE_OCR_ENGINE", "MINERU_OCR_ENGINE", "paddle")
+    ocr_engine = get_env_with_legacy("VPARSE_OCR_ENGINE", "MINERU_OCR_ENGINE", "paddle")
     pipeline_subdir = get_pipeline_subdir(backend, parse_method)
 
     with temporary_env(VPARSE_OCR_ENGINE=ocr_engine, MINERU_OCR_ENGINE=ocr_engine):

@@ -101,7 +101,7 @@ def doclayout_yolo_model_init(weight, device='cpu'):
     return model
 
 def resolve_ocr_engine(ocr_engine=None) -> str:
-    engine = ocr_engine or _get_env_with_legacy("VPARSE_OCR_ENGINE", "MINERU_OCR_ENGINE", "paddle")
+    engine = ocr_engine or get_env_with_legacy("VPARSE_OCR_ENGINE", "MINERU_OCR_ENGINE", "paddle")
     engine = str(engine).strip().lower()
 
     engine_aliases = {
