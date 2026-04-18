@@ -1,17 +1,17 @@
 # VParse MCP-Server
 
-## 1. 概述
+## 1. Overview
 
 这个项目提供了一个 **VParse MCP 服务器** (`vparse-mcp`)，它基于 **FastMCP** 框架构建。其主要功能是作为 **VParse API** 的接口，用于将文档转换为 Markdown格式。
 
-该服务器通过 MCP 协议公开了以下主要工具：
+The server exposes the following main tools via the MCP protocol:
 
-1. `parse_documents`：统一接口，支持处理本地文件和URL，自动根据配置选择最合适的处理方式，并自动读取转换后的内容
-2. `get_ocr_languages`：获取OCR支持的语言列表
+1. `parse_documents`: A unified interface supporting both local files and URLs. it automatically selects the best processing method based on configuration and returns the converted content.
+2. `get_ocr_languages`: Retrieves the list of supported OCR languages.
 
 这使得其他应用程序或 MCP 客户端能够轻松地集成 VParse 的 文档 到 Markdown 转换功能。
 
-## 2. 核心功能
+## 2. Core Features
 
 * **文档提取**: 接收文档文件输入（单个或多个 URL、单个或多个本地路径，支持doc、ppt、pdf、图片多种格式），调用 VParse API 进行内容提取和格式转换，最终生成 Markdown 文件。
 * **批量处理**: 支持同时处理多个文档文件（通过提供由空格、逗号或换行符分隔的 URL 列表或本地文件路径列表）。
@@ -21,14 +21,14 @@
 * **本地解析**: 支持调用本地部署的vparse模型直接解析文档，不依赖远程 API，适用于隐私敏感场景或离线环境。
 * **智能路径处理**: 自动识别URL和本地文件路径，根据USE_LOCAL_API配置选择最合适的处理方式。
 
-## 3. 安装
+## 3. Installation
 
-在开始安装之前，请确保您的系统满足以下基本要求：
+Before starting, ensure your system meets the minimum requirements:
 * Python >= 3.10
 
-### 3.1 使用 pip 安装 (推荐)
+### 3.1 Install via pip (Recommended)
 
-如果你的包已发布到 PyPI 或其他 Python 包索引，可以直接使用 pip 安装：
+If the package is published to PyPI or another index, install it directly:
 
 ```bash
 pip install vparse-mcp==1.0.0
@@ -36,61 +36,61 @@ pip install vparse-mcp==1.0.0
 # pip install mineru-mcp==1.0.0
 ```
 
-目前版本：1.0.0
+Current version: 1.0.0
 
-这种方式适用于不需要修改源代码的普通用户。
+This method is suitable for general users who do not need to modify the source code.
 
-### 3.2 从源码安装
+### 3.2 Install from Source
 
-如果你需要修改源代码或进行开发，可以从源码安装。
+If you need to modify the code or contribute to development, install from source.
 
-克隆仓库并进入项目目录：
+Clone the repository and enter the directory:
 
 ```bash
 git clone <repository-url> # 替换为你的仓库 URL
 cd vparse-mcp
 ```
 
-推荐使用 `uv` 或 `pip` 配合虚拟环境进行安装：
+We recommend using `uv` or `pip` with a virtual environment:
 
-**使用 uv (推荐):**
+**Using uv (Recommended):**
 
 ```bash
-# 安装 uv (如果尚未安装)
+# Install uv (if not already installed)
 # pip install uv
 
-# 创建并激活虚拟环境
+# Create and activate virtual environment
 uv venv
 
 # Linux/macOS
 source .venv/bin/activate 
 # Windows
-# .venv\\Scripts\\activate
+# .venv\Scripts\activate
 
-# 安装依赖和项目
+# Install dependencies and project
 uv pip install -e .
 ```
 
-**使用 pip:**
+**Using pip:**
 
 ```bash
-# 创建并激活虚拟环境
+# Create and activate virtual environment
 python -m venv .venv
 
 # Linux/macOS
 source .venv/bin/activate 
 # Windows
-# .venv\\Scripts\\activate
+# .venv\Scripts\activate
 
-# 安装依赖和项目
+# Install dependencies and project
 pip install -e .
 ```
 
-## 4. 环境变量配置
+## 4. Environment Variables
 
-本项目支持通过环境变量进行配置。你可以选择直接设置系统环境变量，或者在项目根目录创建 `.env` 文件（参考 `.env.example` 模板）。
+This project is configured via environment variables. You can set them in your system or create a `.env` file in the project root (see `.env.example` as a template).
 
-### 4.1 支持的环境变量
+### 4.1 Supported Variables
 
 | 环境变量                  | 说明                                                            | 默认值                    |
 | ------------------------- | --------------------------------------------------------------- | ------------------------- |
@@ -100,54 +100,54 @@ pip install -e .
 | `USE_LOCAL_API`         | 是否使用本地 API 进行解析                                      | `false`                 |
 | `LOCAL_VPARSE_API_BASE` | 本地 API 的基础 URL（当 `USE_LOCAL_API=true` 时有效）         | `http://localhost:8080` |
 
-### 4.2 远程 API 与本地 API
+### 4.2 Remote API vs. Local API
 
-本项目支持两种 API 模式：
+The project supports two API modes:
 
 * **远程 API**：默认模式，通过 VParse 官方提供的云服务进行文档解析。优点是无需本地部署复杂的模型和环境，但需要网络连接和 API 密钥。
 * **本地 API**：在本地部署 VParse 引擎进行文档解析，适用于对数据隐私有高要求或需要离线使用的场景。设置 `USE_LOCAL_API=true` 时生效。
 
-### 4.3 获取 API 密钥
+### 4.3 Get an API Key
 
 要获取 `VPARSE_API_KEY`，请访问 [VParse 官网](https://vparse.net) 注册账号并申请 API 密钥。
 
-## 5. 使用方法
+## 5. Usage
 
-### 5.1 工具概览
+### 5.1 Tool Overview
 
-本项目通过 MCP 协议提供以下工具：
+The following tools are available via the MCP protocol:
 
-1. **parse_documents**：统一接口，支持处理本地文件和URL，根据 `USE_LOCAL_API` 配置自动选择合适的处理方式，并自动读取转换后的文件内容
-2. **get_ocr_languages**：获取 OCR 支持的语言列表
+1. **parse_documents**: Unified interface for local files and URLs. Automatically handles processing and reads output.
+2. **get_ocr_languages**: Retrieves the list of supported OCR languages.
 
-### 5.2 参数说明
+### 5.2 Parameters
 
 #### 5.2.1 parse_documents
 
-| 参数                | 类型    | 说明                                                                | 默认值   | 适用模式 |
-| ------------------- | ------- | ------------------------------------------------------------------- | -------- | -------- |
-| `file_sources`      | 字符串  | 文件路径或URL，多个可用逗号或换行符分隔 (支持pdf、ppt、pptx、doc、docx以及图片格式jpg、jpeg、png) | -        | 全部 |
-| `enable_ocr`        | 布尔值  | 是否启用 OCR 功能                                                   | `false`  | 全部 |
-| `language`          | 字符串  | 文档语言，默认"ch"中文，可选"en"英文等                            | `ch`     | 全部 |
-| `page_ranges`       | 字符串 (可选) | 指定页码范围，格式为逗号分隔的字符串。例如："2,4-6"：表示选取第2页、第4页至第6页；"2--2"：表示从第2页一直选取到倒数第二页。（远程API）  | `None`   | 远程API |
+| Parameter | Type | Description | Default | Mode |
+| --- | --- | --- | --- | --- |
+| `file_sources` | String | Paths or URLs (comma/newline separated). Supports PDF, PPT, DOC, and images. | - | All |
+| `enable_ocr` | Boolean | Whether to enable OCR | `false` | All |
+| `language` | String | Document language (e.g., "ch", "en") | `ch` | All |
+| `page_ranges` | String (Opt) | Comma-separated page ranges (e.g., "2,4-6", "2--2"). | `None` | Remote API |
 
-> **注意**：
-> - 当 `USE_LOCAL_API=true` 时，如果提供了URL，这些URL会被过滤掉，只处理本地文件路径
-> - 当 `USE_LOCAL_API=false` 时，会同时处理URL和本地文件路径
+> **Note**:
+> - When `USE_LOCAL_API=true`, URLs are filtered out; only local paths are processed.
+> - When `USE_LOCAL_API=false`, both URLs and local paths are processed.
 
 #### 5.2.2 get_ocr_languages
 
-无需参数
+No parameters required.
 
-## 6. MCP 客户端集成
+## 6. MCP Client Integration
 
 你可以在任何支持 MCP 协议的客户端中使用 VParse MCP 服务器。
 
-### 6.1 在 Claude 中使用
+### 6.1 Using with Claude
 
 将 VParse MCP 服务器配置为 Claude 的工具，即可在 Claude 中直接使用文档转 Markdown 功能。配置工具时详情请参考 MCP 工具配置文档。根据不同的安装和使用场景，你可以选择以下两种配置方式：
 
-#### 6.1.1 源码运行方式
+#### 6.1.1 Running from Source
 
 如果你是从源码安装并运行 VParse MCP，可以使用以下配置。这种方式适合你需要修改源码或者进行开发调试的场景：
 
@@ -169,7 +169,10 @@ pip install -e .
 }
 ```
 
-这种配置的特点：
+Features:
+- Uses `uv`.
+- Explicitly points to the source directory via `--directory`.
+- Runs via the `mineru.cli` module.
 
 - 使用 `uv` 命令
 - 通过 `--directory` 参数指定源码所在目录
@@ -198,48 +201,42 @@ pip install -e .
 }
 ```
 
-这种配置的特点：
+Features:
+- Uses `uvx` for one-command execution.
+- Cleaner configuration; no source directory required.
 
-- 使用 `uvx` 命令直接运行已安装的包
-- 配置更加简洁
-- 不需要指定源码目录
-- 适合稳定的生产环境使用
-
-### 6.2 在 FastMCP 客户端中使用
-
+### 6.2 Using with FastMCP Client (Python)
 
 ```python
 from fastmcp import FastMCP
 
-# 初始化 FastMCP 客户端
+# Initialize client
 client = FastMCP(server_url="http://localhost:8001")
 
-# 使用 parse_documents 工具处理单个文档
+# Single document
 result = await client.tool_call(
     tool_name="parse_documents",
     params={"file_sources": "/path/to/document.pdf"}
 )
 
-# 混合处理URLs和本地文件
+# Mixed URLs and local files
 result = await client.tool_call(
     tool_name="parse_documents",
     params={"file_sources": "/path/to/file.pdf, https://example.com/document.pdf"}
 )
 
-# 启用OCR
+# Enable OCR
 result = await client.tool_call(
     tool_name="parse_documents",
     params={"file_sources": "/path/to/file.pdf", "enable_ocr": True}
 )
 ```
 
-### 6.3 直接运行服务
+### 6.3 Running the Service Directly
 
 你可以通过设置环境变量并直接运行命令的方式启动 VParse MCP 服务器，这种方式特别适合快速测试和开发环境。
 
-#### 6.3.1 设置环境变量
-
-首先，确保设置了必要的环境变量。你可以通过创建 `.env` 文件（参考 `.env.example`）或直接在命令行中设置：
+#### 6.3.1 Set Environment Variables
 
 ```bash
 # Linux/macOS
@@ -257,21 +254,23 @@ set USE_LOCAL_API=true
 set LOCAL_VPARSE_API_BASE=http://localhost:8080
 ```
 
-#### 6.3.2 启动服务
+#### 6.3.2 Start Service
 
 使用以下命令启动 VParse MCP 服务器，支持多种传输模式：
 
-**SSE 传输模式**：
+**SSE Mode**:
 ```bash
 uv run vparse-mcp --transport sse
 ```
 
-**Streamable HTTP 传输模式**：
+**Streamable HTTP Mode**:
 ```bash
 uv run vparse-mcp --transport streamable-http
 ```
 
-或者，如果你使用全局安装：
+The service defaults to `http://localhost:8001`. The endpoint depends on the transport:
+- SSE: `/sse` (e.g., `http://localhost:8001/sse`)
+- Streamable HTTP: `/mcp` (e.g., `http://localhost:8001/mcp`)
 
 ```bash
 vparse-mcp --transport sse
@@ -279,11 +278,9 @@ vparse-mcp --transport sse
 vparse-mcp --transport streamable-http
 ```
 
-服务默认在 `http://localhost:8001` 启动，使用的传输协议取决于你指定的 `--transport` 参数。
+Deploy quickly in any Docker environment.
 
-> **注意**：不同传输模式使用不同的路由路径：
-> - SSE 模式：`/sse`（例如：`http://localhost:8001/sse`）
-> - Streamable HTTP 模式：`/mcp`（例如：`http://localhost:8001/mcp`）
+### 7.1 Using Docker Compose
 
 
 ## 7. Docker 部署
@@ -300,11 +297,9 @@ vparse-mcp --transport streamable-http
 docker-compose up -d
 ```
 
-服务默认会在 `http://localhost:8001` 启动。
+The service will be available at `http://localhost:8001`.
 
-### 7.2 手动构建 Docker 镜像
-
-如果需要手动构建 Docker 镜像，可以使用以下命令：
+### 7.2 Manual Build
 
 ```bash
 docker build -t vparse-mcp:latest .
@@ -316,11 +311,13 @@ docker build -t vparse-mcp:latest .
 docker run -p 8001:8001 --env-file .env vparse-mcp:latest
 ```
 
-更多 Docker 相关信息，请参考 `DOCKER_README.md` 文件。
+See `DOCKER_README.md` for more details.
 
-## 8. 常见问题
+## 8. FAQ
 
-### 8.1 API 密钥问题
+### 8.1 API Key Issues
+**Issue**: 401 Error or connection failure.
+**Solution**: Verify `MINERU_API_KEY` is set correctly in your environment or `.env` file.
 
 **问题**：无法连接 VParse API 或返回 401 错误。
 **解决方案**：检查你的 API 密钥是否正确设置。在 `.env` 文件中确保 `VPARSE_API_KEY` 环境变量包含有效的密钥。
@@ -346,3 +343,10 @@ docker run -p 8001:8001 --env-file .env vparse-mcp:latest
 5. 对于超时后无法再次调用的问题，需要重启 MCP 客户端
 6. 如果反复出现超时，请检查网络连接或考虑使用本地 API 模式
 
+### 8.4 Request Timeouts
+**Issue**: `MCP error -32001: Request timed out`.
+**Solution**: Common with large documents or unstable networks. Some clients (like Cursor) may require a restart after a timeout.
+1. Process smaller files.
+2. Batch files into multiple smaller requests.
+3. Increase client-side timeout settings if available.
+4. Consider using Local API mode for heavy workloads.

@@ -51,7 +51,7 @@ def test_pipeline_with_two_config():
         new_pdf_bytes = convert_pdf_bytes_to_bytes_by_pypdfium2(pdf_bytes)
         pdf_bytes_list[idx] = new_pdf_bytes
 
-    # 获取 pipline 分析结果, 分别测试 txt 和 ocr 两种解析方法的结果
+    # Get pipeline analysis results, testing both txt and ocr parsing methods.
     infer_results, all_image_lists, all_pdf_docs, lang_list, ocr_enabled_list = (
         pipeline_doc_analyze(
             pdf_bytes_list,
@@ -203,7 +203,7 @@ def write_infer_result(
         pdf_info = middle_json["pdf_info"]
 
         image_dir = str(os.path.basename(local_image_dir))
-        # 写入 md 文件
+        # Write md file
         md_content_str = pipeline_union_make(pdf_info, MakeMode.MM_MD, image_dir)
         md_writer.write_string(
             f"{pdf_file_name}.md",
@@ -245,7 +245,7 @@ def assert_content(content_path, parse_method="txt"):
     type_set = set()
     for content_dict in content_list:
         match content_dict["type"]:
-            # 图片校验，只校验 Caption
+            # Image verification, check Caption only
             case "image":
                 type_set.add("image")
                 assert (
@@ -255,7 +255,7 @@ def assert_content(content_path, parse_method="txt"):
                     )
                     > 90
                 )
-            # 表格校验，校验 Caption，表格格式和表格内容
+            # Table verification: check Caption, table format, and table content
             case "table":
                 type_set.add("table")
                 assert (
@@ -289,13 +289,13 @@ def assert_content(content_path, parse_method="txt"):
                     assert correct_count > 0.7 * len(target_str_list)
                 else:
                     assert False
-            # 公式校验，检测是否含有公式元素
+            # Equation verification: check for equation elements
             case "equation":
                 type_set.add("equation")
                 target_str_list = ["$$", "lambda", "frac", "bar"]
                 for target_str in target_str_list:
                     assert target_str in content_dict["text"]
-            # 文本校验，文本相似度超过90
+            # Text verification: text similarity exceeds 90%
             case "text":
                 type_set.add("text")
                 assert (

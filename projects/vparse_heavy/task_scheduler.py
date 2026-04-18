@@ -2,17 +2,17 @@
 VParse Heavy - Task Scheduler (Optional)
 Heavy任务调度器（可选）
 
-在 Worker 自动循环模式下，调度器主要用于：
-1. 监控队列状态（默认5分钟一次）
-2. 健康检查（默认15分钟一次）
-3. 统计信息收集
-4. 故障恢复（重置超时任务）
+In worker auto-loop mode, the scheduler is primarily used for:
+1. Monitoring queue status (default: every 5 minutes).
+2. Health checks (default: every 15 minutes).
+3. Collecting statistics.
+4. Fault recovery (resetting timed-out tasks).
 
-注意：
-- 如果 workers 启用了自动循环模式（默认），则不需要调度器来触发任务处理
-- Worker 已经主动工作，调度器只是偶尔检查系统状态
-- 较长的间隔可以最小化系统开销，同时保持必要的监控能力
-- 5分钟监控、15分钟健康检查对于自动运行的系统来说已经足够及时
+Note:
+- If workers have auto-loop mode enabled (default), the scheduler is not needed to trigger task processing.
+- Workers actively poll for tasks; the scheduler only occasionally monitors system status.
+- Longer intervals minimize system overhead while maintaining necessary oversight.
+- 5-minute monitoring and 15-minute health checks are sufficiently frequent for autonomous systems.
 """
 import asyncio
 import aiohttp
@@ -23,16 +23,16 @@ import signal
 
 class TaskScheduler:
     """
-    任务调度器（可选）
+    Task Scheduler (Optional)
     
-    职责（在 Worker 自动循环模式下）：
-    1. 监控 SQLite 任务队列状态
-    2. 健康检查 Workers
-    3. 故障恢复（重置超时任务）
-    4. 收集和展示统计信息
+    Responsibilities (in Worker auto-loop mode):
+    1. Monitor SQLite task queue status
+    2. Health check workers
+    3. Fault recovery (reset stale tasks)
+    4. Collect and display statistics
     
-    职责（在传统模式下）：
-    1. 触发 Workers 拉取任务
+    Responsibilities (in traditional mode):
+    1. Trigger workers to pull tasks
     """
     
     def __init__(
@@ -46,16 +46,16 @@ class TaskScheduler:
         worker_auto_mode=True
     ):
         """
-        初始化调度器
+        Initialize scheduler.
         
         Args:
-            litserve_url: LitServe Worker 的 URL
-            monitor_interval: 监控间隔（秒，默认300秒=5分钟）
-            health_check_interval: 健康检查间隔（秒，默认900秒=15分钟）
-            stale_task_timeout: 超时任务重置时间（分钟）
-            cleanup_old_files_days: 清理多少天前的结果文件（0=禁用，默认7天）
-            cleanup_old_records_days: 清理多少天前的数据库记录（0=禁用，不推荐删除）
-            worker_auto_mode: Worker 是否启用自动循环模式
+            litserve_url: URL of the LitServe worker.
+            monitor_interval: Monitoring interval (seconds, default: 300s = 5m).
+            health_check_interval: Health check interval (seconds, default: 900s = 15m).
+            stale_task_timeout: Timeout for stale tasks (minutes).
+            cleanup_old_files_days: Days to keep result files (0=disabled, default: 7).
+            cleanup_old_records_days: Days to keep database records (0=disabled, not recommended).
+            worker_auto_mode: Whether worker auto-loop mode is enabled.
         """
         self.litserve_url = litserve_url
         self.monitor_interval = monitor_interval
@@ -69,7 +69,7 @@ class TaskScheduler:
     
     async def check_worker_health(self, session: aiohttp.ClientSession):
         """
-        检查 worker 健康状态
+        Check worker health status.
         """
         try:
             async with session.post(
@@ -93,7 +93,7 @@ class TaskScheduler:
     
     async def schedule_loop(self):
         """
-        主监控循环
+        Main monitoring loop.
         """
         logger.info("🔄 Task scheduler started")
         logger.info(f"   LitServe URL: {self.litserve_url}")
@@ -117,7 +117,7 @@ class TaskScheduler:
         async with aiohttp.ClientSession() as session:
             while self.running:
                 try:
-                    # 1. 监控队列状态
+                    # 1. Monitor queue status
                     stats = self.db.get_queue_stats()
                     pending_count = stats.get('pending', 0)
                     processing_count = stats.get('processing', 0)
@@ -130,7 +130,7 @@ class TaskScheduler:
                             f"{completed_count} completed, {failed_count} failed"
                         )
                     
-                    # 2. 定期健康检查
+                    # 2. Regular health checks
                     health_check_counter += 1
                     if health_check_counter * self.monitor_interval >= self.health_check_interval:
                         health_check_counter = 0
@@ -141,7 +141,7 @@ class TaskScheduler:
                         else:
                             logger.warning("⚠️  Workers health check failed")
                     
-                    # 3. 定期重置超时任务
+                    # 3. Regularly reset stale tasks
                     stale_task_counter += 1
                     if stale_task_counter * self.monitor_interval >= self.stale_task_timeout * 60:
                         stale_task_counter = 0
@@ -149,21 +149,21 @@ class TaskScheduler:
                         if reset_count > 0:
                             logger.warning(f"⚠️  Reset {reset_count} stale tasks (timeout: {self.stale_task_timeout}m)")
                     
-                    # 4. 定期清理旧任务文件和记录
+                    # 4. Regularly clean up old task files and records
                     cleanup_counter += 1
-                    # 每24小时清理一次（基于当前监控间隔计算）
+                    # Clean up every 24 hours (calculated based on current interval)
                     cleanup_interval_cycles = (24 * 3600) / self.monitor_interval
                     if cleanup_counter >= cleanup_interval_cycles:
                         cleanup_counter = 0
                         
-                        # 清理旧结果文件（保留数据库记录）
+                        # Clean up old result files (preserve DB records)
                         if self.cleanup_old_files_days > 0:
                             logger.info(f"🧹 Cleaning up result files older than {self.cleanup_old_files_days} days...")
                             file_count = self.db.cleanup_old_task_files(days=self.cleanup_old_files_days)
                             if file_count > 0:
                                 logger.info(f"✅ Cleaned up {file_count} result directories (DB records kept)")
                         
-                        # 清理极旧的数据库记录（可选，默认不启用）
+                        # Clean up very old database records (optional, disabled by default)
                         if self.cleanup_old_records_days > 0:
                             logger.warning(
                                 f"🗑️  Cleaning up database records older than {self.cleanup_old_records_days} days..."
@@ -172,7 +172,7 @@ class TaskScheduler:
                             if record_count > 0:
                                 logger.warning(f"⚠️  Deleted {record_count} task records permanently")
                     
-                    # 等待下一次监控
+                    # Wait for next monitoring cycle
                     await asyncio.sleep(self.monitor_interval)
                     
                 except Exception as e:
@@ -185,7 +185,7 @@ class TaskScheduler:
         """启动调度器"""
         logger.info("🚀 Starting VParse Heavy Task Scheduler...")
         
-        # 设置信号处理
+        # Set up signal handling
         def signal_handler(sig, frame):
             logger.info("\n🛑 Received stop signal, shutting down...")
             self.running = False
@@ -193,17 +193,17 @@ class TaskScheduler:
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
         
-        # 运行调度循环
+        # Run the scheduling loop
         asyncio.run(self.schedule_loop())
     
     def stop(self):
-        """停止调度器"""
+        """Stop the scheduler"""
         self.running = False
 
 
 async def health_check(litserve_url: str) -> bool:
     """
-    健康检查：验证 LitServe Worker 是否可用
+    Health check: verify LitServe worker availability.
     """
     try:
         async with aiohttp.ClientSession() as session:
@@ -239,7 +239,7 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     
-    # 等待 workers 就绪（可选）
+    # Wait for workers to be ready (optional)
     if args.wait_for_workers:
         logger.info("⏳ Waiting for LitServe workers to be ready...")
         import time
@@ -252,7 +252,7 @@ if __name__ == '__main__':
             if i == max_retries - 1:
                 logger.error("❌ LitServe workers not responding, starting anyway...")
     
-    # 创建并启动调度器
+    # Create and start the scheduler
     scheduler = TaskScheduler(
         litserve_url=args.litserve_url,
         monitor_interval=args.monitor_interval,

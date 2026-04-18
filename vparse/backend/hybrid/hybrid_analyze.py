@@ -32,8 +32,8 @@ from vparse.utils.ocr_utils import (
 from vparse.utils.pdf_classify import classify
 from vparse.utils.pdf_image_tools import load_images_from_pdf
 
-os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"  # 让mps可以fallback
-os.environ["NO_ALBUMENTATIONS_UPDATE"] = "1"  # 禁止albumentations检查更新
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"  # Allow MPS fallback
+os.environ["NO_ALBUMENTATIONS_UPDATE"] = "1"  # Disable albumentations update check
 
 MFR_BASE_BATCH_SIZE = 16
 OCR_DET_BASE_BATCH_SIZE = 16
@@ -45,7 +45,7 @@ def ocr_classify(
     pdf_bytes,
     parse_method: str = "auto",
 ) -> bool:
-    # 确定OCR设置
+    # Determine OCR settings
     _ocr_enable = False
     if parse_method == "auto":
         if classify(pdf_bytes) == "ocr":
@@ -65,7 +65,7 @@ def ocr_det(
 ):
     ocr_res_list = []
     if not hybrid_pipeline_model.enable_ocr_det_batch:
-        # 非批处理模式 - 逐页处理
+        # Non-batch mode - process page by page
         for np_image, page_mfd_res, page_results in tqdm(
             zip(np_images, mfd_res, results), total=len(np_images), desc="OCR-det"
         ):
@@ -102,8 +102,8 @@ def ocr_det(
 
                     ocr_res_list[-1].extend(ocr_result_list)
     else:
-        # 批处理模式 - 按语言和分辨率分组
-        # 收集所有需要OCR检测的裁剪图像
+        # Batch mode - group by language and resolution
+        # Collect all cropped images that need OCR detection
         all_cropped_images_info = []
 
         for np_image, page_mfd_res, page_results in zip(np_images, mfd_res, results):
@@ -130,14 +130,14 @@ def ocr_det(
                     (bgr_image, useful_list, adjusted_mfdetrec_res, ocr_res_list[-1])
                 )
 
-        # 按分辨率分组并同时完成padding
+        # Group by resolution and perform padding simultaneously
         RESOLUTION_GROUP_STRIDE = 64  # 32
 
         resolution_groups = defaultdict(list)
         for crop_info in all_cropped_images_info:
             cropped_img = crop_info[0]
             h, w = cropped_img.shape[:2]
-            # 直接计算目标尺寸并用作分组键
+            # Directly calculate target dimensions and use as group key
             target_h = (
                 (h + RESOLUTION_GROUP_STRIDE - 1) // RESOLUTION_GROUP_STRIDE
             ) * RESOLUTION_GROUP_STRIDE
@@ -147,21 +147,21 @@ def ocr_det(
             group_key = (target_h, target_w)
             resolution_groups[group_key].append(crop_info)
 
-        # 对每个分辨率组进行批处理
+        # Batch process each resolution group
         for (target_h, target_w), group_crops in tqdm(
             resolution_groups.items(), desc=f"OCR-det"
         ):
-            # 对所有图像进行padding到统一尺寸
+            # Pad all images to a uniform size
             batch_images = []
             for crop_info in group_crops:
                 img = crop_info[0]
                 h, w = img.shape[:2]
-                # 创建目标尺寸的白色背景
+                # Create a white background of target dimensions
                 padded_img = np.ones((target_h, target_w, 3), dtype=np.uint8) * 255
                 padded_img[:h, :w] = img
                 batch_images.append(padded_img)
 
-            # 批处理检测
+            # Batch detection
             det_batch_size = min(
                 len(batch_images), batch_radio * OCR_DET_BASE_BATCH_SIZE
             )
@@ -169,20 +169,20 @@ def ocr_det(
                 batch_images, det_batch_size
             )
 
-            # 处理批处理结果
+            # Process batch results
             for crop_info, (dt_boxes, _) in zip(group_crops, batch_results):
                 bgr_image, useful_list, adjusted_mfdetrec_res, ocr_page_res_list = (
                     crop_info
                 )
 
                 if dt_boxes is not None and len(dt_boxes) > 0:
-                    # 处理检测框
+                    # Process detection boxes
                     dt_boxes_sorted = sorted_boxes(dt_boxes)
                     dt_boxes_merged = (
                         merge_det_boxes(dt_boxes_sorted) if dt_boxes_sorted else []
                     )
 
-                    # 根据公式位置更新检测框
+                    # Update detection boxes based on formula positions
                     dt_boxes_final = (
                         update_det_boxes(dt_boxes_merged, adjusted_mfdetrec_res)
                         if dt_boxes_merged and adjusted_mfdetrec_res
@@ -206,30 +206,30 @@ def ocr_det(
 
 
 def mask_image_regions(np_images, results):
-    # 根据vlm返回的结果，在每一页中将image、table、equation块mask成白色背景图像
+    # Based on the VLM results, mask image, table, and equation blocks into white background images in each page
     for np_image, vlm_page_results in zip(np_images, results):
         img_height, img_width = np_image.shape[:2]
-        # 收集需要mask的区域
+        # Collect regions that need masking
         mask_regions = []
         for block in vlm_page_results:
             if block["type"] in [BlockType.IMAGE, BlockType.TABLE, BlockType.EQUATION]:
                 bbox = block["bbox"]
-                # 批量转换归一化坐标到像素坐标,并进行边界检查
+                # Batch convert normalized coordinates to pixel coordinates and perform boundary checks
                 x0 = max(0, int(bbox[0] * img_width))
                 y0 = max(0, int(bbox[1] * img_height))
                 x1 = min(img_width, int(bbox[2] * img_width))
                 y1 = min(img_height, int(bbox[3] * img_height))
-                # 只添加有效区域
+                # Add only valid regions
                 if x1 > x0 and y1 > y0:
                     mask_regions.append((y0, y1, x0, x1))
-        # 批量应用mask
+        # Apply masks in batch
         for y0, y1, x0, x1 in mask_regions:
             np_image[y0:y1, x0:x1, :] = 255
     return np_images
 
 
 def normalize_poly_to_bbox(item, page_width, page_height):
-    """将poly坐标归一化为bbox"""
+    """Normalize poly coordinates to bbox"""
     poly = item["poly"]
     x0 = min(max(poly[0] / page_width, 0), 1)
     y0 = min(max(poly[1] / page_height, 0), 1)
@@ -247,16 +247,16 @@ def _process_ocr_and_formulas(
     _ocr_enable,
     batch_radio: int = 1,
 ):
-    """处理OCR和公式识别"""
+    """Process OCR and formula recognition"""
 
-    # 遍历results,对文本块截图交由OCR识别
-    # 根据_ocr_enable决定ocr只开det还是det+rec
-    # 根据inline_formula_enable决定是使用mfd和ocr结合的方式,还是纯ocr方式
+    # Traverse results, take screenshots of text blocks and hand over to OCR for recognition
+    # Decide whether to enable det only or det+rec based on _ocr_enable
+    # Decide whether to use a combination of MFD and OCR or pure OCR based on inline_formula_enable
 
-    # 将PIL图片转换为numpy数组
+    # Convert PIL images to numpy arrays
     np_images = [np.asarray(pil_image).copy() for pil_image in images_pil_list]
 
-    # 获取混合模型实例
+    # Get hybrid model instance
     hybrid_model_singleton = HybridModelSingleton()
     hybrid_pipeline_model = hybrid_model_singleton.get_model(
         lang=language,
@@ -264,14 +264,15 @@ def _process_ocr_and_formulas(
     )
 
     if inline_formula_enable:
-        # 在进行`行内`公式检测和识别前，先将图像中的图片、表格、`行间`公式区域mask掉
+        # Before performing inline formula detection and recognition, mask the images, tables, and interline formula regions in the image.
         np_images = mask_image_regions(np_images, results)
-        # 公式检测
+        # Formula detection
         images_mfd_res = hybrid_pipeline_model.mfd_model.batch_predict(
             np_images, batch_size=1, conf=0.5
         )
-        # 公式识别
+        # Formula recognition
         inline_formula_list = hybrid_pipeline_model.mfr_model.batch_predict(
+
             images_mfd_res,
             np_images,
             batch_size=batch_radio * MFR_BASE_BATCH_SIZE,
@@ -297,7 +298,7 @@ def _process_ocr_and_formulas(
             )
         mfd_res.append(page_mfd_res)
 
-    # vlm没有执行ocr，需要ocr_det
+    # VLM did not perform OCR, ocr_det is needed
     ocr_res_list = ocr_det(
         hybrid_pipeline_model,
         np_images,
@@ -307,7 +308,7 @@ def _process_ocr_and_formulas(
         batch_radio=batch_radio,
     )
 
-    # 如果需要ocr则做ocr_rec
+    # If OCR is needed, perform ocr_rec
     if _ocr_enable:
         need_ocr_list = []
         img_crop_list = []
@@ -381,25 +382,25 @@ def _normalize_bbox(
     ocr_res_list,
     images_pil_list,
 ):
-    """归一化坐标并生成最终结果"""
+    """Normalize coordinates and generate final results"""
     for page_inline_formula_list, page_ocr_res_list, page_pil_image in zip(
         inline_formula_list, ocr_res_list, images_pil_list
     ):
         if page_inline_formula_list or page_ocr_res_list:
             page_width, page_height = page_pil_image.size
-            # 处理公式列表
+            # Process formula list
             for formula in page_inline_formula_list:
                 normalize_poly_to_bbox(formula, page_width, page_height)
-            # 处理OCR结果列表
+            # Process OCR results list
             for ocr_res in page_ocr_res_list:
                 normalize_poly_to_bbox(ocr_res, page_width, page_height)
 
 
 def get_batch_ratio(device):
     """
-    根据显存大小或环境变量获取 batch ratio
+    Get batch ratio based on VRAM size or environment variables
     """
-    # 1. 优先尝试从环境变量获取
+    # 1. Try to get from environment variables first
     """
     c/s架构分离部署时，建议通过设置环境变量 VPARSE_HYBRID_BATCH_RATIO 来指定 batch ratio
     建议的设置值如如下，以下配置值已考虑一定的冗余，单卡多终端部署时为了保证稳定性，可以额外保留一个client端的显存作为整体冗余
@@ -423,9 +424,9 @@ def get_batch_ratio(device):
                 f"Invalid VPARSE_HYBRID_BATCH_RATIO value: {env_val}, switching to auto mode. Error: {e}"
             )
 
-    # 2. 根据显存自动推断
+    # 2. Infer automatically based on VRAM
     """
-    根据总显存大小粗略估计 batch ratio，需要排除掉vllm等推理框架占用的显存开销
+    Roughly estimate batch ratio based on total VRAM, excluding memory occupied by inference frameworks like vLLM.
     """
     gpu_memory = get_vram(device)
     if gpu_memory >= 32:
@@ -481,13 +482,13 @@ def doc_analyze(
     prompt_mode: str = "prompt_layout_all_en",
     **kwargs,
 ):
-    # 初始化预测器
+    # Initialize predictor
     if predictor is None:
         predictor = ModelSingleton().get_model(
             backend, model_path, server_url, **kwargs
         )
 
-    # 加载图像
+    # Load images
     load_images_start = time.time()
     images_list, pdf_doc = load_images_from_pdf(pdf_bytes, image_type=ImageType.PIL)
     images_pil_list = [image_dict["img_pil"] for image_dict in images_list]
@@ -496,10 +497,10 @@ def doc_analyze(
         f"load images cost: {load_images_time}, speed: {round(len(images_pil_list) / load_images_time, 3)} images/s"
     )
 
-    # 获取设备信息
+    # Get device information
     device = get_device()
 
-    # 确定OCR配置
+    # Determine OCR configuration
     _ocr_enable = ocr_classify(pdf_bytes, parse_method=parse_method)
     _vlm_ocr_enable = _should_enable_vlm_ocr(
         _ocr_enable, language, inline_formula_enable
@@ -515,7 +516,7 @@ def doc_analyze(
         )
 
     infer_start = time.time()
-    # VLM提取
+    # VLM extraction
     if _vlm_ocr_enable:
         results = predictor.batch_two_step_extract(
             images=images_pil_list, prompt_mode=prompt_mode
@@ -546,7 +547,7 @@ def doc_analyze(
         f"infer finished, cost: {infer_time}, speed: {round(len(results) / infer_time, 3)} page/s"
     )
 
-    # 生成中间JSON
+    # Generate middle JSON
     middle_json = result_to_middle_json(
         results,
         inline_formula_list,
@@ -576,13 +577,13 @@ async def aio_doc_analyze(
     prompt_mode: str = "prompt_layout_all_en",
     **kwargs,
 ):
-    # 初始化预测器
+    # Initialize predictor
     if predictor is None:
         predictor = ModelSingleton().get_model(
             backend, model_path, server_url, **kwargs
         )
 
-    # 加载图像
+    # Load images
     load_images_start = time.time()
     images_list, pdf_doc = load_images_from_pdf(pdf_bytes, image_type=ImageType.PIL)
     images_pil_list = [image_dict["img_pil"] for image_dict in images_list]
@@ -591,10 +592,10 @@ async def aio_doc_analyze(
         f"load images cost: {load_images_time}, speed: {round(len(images_pil_list) / load_images_time, 3)} images/s"
     )
 
-    # 获取设备信息
+    # Get device information
     device = get_device()
 
-    # 确定OCR配置
+    # Determine OCR configuration
     _ocr_enable = ocr_classify(pdf_bytes, parse_method=parse_method)
     _vlm_ocr_enable = _should_enable_vlm_ocr(
         _ocr_enable, language, inline_formula_enable
@@ -607,7 +608,7 @@ async def aio_doc_analyze(
         )
 
     infer_start = time.time()
-    # VLM提取
+    # VLM extraction
     if _vlm_ocr_enable:
         results = await predictor.aio_batch_two_step_extract(
             images=images_pil_list, prompt_mode=prompt_mode
@@ -638,7 +639,7 @@ async def aio_doc_analyze(
         f"infer finished, cost: {infer_time}, speed: {round(len(results) / infer_time, 3)} page/s"
     )
 
-    # 生成中间JSON
+    # Generate middle JSON
     middle_json = result_to_middle_json(
         results,
         inline_formula_list,

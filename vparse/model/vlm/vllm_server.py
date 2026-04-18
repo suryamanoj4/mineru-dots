@@ -18,7 +18,7 @@ def main():
     model_path = None
     model_arg_indices = []
 
-    # 检查现有参数
+    # Check existing arguments
     for i, arg in enumerate(args):
         if arg == "--port" or arg.startswith("--port="):
             has_port_arg = True
@@ -36,14 +36,14 @@ def main():
             model_path = arg.split("=", 1)[1]
             model_arg_indices.append(i)
 
-    # 从参数列表中移除 --model 参数
+    # Remove --model argument from the list
     if model_arg_indices:
         for index in sorted(model_arg_indices, reverse=True):
             args.pop(index)
 
     custom_logits_processors = enable_custom_logits_processors()
 
-    # 添加默认参数
+    # Add default arguments
     if not has_port_arg:
         args.extend(["--port", "30000"])
     if not has_gpu_memory_utilization_arg:
@@ -59,13 +59,13 @@ def main():
 
     args = mod_kwargs_by_device_type(args, vllm_mode="server")
 
-    # 重构参数，将模型路径作为位置参数
+    # Reconstruct arguments, using model path as a positional argument
     sys.argv = [sys.argv[0]] + ["serve", model_path] + args
 
     if os.getenv('OMP_NUM_THREADS') is None:
         os.environ["OMP_NUM_THREADS"] = "1"
 
-    # 启动vllm服务器
+    # Start vLLM server
     print(f"start vllm server: {sys.argv}")
     vllm_main()
 

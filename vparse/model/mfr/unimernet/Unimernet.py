@@ -35,21 +35,21 @@ class UnimernetModel(object):
 
     @staticmethod
     def _filter_boxes_by_iou(xyxy, conf, cla, iou_threshold=0.8):
-        """过滤IOU超过阈值的重叠框，保留置信度较高的框。
+        """Filter overlapping boxes based on IoU threshold, retaining higher confidence boxes.
 
         Args:
-            xyxy: 框坐标张量，shape为(N, 4)
-            conf: 置信度张量，shape为(N,)
-            cla: 类别张量，shape为(N,)
-            iou_threshold: IOU阈值，默认0.9
+            xyxy: Box coordinate tensor, shape (N, 4)
+            conf: Confidence tensor, shape (N,)
+            cla: Category tensor, shape (N,)
+            iou_threshold: IoU threshold, defaults to 0.8
 
         Returns:
-            过滤后的xyxy, conf, cla张量
+            Filtered xyxy, conf, and cla tensors.
         """
         if len(xyxy) == 0:
             return xyxy, conf, cla
 
-        # 转换为CPU进行处理
+        # Move to CPU for processing
         xyxy_cpu = xyxy.cpu()
         conf_cpu = conf.cpu()
 
@@ -66,12 +66,12 @@ class UnimernetModel(object):
                 bbox2 = xyxy_cpu[j].tolist()
                 iou = calculate_iou(bbox1, bbox2)
                 if iou > iou_threshold:
-                    # 保留置信度较高的框
+                    # Retain boxes with higher confidence
                     if conf_cpu[i] >= conf_cpu[j]:
                         keep[j] = False
                     else:
                         keep[i] = False
-                        break  # i被删除，跳出内循环
+                        break  # i was removed; exit inner loop
 
         keep_indices = [i for i in range(n) if keep[i]]
         if len(keep_indices) == n:
@@ -84,7 +84,7 @@ class UnimernetModel(object):
         formula_list = []
         mf_image_list = []
 
-        # 对检测框进行IOU去重，保留置信度较高的框
+        # Perform IoU deduplication, retaining higher confidence boxes
         xyxy_filtered, conf_filtered, cla_filtered = self._filter_boxes_by_iou(
             mfd_res.boxes.xyxy, mfd_res.boxes.conf, mfd_res.boxes.cls
         )
@@ -134,7 +134,7 @@ class UnimernetModel(object):
             image = images[image_index]
             formula_list = []
 
-            # 对检测框进行IOU去重，保留置信度较高的框
+            # Perform IoU deduplication, retaining higher confidence boxes
             xyxy_filtered, conf_filtered, cla_filtered = self._filter_boxes_by_iou(
                 mfd_res.boxes.xyxy, mfd_res.boxes.conf, mfd_res.boxes.cls
             )
@@ -173,7 +173,7 @@ class UnimernetModel(object):
         # Create dataset with sorted images
         dataset = MathDataset(sorted_images, transform=self.model.transform)
 
-        # 如果batch_size > len(sorted_images)，则设置为不超过len(sorted_images)的2的幂
+        # If batch_size > len(sorted_images), set it to the largest power of 2 not exceeding it
         batch_size = min(batch_size, max(1, 2 ** (len(sorted_images).bit_length() - 1))) if sorted_images else 1
 
         dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=0)
@@ -190,7 +190,7 @@ class UnimernetModel(object):
                     output = self.model.generate({"image": mf_img}, batch_size=batch_size)
                 mfr_res.extend(output["fixed_str"])
 
-                # 更新进度条，每次增加batch_size，但要注意最后一个batch可能不足batch_size
+                # Update progress bar by batch_size; handle potential smaller last batch
                 current_batch_size = min(batch_size, len(sorted_images) - index * batch_size)
                 pbar.update(current_batch_size)
 

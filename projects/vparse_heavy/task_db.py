@@ -2,7 +2,7 @@
 VParse Heavy - SQLite Task Database Manager
 Heavy任务数据库管理器
 
-负责任务的持久化存储、状态管理和原子性操作
+Responsible for persistent storage of tasks, status management, and atomic operations.
 """
 import sqlite3
 import json
@@ -13,21 +13,21 @@ from pathlib import Path
 
 
 class TaskDB:
-    """任务数据库管理类"""
+    """Task database management class."""
     
     def __init__(self, db_path='vparse_heavy.db'):
         self.db_path = db_path
         self._init_db()
     
     def _get_conn(self):
-        """获取数据库连接（每次创建新连接，避免 pickle 问题）
+        """Get database connection (new connection per call to avoid pickle issues).
         
-        并发安全说明：
-            - 使用 check_same_thread=False 是安全的，因为：
-              1. 每次调用都创建新连接，不跨线程共享
-              2. 连接使用完立即关闭（在 get_cursor 上下文管理器中）
-              3. 不使用连接池，避免线程间共享同一连接
-            - timeout=30.0 防止死锁，如果锁等待超过30秒会抛出异常
+        Concurrency safety note:
+            - Setting check_same_thread=False is safe because:
+              1. Each call creates a new connection, not shared across threads.
+              2. Connections are closed immediately after use (in get_cursor context manager).
+              3. No connection pooling, avoiding cross-thread sharing.
+            - timeout=30.0 prevents deadlocks; an exception is raised if a lock wait exceeds 30 seconds.
         """
         conn = sqlite3.connect(
             self.db_path, 
@@ -39,7 +39,7 @@ class TaskDB:
     
     @contextmanager
     def get_cursor(self):
-        """上下文管理器，自动提交和错误处理"""
+        """Context manager for automatic commit and error handling."""
         conn = self._get_conn()
         cursor = conn.cursor()
         try:
@@ -49,10 +49,10 @@ class TaskDB:
             conn.rollback()
             raise e
         finally:
-            conn.close()  # 关闭连接
+            conn.close()  # Close connection
     
     def _init_db(self):
-        """初始化数据库表"""
+        """Initialize database tables."""
         with self.get_cursor() as cursor:
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS tasks (
@@ -73,7 +73,7 @@ class TaskDB:
                 )
             ''')
             
-            # 创建索引加速查询
+            # Create indices to speed up queries
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_status ON tasks(status)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_priority ON tasks(priority DESC)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_created_at ON tasks(created_at)')
@@ -83,17 +83,17 @@ class TaskDB:
                    backend: str = 'pipeline', options: dict = None,
                    priority: int = 0) -> str:
         """
-        创建新任务
+        Create a new task.
         
         Args:
-            file_name: 文件名
-            file_path: 文件路径
-            backend: 处理后端 (pipeline/vlm-transformers/vlm-vllm-engine)
-            options: 处理选项 (dict)
-            priority: 优先级，数字越大越优先
+            file_name: Filename.
+            file_path: File path.
+            backend: Processing backend (pipeline/vlm-transformers/vlm-vllm-engine).
+            options: Processing options (dict).
+            priority: Priority level (higher numbers are processed first).
             
         Returns:
-            task_id: 任务ID
+            task_id: Task ID.
         """
         task_id = str(uuid.uuid4())
         with self.get_cursor() as cursor:
@@ -105,27 +105,27 @@ class TaskDB:
     
     def get_next_task(self, worker_id: str, max_retries: int = 3) -> Optional[Dict]:
         """
-        获取下一个待处理任务（原子操作，防止并发冲突）
+        Get the next pending task (atomic operation to prevent concurrency conflicts).
         
         Args:
-            worker_id: Worker ID
-            max_retries: 当任务被其他 worker 抢走时的最大重试次数（默认3次）
+            worker_id: Worker ID.
+            max_retries: Max retries if the task is claimed by another worker (default: 3).
             
         Returns:
-            task: 任务字典，如果没有任务返回 None
+            task: Task dictionary, or None if no tasks.
             
-        并发安全说明：
-            1. 使用 BEGIN IMMEDIATE 立即获取写锁
-            2. UPDATE 时检查 status = 'pending' 防止重复拉取
-            3. 检查 rowcount 确保更新成功
-            4. 如果任务被抢走，立即重试而不是返回 None（避免不必要的等待）
+        Concurrency safety:
+            1. Uses BEGIN IMMEDIATE to acquire write lock.
+            2. Checks status='pending' during UPDATE to prevent duplicate claims.
+            3. Verifies rowcount for update success.
+            4. If claimed by another, retries immediately instead of returning None (avoids unnecessary waits).
         """
         for attempt in range(max_retries):
             with self.get_cursor() as cursor:
-                # 使用事务确保原子性
+                # Use transaction to ensure atomicity
                 cursor.execute('BEGIN IMMEDIATE')
                 
-                # 按优先级和创建时间获取任务
+                # Get tasks by priority and creation time
                 cursor.execute('''
                     SELECT * FROM tasks 
                     WHERE status = 'pending' 
@@ -135,7 +135,7 @@ class TaskDB:
                 
                 task = cursor.fetchone()
                 if task:
-                    # 立即标记为 processing，并确保状态仍是 pending
+                    # Mark as 'processing' immediately and ensure status is still 'pending'
                     cursor.execute('''
                         UPDATE tasks 
                         SET status = 'processing', 
@@ -144,32 +144,32 @@ class TaskDB:
                         WHERE task_id = ? AND status = 'pending'
                     ''', (worker_id, task['task_id']))
                     
-                    # 检查是否更新成功（防止被其他 worker 抢走）
+                    # Check if update succeeded (prevent claim by another worker)
                     if cursor.rowcount == 0:
-                        # 任务被其他进程抢走了，立即重试
-                        # 因为队列中可能还有其他待处理任务
+                        # Task claimed by another process; retry immediately
+                        # Because other pending tasks might exist in the queue
                         continue
                     
                     return dict(task)
                 else:
-                    # 队列中没有待处理任务，返回 None
+                    # No pending tasks in queue; return None
                     return None
             
-        # 重试次数用尽，仍未获取到任务（高并发场景）
+        # Retries exhausted without getting a task (high concurrency scenario)
         return None
     
     def _build_update_clauses(self, status: str, result_path: str = None, 
                              error_message: str = None, worker_id: str = None, 
                              task_id: str = None):
         """
-        构建 UPDATE 和 WHERE 子句的辅助方法
+        Helper method to build UPDATE and WHERE clauses.
         
         Args:
-            status: 新状态
-            result_path: 结果路径（可选）
-            error_message: 错误信息（可选）
-            worker_id: Worker ID（可选）
-            task_id: 任务ID（可选）
+            status: New status.
+            result_path: Result path (optional).
+            error_message: Error message (optional).
+            worker_id: Worker ID (optional).
+            task_id: Task ID (optional).
             
         Returns:
             tuple: (update_clauses, update_params, where_clauses, where_params)
@@ -179,30 +179,30 @@ class TaskDB:
         where_clauses = []
         where_params = []
         
-        # 添加 task_id 条件（如果提供）
+        # Add task_id condition if provided
         if task_id:
             where_clauses.append('task_id = ?')
             where_params.append(task_id)
         
-        # 处理 completed 状态
+        # Handle 'completed' status
         if status == 'completed':
             update_clauses.append('completed_at = CURRENT_TIMESTAMP')
             if result_path:
                 update_clauses.append('result_path = ?')
                 update_params.append(result_path)
-            # 只更新正在处理的任务
+            # Only update tasks that are currently processing
             where_clauses.append("status = 'processing'")
             if worker_id:
                 where_clauses.append('worker_id = ?')
                 where_params.append(worker_id)
         
-        # 处理 failed 状态
+        # Handle 'failed' status
         elif status == 'failed':
             update_clauses.append('completed_at = CURRENT_TIMESTAMP')
             if error_message:
                 update_clauses.append('error_message = ?')
                 update_params.append(error_message)
-            # 只更新正在处理的任务
+            # Only update tasks that are currently processing
             where_clauses.append("status = 'processing'")
             if worker_id:
                 where_clauses.append('worker_id = ?')
@@ -214,29 +214,29 @@ class TaskDB:
                           result_path: str = None, error_message: str = None,
                           worker_id: str = None):
         """
-        更新任务状态
+        Update task status.
         
         Args:
-            task_id: 任务ID
-            status: 新状态 (pending/processing/completed/failed/cancelled)
-            result_path: 结果路径（可选）
-            error_message: 错误信息（可选）
-            worker_id: Worker ID（可选，用于并发检查）
+            task_id: Task ID.
+            status: New status (pending/processing/completed/failed/cancelled).
+            result_path: Result path (optional).
+            error_message: Error message (optional).
+            worker_id: Worker ID (optional, for concurrency check).
             
         Returns:
-            bool: 更新是否成功
+            bool: Whether update succeeded.
             
-        并发安全说明：
-            1. 更新为 completed/failed 时会检查状态是 processing
-            2. 如果提供 worker_id，会检查任务是否属于该 worker
-            3. 返回 False 表示任务被其他进程修改了
+        Concurrency safety:
+            1. Checks status='processing' when updating to completed/failed.
+            2. If worker_id provided, verifies task belongs to that worker.
+            3. Returns False if task was modified by another process.
         """
         with self.get_cursor() as cursor:
-            # 使用辅助方法构建 UPDATE 和 WHERE 子句
+            # Build clauses using helper method
             update_clauses, update_params, where_clauses, where_params = \
                 self._build_update_clauses(status, result_path, error_message, worker_id, task_id)
             
-            # 合并参数：先 UPDATE 部分，再 WHERE 部分
+            # Merge parameters: UPDATE part first, then WHERE part
             all_params = update_params + where_params
             
             sql = f'''
@@ -247,10 +247,10 @@ class TaskDB:
             
             cursor.execute(sql, all_params)
             
-            # 检查更新是否成功
+            # Check if update succeeded
             success = cursor.rowcount > 0
             
-            # 调试日志（仅在失败时）
+            # Debug log (only on failure)
             if not success and status in ['completed', 'failed']:
                 from loguru import logger
                 logger.debug(
@@ -262,13 +262,13 @@ class TaskDB:
     
     def get_task(self, task_id: str) -> Optional[Dict]:
         """
-        查询任务详情
+        Query task details.
         
         Args:
-            task_id: 任务ID
+            task_id: Task ID
             
         Returns:
-            task: 任务字典，如果不存在返回 None
+            task: Task dictionary, or None if not found
         """
         with self.get_cursor() as cursor:
             cursor.execute('SELECT * FROM tasks WHERE task_id = ?', (task_id,))
@@ -277,10 +277,10 @@ class TaskDB:
     
     def get_queue_stats(self) -> Dict[str, int]:
         """
-        获取队列统计信息
+        Get queue statistics.
         
         Returns:
-            stats: 各状态的任务数量
+            stats: Task counts per status
         """
         with self.get_cursor() as cursor:
             cursor.execute('''
@@ -293,14 +293,14 @@ class TaskDB:
     
     def get_tasks_by_status(self, status: str, limit: int = 100) -> List[Dict]:
         """
-        根据状态获取任务列表
+        Get list of tasks by status.
         
         Args:
-            status: 任务状态
-            limit: 返回数量限制
+            status: Task status
+            limit: Result limit
             
         Returns:
-            tasks: 任务列表
+            tasks: List of tasks
         """
         with self.get_cursor() as cursor:
             cursor.execute('''
@@ -313,24 +313,24 @@ class TaskDB:
     
     def cleanup_old_task_files(self, days: int = 7):
         """
-        清理旧任务的结果文件（保留数据库记录）
+        Clean up result files of old tasks (keeping DB records).
         
         Args:
-            days: 清理多少天前的任务文件
+            days: Clean up task files older than N days
             
         Returns:
-            int: 删除的文件目录数
+            int: Number of deleted directories
             
-        注意：
-            - 只删除结果文件，保留数据库记录
-            - 数据库中的 result_path 字段会被清空
-            - 用户仍可查询任务状态和历史记录
+        Note:
+            - Only result files are deleted, DB records are preserved
+            - result_path field in DB will be cleared
+            - Users can still query task status and history
         """
         from pathlib import Path
         import shutil
         
         with self.get_cursor() as cursor:
-            # 查询要清理文件的任务
+            # Query tasks to be cleaned up
             cursor.execute('''
                 SELECT task_id, result_path FROM tasks 
                 WHERE completed_at < datetime('now', '-' || ? || ' days')
@@ -341,7 +341,7 @@ class TaskDB:
             old_tasks = cursor.fetchall()
             file_count = 0
             
-            # 删除结果文件
+            # Delete result files
             for task in old_tasks:
                 if task['result_path']:
                     result_path = Path(task['result_path'])
@@ -350,7 +350,7 @@ class TaskDB:
                             shutil.rmtree(result_path)
                             file_count += 1
                             
-                            # 清空数据库中的 result_path，表示文件已被清理
+                            # Clear result_path in DB, indicating files are cleaned up
                             cursor.execute('''
                                 UPDATE tasks 
                                 SET result_path = NULL
@@ -365,18 +365,18 @@ class TaskDB:
     
     def cleanup_old_task_records(self, days: int = 30):
         """
-        清理极旧的任务记录（可选功能）
+        Clean up very old task records (optional feature).
         
         Args:
-            days: 删除多少天前的任务记录
+            days: Delete task records older than N days
             
         Returns:
-            int: 删除的记录数
+            int: Number of deleted records
             
-        注意：
-            - 这个方法会永久删除数据库记录
-            - 建议设置较长的保留期（如30-90天）
-            - 一般情况下不需要调用此方法
+        Note:
+            - This method permanently deletes DB records
+            - Long retention periods (e.g., 30-90 days) are recommended
+            - Typically not needed
         """
         with self.get_cursor() as cursor:
             cursor.execute('''
@@ -390,10 +390,10 @@ class TaskDB:
     
     def reset_stale_tasks(self, timeout_minutes: int = 60):
         """
-        重置超时的 processing 任务为 pending
+        Reset timed-out 'processing' tasks back to 'pending'
         
         Args:
-            timeout_minutes: 超时时间（分钟）
+            timeout_minutes: Timeout in minutes
         """
         with self.get_cursor() as cursor:
             cursor.execute('''
@@ -412,7 +412,7 @@ if __name__ == '__main__':
     # 测试代码
     db = TaskDB('test_heavy.db')
     
-    # 创建测试任务
+    # Create test task
     task_id = db.create_task(
         file_name='test.pdf',
         file_path='/tmp/test.pdf',
@@ -422,11 +422,11 @@ if __name__ == '__main__':
     )
     print(f"Created task: {task_id}")
     
-    # 查询任务
+    # Query task
     task = db.get_task(task_id)
     print(f"Task details: {task}")
     
-    # 获取统计
+    # Get stats
     stats = db.get_queue_stats()
     print(f"Queue stats: {stats}")
     

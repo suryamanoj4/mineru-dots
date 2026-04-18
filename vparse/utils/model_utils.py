@@ -207,16 +207,16 @@ def remove_overlaps_min_blocks(res_list):
     for res in res_list:
         res['bbox'] = [int(res['poly'][0]), int(res['poly'][1]), int(res['poly'][4]), int(res['poly'][5])]
 
-    # 重叠block，小的不能直接删除，需要和大的那个合并成一个更大的。
-    # 删除重叠blocks中较小的那些
+    # Overlapping blocks: smaller ones cannot be directly deleted, they need to be merged with larger ones into a bigger block.
+    # Remove smaller ones among overlapping blocks
     need_remove = []
     for i in range(len(res_list)):
-        # 如果当前元素已在需要移除列表中，则跳过
+        # Skip if the current element is already in the removal list
         if res_list[i] in need_remove:
             continue
 
         for j in range(i + 1, len(res_list)):
-            # 如果比较对象已在需要移除列表中，则跳过
+            # Skip if the comparison object is already in the removal list
             if res_list[j] in need_remove:
                 continue
 
@@ -226,18 +226,18 @@ def remove_overlaps_min_blocks(res_list):
 
             if overlap_box is not None:
 
-                # 根据重叠框确定哪个是小块，哪个是大块
+                # Determine which is the smaller block and which is the larger block based on the overlap
                 if overlap_box == res_list[i]['bbox']:
                     small_res, large_res = res_list[i], res_list[j]
                 elif overlap_box == res_list[j]['bbox']:
                     small_res, large_res = res_list[j], res_list[i]
                 else:
-                    continue  # 如果重叠框与任一块都不匹配，跳过处理
+                    continue  # Skip if the overlap box doesn't match either block
 
                 if small_res['score'] <= large_res['score']:
-                    # 如果小块的分数低于大块，则小块为需要移除的块
+                    # If the smaller block has a lower score than the larger one, it's marked for removal
                     if small_res is not None and small_res not in need_remove:
-                        # 更新大块的边界为两者的并集
+                        # Update the larger block's boundary to be the union of both
                         x1, y1, x2, y2 = large_res['bbox']
                         sx1, sy1, sx2, sy2 = small_res['bbox']
                         x1 = min(x1, sx1)
@@ -247,20 +247,20 @@ def remove_overlaps_min_blocks(res_list):
                         large_res['bbox'] = [x1, y1, x2, y2]
                         need_remove.append(small_res)
                 else:
-                    # 如果大块的分数低于小块，则大块为需要移除的块, 这时不需要更新小块的边界
+                    # If the larger block has a lower score, mark it for removal; no need to update the smaller block's boundary
                     if large_res is not None and large_res not in need_remove:
                         need_remove.append(large_res)
 
-    # 从列表中移除标记的元素
+    # Remove marked elements from the list
     for res in need_remove:
         res_list.remove(res)
-        del res['bbox']  # 删除bbox字段
+        del res['bbox']  # Delete the bbox field
 
     for res in res_list:
-        # 将res的poly使用bbox重构
+        # Reconstruct the res poly using bbox
         res['poly'] = [res['bbox'][0], res['bbox'][1], res['bbox'][2], res['bbox'][1],
                        res['bbox'][2], res['bbox'][3], res['bbox'][0], res['bbox'][3]]
-        # 删除res的bbox
+        # Delete the res bbox
         del res['bbox']
 
     return res_list, need_remove
@@ -283,45 +283,45 @@ def remove_overlaps_low_confidence_blocks(combined_res_list, overlap_threshold=0
     Returns:
         list: A list of blocks to be removed, based on the overlap and confidence criteria.
     """
-    # 计算每个block的坐标和面积
+    # Calculate coordinates and area for each block
     block_info = []
     for block in combined_res_list:
         xmin, ymin = int(block['poly'][0]), int(block['poly'][1])
         xmax, ymax = int(block['poly'][4]), int(block['poly'][5])
         area = (xmax - xmin) * (ymax - ymin)
-        score = block.get('score', 0.5)  # 如果没有score字段，默认为0.5
+        score = block.get('score', 0.5)  # Default to 0.5 if no score field is present
         block_info.append((xmin, ymin, xmax, ymax, area, score, block))
 
     blocks_to_remove = []
-    marked_indices = set()  # 跟踪已标记为删除的block索引
+    marked_indices = set()  # Track indices of blocks marked for deletion
 
-    # 检查每个block内部是否有3个及以上的小block
+    # Check if each block contains 3 or more smaller blocks
     for i, (xmin, ymin, xmax, ymax, area, score, block) in enumerate(block_info):
-        # 如果当前block已标记为删除，则跳过
+        # Skip if the current block is already marked for deletion
         if i in marked_indices:
             continue
 
-        # 查找内部的小block (仅考虑尚未被标记为删除的block)
+        # Find internal smaller blocks (only consider those not yet marked for deletion)
         blocks_inside = [(j, j_score, j_block) for j, (xj_min, yj_min, xj_max, yj_max, j_area, j_score, j_block) in
                          enumerate(block_info)
                          if i != j and j not in marked_indices and is_inside(block_info[j], block_info[i],
                                                                              overlap_threshold)]
 
-        # 如果内部有3个及以上的小block
+        # If there are 3 or more smaller blocks inside
         if len(blocks_inside) >= 2:
-            # 计算小block的平均分数
+            # Calculate the average score of the smaller blocks
             avg_score = sum(s for _, s, _ in blocks_inside) / len(blocks_inside)
 
-            # 比较大block的分数和小block的平均分数
+            # Compare the score of the larger block with the average score of the smaller ones
             if score > avg_score:
-                # 保留大block，扩展其边界
-                # 首先将所有小block标记为要删除
+                # Keep the larger block and expand its boundaries
+                # Mark all internal smaller blocks for deletion first
                 for j, _, j_block in blocks_inside:
                     if j_block not in blocks_to_remove:
                         blocks_to_remove.append(j_block)
-                        marked_indices.add(j)  # 标记索引为已处理
+                        marked_indices.add(j)  # Mark index as processed
 
-                # 扩展大block的边界以包含所有小block
+                # Expand the larger block's boundary to include all internal smaller blocks
                 new_xmin, new_ymin, new_xmax, new_ymax = xmin, ymin, xmax, ymax
                 for _, _, j_block in blocks_inside:
                     j_xmin, j_ymin = int(j_block['poly'][0]), int(j_block['poly'][1])
@@ -331,15 +331,15 @@ def remove_overlaps_low_confidence_blocks(combined_res_list, overlap_threshold=0
                     new_xmax = max(new_xmax, j_xmax)
                     new_ymax = max(new_ymax, j_ymax)
 
-                # 更新大block的边界
+                # Update the larger block's boundary
                 block['poly'][0] = block['poly'][6] = new_xmin
                 block['poly'][1] = block['poly'][3] = new_ymin
                 block['poly'][2] = block['poly'][4] = new_xmax
                 block['poly'][5] = block['poly'][7] = new_ymax
             else:
-                # 保留小blocks，删除大block
+                # Keep the smaller blocks and delete the larger one
                 blocks_to_remove.append(block)
-                marked_indices.add(i)  # 标记当前索引为已处理
+                marked_indices.add(i)  # Mark current index as processed
     return blocks_to_remove
 
 
@@ -398,16 +398,16 @@ def get_res_list_from_layout_res(layout_res, iou_threshold=0.7, overlap_threshol
         if res in layout_res:
             layout_res.remove(res)
 
-    # 检测大block内部是否包含多个小block, 合并ocr和table列表进行检测
+    # Detect if a large block contains multiple smaller ones, merging OCR and table lists for detection
     combined_res_list = ocr_res_list + filtered_table_res_list
     blocks_to_remove = remove_overlaps_low_confidence_blocks(combined_res_list, overlap_threshold)
-    # 移除需要删除的blocks
+    # Remove blocks marked for deletion
     for block in blocks_to_remove:
         if block in ocr_res_list:
             ocr_res_list.remove(block)
         elif block in filtered_table_res_list:
             filtered_table_res_list.remove(block)
-        # 同时从layout_res中删除
+        # Also delete from layout_res
         if block in layout_res:
             layout_res.remove(block)
 
@@ -451,7 +451,7 @@ def clean_vram(device, vram_threshold=8):
 def get_vram(device) -> int:
     env_vram = get_env_with_legacy("VPARSE_VIRTUAL_VRAM_SIZE", "MINERU_VIRTUAL_VRAM_SIZE")
 
-    # 如果环境变量已配置,尝试解析并返回
+    # If environment variable is configured, try parsing and return
     if env_vram is not None:
         try:
             total_memory = int(env_vram)
@@ -464,24 +464,24 @@ def get_vram(device) -> int:
             logger.warning(
                 f"VPARSE_VIRTUAL_VRAM_SIZE value '{env_vram}' is not a valid integer, falling back to auto-detection")
 
-    # 环境变量未配置或配置错误,根据device自动获取
+    # Environment variable not configured or incorrect, auto-detect based on device
     total_memory = 1
     if torch.cuda.is_available() and str(device).startswith("cuda"):
-        total_memory = round(torch.cuda.get_device_properties(device).total_memory / (1024 ** 3))  # 将字节转换为 GB
+        total_memory = round(torch.cuda.get_device_properties(device).total_memory / (1024 ** 3))  # Convert bytes to GB
     elif str(device).startswith("npu"):
         if torch_npu.npu.is_available():
-            total_memory = round(torch_npu.npu.get_device_properties(device).total_memory / (1024 ** 3))  # 转为 GB
+            total_memory = round(torch_npu.npu.get_device_properties(device).total_memory / (1024 ** 3))  # Convert to GB
     elif str(device).startswith("gcu"):
         if torch.gcu.is_available():
-            total_memory = round(torch.gcu.get_device_properties(device).total_memory / (1024 ** 3))  # 转为 GB
+            total_memory = round(torch.gcu.get_device_properties(device).total_memory / (1024 ** 3))  # Convert to GB
     elif str(device).startswith("musa"):
         if torch.musa.is_available():
-            total_memory = round(torch.musa.get_device_properties(device).total_memory / (1024 ** 3))  # 转为 GB
+            total_memory = round(torch.musa.get_device_properties(device).total_memory / (1024 ** 3))  # Convert to GB
     elif str(device).startswith("mlu"):
         if torch.mlu.is_available():
-            total_memory = round(torch.mlu.get_device_properties(device).total_memory / (1024 ** 3))  # 转为 GB
+            total_memory = round(torch.mlu.get_device_properties(device).total_memory / (1024 ** 3))  # Convert to GB
     elif str(device).startswith("sdaa"):
         if torch.sdaa.is_available():
-            total_memory = round(torch.sdaa.get_device_properties(device).total_memory / (1024 ** 3))  # 转为 GB          
+            total_memory = round(torch.sdaa.get_device_properties(device).total_memory / (1024 ** 3))  # Convert to GB          
 
     return total_memory

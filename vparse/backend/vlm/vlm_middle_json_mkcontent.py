@@ -54,28 +54,28 @@ def merge_para_with_text(para_block, formula_enable=True, img_buket_path=''):
                     para_text += content
                     continue
 
-                # 定义CJK语言集合(中日韩)
+                # Define CJK language set (Chinese, Japanese, Korean)
                 cjk_langs = {'zh', 'ja', 'ko'}
                 # logger.info(f'block_lang: {block_lang}, content: {content}')
 
-                # 判断是否为行末span
+                # Determine if it is the end-of-line span
                 is_last_span = j == len(line['spans']) - 1
 
-                if block_lang in cjk_langs:  # 中文/日语/韩文语境下，换行不需要空格分隔,但是如果是行内公式结尾，还是要加空格
+                if block_lang in cjk_langs:  # For CJK languages, line breaks do not need spaces; however, spaces are still needed after inline equations.
                     if is_last_span and span_type != ContentType.INLINE_EQUATION:
                         para_text += content
                     else:
                         para_text += f'{content} '
                 else:
-                    # 西方文本语境下 每行的最后一个span判断是否要去除连字符
+                    # In Western text context, check if the hyphen at the end of each line should be removed.
                     if span_type in [ContentType.TEXT, ContentType.INLINE_EQUATION]:
-                        # 如果span是line的最后一个且末尾带有-连字符，那么末尾不应该加空格,同时应该把-删除
+                        # If the span is the last in the line and ends with a hyphen, remove the hyphen and do not add a space.
                         if (
                                 is_last_span
                                 and span_type == ContentType.TEXT
                                 and is_hyphen_at_line_end(content)
                         ):
-                            # 如果下一行的第一个span是小写字母开头，删除连字符
+                            # If the first span of the next line starts with a lowercase letter, remove the hyphen.
                             if (
                                     i+1 < len(para_block['lines'])
                                     and para_block['lines'][i + 1].get('spans')
@@ -84,9 +84,9 @@ def merge_para_with_text(para_block, formula_enable=True, img_buket_path=''):
                                     and para_block['lines'][i + 1]['spans'][0]['content'][0].islower()
                             ):
                                 para_text += content[:-1]
-                            else:  # 如果没有下一行，或者下一行的第一个span不是小写字母开头，则保留连字符但不加空格
+                            else:  # If no next line exists or the next line does not start with a lowercase letter, keep the hyphen but do not add a space.
                                 para_text += content
-                        else:  # 西方文本语境下 content间需要空格分隔
+                        else:  # In Western text context, content should be separated by spaces.
                             para_text += f'{content} '
     return para_text
 
@@ -109,32 +109,32 @@ def mk_blocks_to_markdown(para_blocks, make_mode, formula_enable, table_enable, 
             if make_mode == MakeMode.NLP_MD:
                 continue
             elif make_mode == MakeMode.MM_MD:
-                # 检测是否存在图片脚注
+                # Detect if an image footnote exists
                 has_image_footnote = any(block['type'] == BlockType.IMAGE_FOOTNOTE for block in para_block['blocks'])
-                # 如果存在图片脚注，则将图片脚注拼接到图片正文后面
+                # If an image footnote exists, append it after the image body
                 if has_image_footnote:
-                    for block in para_block['blocks']:  # 1st.拼image_caption
+                    for block in para_block['blocks']:  # 1st: Append image_caption
                         if block['type'] == BlockType.IMAGE_CAPTION:
                             para_text += merge_para_with_text(block) + '  \n'
-                    for block in para_block['blocks']:  # 2nd.拼image_body
+                    for block in para_block['blocks']:  # 2nd: Append image_body
                         if block['type'] == BlockType.IMAGE_BODY:
                             for line in block['lines']:
                                 for span in line['spans']:
                                     if span['type'] == ContentType.IMAGE:
                                         if span.get('image_path', ''):
                                             para_text += f"![]({img_buket_path}/{span['image_path']})"
-                    for block in para_block['blocks']:  # 3rd.拼image_footnote
+                    for block in para_block['blocks']:  # 3rd: Append image_footnote
                         if block['type'] == BlockType.IMAGE_FOOTNOTE:
                             para_text += '  \n' + merge_para_with_text(block)
                 else:
-                    for block in para_block['blocks']:  # 1st.拼image_body
+                    for block in para_block['blocks']:  # 1st: Append image_body
                         if block['type'] == BlockType.IMAGE_BODY:
                             for line in block['lines']:
                                 for span in line['spans']:
                                     if span['type'] == ContentType.IMAGE:
                                         if span.get('image_path', ''):
                                             para_text += f"![]({img_buket_path}/{span['image_path']})"
-                    for block in para_block['blocks']:  # 2nd.拼image_caption
+                    for block in para_block['blocks']:  # 2nd: Append image_caption
                         if block['type'] == BlockType.IMAGE_CAPTION:
                             para_text += '  \n' + merge_para_with_text(block)
 
@@ -142,10 +142,10 @@ def mk_blocks_to_markdown(para_blocks, make_mode, formula_enable, table_enable, 
             if make_mode == MakeMode.NLP_MD:
                 continue
             elif make_mode == MakeMode.MM_MD:
-                for block in para_block['blocks']:  # 1st.拼table_caption
+                for block in para_block['blocks']:  # 1st: Append table_caption
                     if block['type'] == BlockType.TABLE_CAPTION:
                         para_text += merge_para_with_text(block) + '  \n'
-                for block in para_block['blocks']:  # 2nd.拼table_body
+                for block in para_block['blocks']:  # 2nd: Append table_body
                     if block['type'] == BlockType.TABLE_BODY:
                         for line in block['lines']:
                             for span in line['spans']:
@@ -159,15 +159,15 @@ def mk_blocks_to_markdown(para_blocks, make_mode, formula_enable, table_enable, 
                                     else:
                                         if span.get('image_path', ''):
                                             para_text += f"![]({img_buket_path}/{span['image_path']})"
-                for block in para_block['blocks']:  # 3rd.拼table_footnote
+                for block in para_block['blocks']:  # 3rd: Append table_footnote
                     if block['type'] == BlockType.TABLE_FOOTNOTE:
                         para_text += '\n' + merge_para_with_text(block) + '  '
         elif para_type == BlockType.CODE:
             sub_type = para_block["sub_type"]
-            for block in para_block['blocks']:  # 1st.拼code_caption
+            for block in para_block['blocks']:  # 1st: Append code_caption
                 if block['type'] == BlockType.CODE_CAPTION:
                     para_text += merge_para_with_text(block) + '  \n'
-            for block in para_block['blocks']:  # 2nd.拼code_body
+            for block in para_block['blocks']:  # 2nd: Append code_body
                 if block['type'] == BlockType.CODE_BODY:
                     if sub_type == BlockType.CODE:
                         guess_lang = para_block["guess_lang"]
@@ -510,7 +510,7 @@ def get_body_data(para_block):
                     return '', span.get('content', '')
         return '', ''
 
-    # 处理嵌套的 blocks 结构
+    # Handle nested blocks structure
     if 'blocks' in para_block:
         for block in para_block['blocks']:
             block_type = block.get('type')
@@ -520,7 +520,7 @@ def get_body_data(para_block):
                     return result
         return '', ''
 
-    # 处理直接包含 lines 的结构
+    # Handle structures directly containing lines
     return get_data_from_spans(para_block.get('lines', []))
 
 
@@ -549,25 +549,25 @@ def merge_para_with_text_v2(para_block):
                 if span_type in [
                     ContentTypeV2.SPAN_TEXT,
                 ]:
-                    # 定义CJK语言集合(中日韩)
+                    # Define CJK language set (Chinese, Japanese, Korean)
                     cjk_langs = {'zh', 'ja', 'ko'}
                     # logger.info(f'block_lang: {block_lang}, content: {content}')
 
-                    # 判断是否为行末span
+                    # Determine if it is the end-of-line span
                     is_last_span = j == len(line['spans']) - 1
 
-                    if block_lang in cjk_langs:  # 中文/日语/韩文语境下，换行不需要空格分隔,但是如果是行内公式结尾，还是要加空格
+                    if block_lang in cjk_langs:  # For CJK languages, line breaks do not need spaces; however, spaces are still needed after inline equations.
                         if is_last_span:
                             span_content = span['content']
                         else:
                             span_content = f"{span['content']} "
                     else:
-                        # 如果span是line的最后一个且末尾带有-连字符，那么末尾不应该加空格,同时应该把-删除
+                        # If the span is the last in the line and ends with a hyphen, remove the hyphen and do not add a space.
                         if (
                                 is_last_span
                                 and is_hyphen_at_line_end(span['content'])
                         ):
-                            # 如果下一行的第一个span是小写字母开头，删除连字符
+                            # If the first span of the next line starts with a lowercase letter, remove the hyphen.
                             if (
                                     i + 1 < len(para_block['lines'])
                                     and para_block['lines'][i + 1].get('spans')
@@ -576,14 +576,14 @@ def merge_para_with_text_v2(para_block):
                                     and para_block['lines'][i + 1]['spans'][0]['content'][0].islower()
                             ):
                                 span_content = span['content'][:-1]
-                            else:  # 如果没有下一行，或者下一行的第一个span不是小写字母开头，则保留连字符但不加空格
+                            else:  # If no next line exists or the next line does not start with a lowercase letter, keep the hyphen but do not add a space.
                                 span_content = span['content']
                         else:
-                            # 西方文本语境下content间需要空格分隔
+                            # In Western text context, content should be separated by spaces.
                             span_content = f"{span['content']} "
 
                     if para_content and para_content[-1]['type'] == span_type:
-                        # 合并相同类型的span
+                        # Merge spans of the same type
                         para_content[-1]['content'] += span_content
                     else:
                         span_content = {

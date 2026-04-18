@@ -25,7 +25,7 @@ PIPELINE_REQUIRED_MODEL_PATHS = [
 
 
 def download_json(url):
-    """下载JSON文件"""
+    """Download JSON file"""
     response = requests.get(url)
     response.raise_for_status()
     return response.json()
@@ -42,7 +42,7 @@ def load_template_json(url):
 
 
 def download_and_modify_json(url, local_filename, modifications):
-    """下载JSON并修改内容"""
+    """Download JSON and modify content"""
     if os.path.exists(local_filename):
         with open(local_filename, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -52,17 +52,17 @@ def download_and_modify_json(url, local_filename, modifications):
     else:
         data = load_template_json(url)
 
-    # 修改内容
+    # Modify content
     for key, value in modifications.items():
         if key in data:
             if isinstance(data[key], dict):
-                # 如果是字典，合并新值
+                # If it's a dictionary, merge new values
                 data[key].update(value)
             else:
-                # 否则直接替换
+                # Otherwise, replace directly
                 data[key] = value
 
-    # 保存修改后的内容
+    # Save modified content
     with open(local_filename, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
@@ -93,7 +93,7 @@ def configure_model(model_dir, model_type):
 
 
 def download_pipeline_models():
-    """下载Pipeline模型"""
+    """Download Pipeline models"""
     model_paths = [
         ModelPath.doclayout_yolo,
         ModelPath.yolo_v8_mfd,
@@ -115,7 +115,7 @@ def download_pipeline_models():
 
 
 def download_vlm_models():
-    """下载VLM模型"""
+    """Download VLM models"""
     download_finish_path = auto_download_and_get_model_root_path("/", repo_mode='vlm')
     logger.info(f"VLM models downloaded successfully to: {download_finish_path}")
     configure_model(download_finish_path, "vlm")
@@ -147,7 +147,7 @@ def download_models(model_source, model_type):
 
     Supports downloading pipeline or VLM models from ModelScope or HuggingFace.
     """
-    # 如果未显式指定则交互式输入下载来源
+    # Prompt for download source if not explicitly specified
     if model_source is None:
         model_source = click.prompt(
             "Please select the model download source: ",
@@ -162,7 +162,7 @@ def download_models(model_source, model_type):
             model_source,
         )
 
-    # 如果未显式指定则交互式输入模型类型
+    # Prompt for model type if not explicitly specified
     if model_type is None:
         model_type = click.prompt(
             "Please select the model type to download: ",

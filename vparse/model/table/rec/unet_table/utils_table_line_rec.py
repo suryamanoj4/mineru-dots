@@ -71,10 +71,10 @@ def get_3rd_point(a, b):
 
 
 def get_table_line(binimg, axis=0, lineW=10):
-    ##获取表格线
-    ##axis=0 横线
-    ##axis=1 竖线
-    labels = measure.label(binimg > 0, connectivity=2)  # 8连通区域标记
+    ## Get table lines
+    ## axis=0: horizontal line
+    ## axis=1: vertical line
+    labels = measure.label(binimg > 0, connectivity=2)  # 8-connectivity area labeling
     regions = measure.regionprops(labels)
     if axis == 1:
         lineboxes = [
@@ -93,7 +93,7 @@ def get_table_line(binimg, axis=0, lineW=10):
 
 def min_area_rect(coords):
     """
-    多边形外接矩形
+    Polygon bounding box
     """
     rect = cv2.minAreaRect(coords[:, ::-1])
     box = cv2.boxPoints(rect)
@@ -130,7 +130,7 @@ def image_location_sort_box(box):
 
 def calculate_center_rotate_angle(box):
     """
-    绕 cx,cy点 w,h 旋转 angle 的坐标,能一定程度缓解图片的内部倾斜，但是还是依赖模型稳妥
+    Coordinates of (w, h) rotated by angle around (cx, cy); partially alleviates internal tilting, though model reliability is still key.
     x = cx-w/2
     y = cy-h/2
     x1-cx = -w/2*cos(angle) +h/2*sin(angle)
@@ -160,14 +160,13 @@ def calculate_center_rotate_angle(box):
 
 
 def _order_points(pts):
-    # 根据x坐标对点进行排序
+    # Sort points based on x-coordinate
     """
     ---------------------
-    本项目中是为了排序后得到[(xmin,ymin),(xmax,ymin),(xmax,ymax),(xmin,ymax)]
-    作者：Tong_T
-    来源：CSDN
-    原文：https://blog.csdn.net/Tong_T/article/details/81907132
-    版权声明：本文为博主原创文章，转载请附上博文链接！
+    In this project, used to sort points as [(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax)]
+    Author: Tong_T
+    Source: CSDN
+    URL: https://blog.csdn.net/Tong_T/article/details/81907132
     """
     x_sorted = pts[np.argsort(pts[:, 0]), :]
 
@@ -198,7 +197,7 @@ def adjust_lines(lines, alph=50, angle=50):
                 cx2, cy2 = (x3 + x4) / 2, (y3 + y4) / 2
                 if (x3 < cx1 < x4 or y3 < cy1 < y4) or (
                     x1 < cx2 < x2 or y1 < cy2 < y2
-                ):  # 判断两个横线在y方向的投影重不重合
+                ):  # Check if the vertical projections of two horizontal lines overlap.
                     continue
                 else:
                     r = sqrt((x1, y1), (x3, y3))
@@ -255,7 +254,7 @@ def draw_lines(im, bboxes, color=(0, 0, 0), lineW=3):
 
 def line_to_line(points1, points2, alpha=10, angle=30):
     """
-    线段之间的距离
+    Distance between line segments.
     """
     x1, y1, x2, y2 = points1
     ox1, oy1, ox2, oy2 = points2
@@ -266,16 +265,16 @@ def line_to_line(points1, points2, alpha=10, angle=30):
     flag1 = point_line_cor(np.array([x1, y1], dtype="float32"), A2, B2, C2)
     flag2 = point_line_cor(np.array([x2, y2], dtype="float32"), A2, B2, C2)
 
-    if (flag1 > 0 and flag2 > 0) or (flag1 < 0 and flag2 < 0):  # 横线或者竖线在竖线或者横线的同一侧
+    if (flag1 > 0 and flag2 > 0) or (flag1 < 0 and flag2 < 0):  # Lines are on the same side
         if (A1 * B2 - A2 * B1) != 0:
             x = (B1 * C2 - B2 * C1) / (A1 * B2 - A2 * B1)
             y = (A2 * C1 - A1 * C2) / (A1 * B2 - A2 * B1)
             # x, y = round(x, 2), round(y, 2)
-            p = (x, y)  # 横线与竖线的交点
+            p = (x, y)  # Intersection of horizontal and vertical lines
             r0 = sqrt(p, (x1, y1))
             r1 = sqrt(p, (x2, y2))
 
-            if min(r0, r1) < alpha:  # 若交点与线起点或者终点的距离小于alpha，则延长线到交点
+            if min(r0, r1) < alpha:  # Extend line to intersection if close to endpoint.
                 if r0 < r1:
                     k = abs((y2 - p[1]) / (x2 - p[0] + 1e-10))
                     a = math.atan(k) * 180 / math.pi
@@ -293,7 +292,7 @@ def min_area_rect_box(
     regions, flag=True, W=0, H=0, filtersmall=False, adjust_box=False
 ):
     """
-    多边形外接矩形
+    Polygon bounding box.
     """
     boxes = []
     for region in regions:
@@ -301,7 +300,7 @@ def min_area_rect_box(
             region_bbox_area = region.area_bbox
         else:
             region_bbox_area = region.bbox_area
-        if region_bbox_area > H * W * 3 / 4:  # 过滤大的单元格
+        if region_bbox_area > H * W * 3 / 4:  # Filter large cells
             continue
         rect = cv2.minAreaRect(region.coords[:, ::-1])
 
@@ -324,15 +323,15 @@ def min_area_rect_box(
         if w * h < 0.5 * W * H:
             if filtersmall and (
                 w < 15 or h < 15
-            ):  # or w / h > 30 or h / w > 30): # 过滤小的单元格
+            ):  # or w / h > 30 or h / w > 30): # Filter small cells
                 continue
             boxes.append([x1, y1, x2, y2, x3, y3, x4, y4])
     return boxes
 
 
 def point_line_cor(p, A, B, C):
-    ##判断点与线之间的位置关系
-    # 一般式直线方程(Ax+By+c)=0
+    ## Determine positional relationship between point and line.
+    # General line equation (Ax+By+c)=0
     x, y = p
     r = A * x + B * y + C
     return r
@@ -343,7 +342,7 @@ def fit_line(p):
        B = X1 - X2
        C = X2*Y1 - X1*Y2
        AX+BY+C=0
-    直线一般方程
+    General line equation.
     """
     x1, y1 = p[0]
     x2, y2 = p[1]

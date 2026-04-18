@@ -2,155 +2,154 @@
 VParse Heavy - Client Example
 Heavy客户端示例
 
-演示如何使用 Python 客户端提交任务和查询状态
+Demonstrates how to use the Python client to submit tasks and query status.
 """
 import asyncio
 import aiohttp
+import os
+import time
 from pathlib import Path
 from loguru import logger
-import time
-from typing import Dict
 
 
 class HeavyClient:
     """Heavy客户端"""
     
-    def __init__(self, api_url='http://localhost:8000'):
-        self.api_url = api_url
-        self.base_url = f"{api_url}/api/v1"
+    def __init__(self, base_url='http://localhost:8000'):
+        self.base_url = base_url
     
     async def submit_task(
-        self,
-        session: aiohttp.ClientSession,
-        file_path: str,
-        backend: str = 'pipeline',
-        lang: str = 'ch',
+        self, 
+        file_path: str, 
+        backend: str = 'pipeline', 
+        lang: str = 'ch', 
         method: str = 'auto',
         formula_enable: bool = True,
         table_enable: bool = True,
         priority: int = 0
-    ) -> Dict:
+    ):
         """
-        提交任务
+        Submit a task
         
         Args:
-            session: aiohttp session
-            file_path: 文件路径
-            backend: 处理后端
-            lang: 语言
-            method: 解析方法
-            formula_enable: 是否启用公式识别
-            table_enable: 是否启用表格识别
-            priority: 优先级
+            file_path: File path
+            backend: Processing backend
+            lang: Language
+            method: Parsing method
+            formula_enable: Whether to enable formula recognition
+            table_enable: Whether to enable table recognition
+            priority: Priority level
             
         Returns:
-            响应字典，包含 task_id
+            Response dictionary containing task_id
         """
-        with open(file_path, 'rb') as f:
-            data = aiohttp.FormData()
-            data.add_field('file', f, filename=Path(file_path).name)
-            data.add_field('backend', backend)
-            data.add_field('lang', lang)
-            data.add_field('method', method)
-            data.add_field('formula_enable', str(formula_enable).lower())
-            data.add_field('table_enable', str(table_enable).lower())
-            data.add_field('priority', str(priority))
-            
-            async with session.post(f'{self.base_url}/tasks/submit', data=data) as resp:
-                if resp.status == 200:
-                    result = await resp.json()
-                    logger.info(f"✅ Submitted: {file_path} -> Task ID: {result['task_id']}")
-                    return result
-                else:
-                    error = await resp.text()
-                    logger.error(f"❌ Failed to submit {file_path}: {error}")
-                    return {'success': False, 'error': error}
+        url = f"{self.base_url}/api/v1/tasks/submit"
+        
+        # Check if file exists
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
+        
+        # Prepare form data
+        data = aiohttp.FormData()
+        data.add_field('file', open(file_path, 'rb'), filename=os.path.basename(file_path))
+        data.add_field('backend', backend)
+        data.add_field('lang', lang)
+        data.add_field('method', method)
+        data.add_field('formula_enable', str(formula_enable).lower())
+        data.add_field('table_enable', str(table_enable).lower())
+        data.add_field('priority', str(priority))
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, data=data) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise Exception(f"Submit failed ({response.status}): {error_text}")
+                return await response.json()
     
-    async def get_task_status(self, session: aiohttp.ClientSession, task_id: str) -> Dict:
+    async def get_status(self, task_id: str, upload_images: bool = False):
         """
-        查询任务状态
+        Query task status
         
         Args:
-            session: aiohttp session
-            task_id: 任务ID
+            task_id: Task ID
+            upload_images: Whether to upload images to MinIO
             
         Returns:
-            任务状态字典
+            Task status dictionary
         """
-        async with session.get(f'{self.base_url}/tasks/{task_id}') as resp:
-            if resp.status == 200:
-                return await resp.json()
-            else:
-                return {'success': False, 'error': 'Task not found'}
+        url = f"{self.base_url}/api/v1/tasks/{task_id}"
+        params = {'upload_images': str(upload_images).lower()}
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, params=params) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise Exception(f"Query failed ({response.status}): {error_text}")
+                return await response.json()
     
-    async def wait_for_task(
-        self,
-        session: aiohttp.ClientSession,
-        task_id: str,
-        timeout: int = 600,
-        poll_interval: int = 2
-    ) -> Dict:
+    async def wait_for_completion(
+        self, 
+        task_id: str, 
+        timeout: int = 600, 
+        poll_interval: int = 5
+    ):
         """
-        等待任务完成
+        Wait for task completion
         
         Args:
-            session: aiohttp session
-            task_id: 任务ID
-            timeout: 超时时间（秒）
-            poll_interval: 轮询间隔（秒）
+            task_id: Task ID
+            timeout: Timeout in seconds
+            poll_interval: Polling interval in seconds
             
         Returns:
-            最终任务状态
+            Final task status
         """
         start_time = time.time()
         
         while True:
-            status = await self.get_task_status(session, task_id)
+            status_res = await self.get_status(task_id)
+            status = status_res.get('status')
             
-            if not status.get('success'):
-                logger.error(f"❌ Failed to get status for task {task_id}")
-                return status
-            
-            task_status = status.get('status')
-            
-            if task_status == 'completed':
+            if status == 'completed':
                 logger.info(f"✅ Task {task_id} completed!")
-                logger.info(f"   Output: {status.get('result_path')}")
-                return status
+                return status_res
             
-            elif task_status == 'failed':
-                logger.error(f"❌ Task {task_id} failed!")
-                logger.error(f"   Error: {status.get('error_message')}")
-                return status
+            if status == 'failed':
+                error = status_res.get('error_message', 'Unknown error')
+                logger.error(f"❌ Task {task_id} failed: {error}")
+                return status_res
             
-            elif task_status == 'cancelled':
-                logger.warning(f"⚠️  Task {task_id} was cancelled")
-                return status
+            if status == 'cancelled':
+                logger.warning(f"🛑 Task {task_id} was cancelled")
+                return status_res
             
-            # 检查超时
+            # Check timeout
             if time.time() - start_time > timeout:
-                logger.error(f"⏱️  Task {task_id} timeout after {timeout}s")
-                return {'success': False, 'error': 'timeout'}
+                logger.error(f"⏰ Timeout waiting for task {task_id}")
+                raise TimeoutError(f"Task {task_id} timed out after {timeout}s")
             
-            # 等待后继续轮询
+            # Wait before polling again
+            logger.info(f"⏳ Task {task_id} is {status}, waiting...")
             await asyncio.sleep(poll_interval)
-    
-    async def get_queue_stats(self, session: aiohttp.ClientSession) -> Dict:
-        """获取队列统计"""
-        async with session.get(f'{self.base_url}/queue/stats') as resp:
-            return await resp.json()
-    
-    async def cancel_task(self, session: aiohttp.ClientSession, task_id: str) -> Dict:
-        """取消任务"""
-        async with session.delete(f'{self.base_url}/tasks/{task_id}') as resp:
-            return await resp.json()
+            
+    async def get_queue_stats(self):
+        """Get queue statistics"""
+        url = f"{self.base_url}/api/v1/queue/stats"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                return await response.json()
+
+    async def cancel_task(self, task_id: str):
+        """Cancel a task"""
+        url = f"{self.base_url}/api/v1/tasks/{task_id}"
+        async with aiohttp.ClientSession() as session:
+            async with session.delete(url) as response:
+                return await response.json()
 
 
-async def example_single_task():
-    """示例1：提交单个任务并等待完成"""
-    logger.info("=" * 60)
-    logger.info("示例1：提交单个任务")
-    logger.info("=" * 60)
+async def example_single_task(client: TianshuClient, file_path: str):
+    """Example 1: Submit a single task and wait for completion"""
+    logger.info("Example 1: Submitting a single task")
     
     client = HeavyClient()
     
@@ -164,69 +163,51 @@ async def example_single_task():
             formula_enable=True,
             table_enable=True
         )
+        task_id = submit_res['task_id']
+        logger.info(f"🚀 Task submitted, ID: {task_id}")
         
-        if result.get('success'):
-            task_id = result['task_id']
+        # Wait for completion
+        result = await client.wait_for_completion(task_id)
+        
+        if result['status'] == 'completed':
+            md_content = result.get('data', {}).get('content', '')
+            logger.info(f"📝 Markdown content length: {len(md_content)}")
+            # logger.info(f"Content preview: {md_content[:200]}...")
             
-            # 等待完成
-            logger.info(f"⏳ Waiting for task {task_id} to complete...")
-            final_status = await client.wait_for_task(session, task_id)
-            
-            return final_status
+    except Exception as e:
+        logger.error(f"Error in Example 1: {e}")
 
 
-async def example_batch_tasks():
-    """示例2：批量提交多个任务并并发等待"""
-    logger.info("=" * 60)
-    logger.info("示例2：批量提交多个任务")
-    logger.info("=" * 60)
+async def example_batch_tasks(client: TianshuClient, file_paths: list):
+    """Example 2: Batch submit multiple tasks and wait concurrently"""
+    logger.info("Example 2: Submitting multiple tasks in batch")
     
     client = HeavyClient()
     
-    # 准备任务列表
-    files = [
-        '../../demo/pdfs/demo1.pdf',
-        '../../demo/pdfs/demo2.pdf',
-        '../../demo/pdfs/demo3.pdf',
-    ]
-    
-    async with aiohttp.ClientSession() as session:
-        # 并发提交所有任务
-        logger.info(f"📤 Submitting {len(files)} tasks...")
-        submit_tasks = [
-            client.submit_task(session, file) 
-            for file in files
-        ]
-        results = await asyncio.gather(*submit_tasks)
+    try:
+        # Submit all tasks concurrently
+        submit_results = await asyncio.gather(*tasks)
         
-        # 提取 task_ids
-        task_ids = [r['task_id'] for r in results if r.get('success')]
-        logger.info(f"✅ Submitted {len(task_ids)} tasks successfully")
+        # Extract task_ids
+        task_ids = [res['task_id'] for res in submit_results]
+        logger.info(f"🚀 Submitted {len(task_ids)} tasks: {task_ids}")
         
-        # 并发等待所有任务完成
-        logger.info(f"⏳ Waiting for all tasks to complete...")
-        wait_tasks = [
-            client.wait_for_task(session, task_id) 
-            for task_id in task_ids
-        ]
+        # Wait concurrently for all tasks to complete
+        wait_tasks = [client.wait_for_completion(tid) for tid in task_ids]
         final_results = await asyncio.gather(*wait_tasks)
         
-        # 统计结果
-        completed = sum(1 for r in final_results if r.get('status') == 'completed')
-        failed = sum(1 for r in final_results if r.get('status') == 'failed')
+        # Statistics
+        success = sum(1 for r in final_results if r['status'] == 'completed')
+        failed = sum(1 for r in final_results if r['status'] == 'failed')
+        logger.info(f"📊 Batch results: {success} successful, {failed} failed")
         
-        logger.info("=" * 60)
-        logger.info(f"📊 Results: {completed} completed, {failed} failed")
-        logger.info("=" * 60)
-        
-        return final_results
+    except Exception as e:
+        logger.error(f"Error in Example 2: {e}")
 
 
-async def example_priority_tasks():
-    """示例3：使用优先级队列"""
-    logger.info("=" * 60)
-    logger.info("示例3：优先级队列")
-    logger.info("=" * 60)
+async def example_priority_queue(client: TianshuClient, file_path: str):
+    """Example 3: Using priority queue"""
+    logger.info("Example 3: Priority queue")
     
     client = HeavyClient()
     
@@ -237,25 +218,25 @@ async def example_priority_tasks():
             file_path='../../demo/pdfs/demo1.pdf',
             priority=0
         )
-        logger.info(f"📝 Low priority task: {low_priority['task_id']}")
+        logger.info(f"💤 Submitted low priority task: {low_p_task['task_id']}")
         
-        # 提交高优先级任务
-        high_priority = await client.submit_task(
-            session,
-            file_path='../../demo/pdfs/demo2.pdf',
+        # Submit high priority task
+        high_p_task = await client.submit_task(
+            file_path=file_path,
             priority=10
         )
-        logger.info(f"🔥 High priority task: {high_priority['task_id']}")
+        logger.info(f"⚡ Submitted high priority task: {high_p_task['task_id']}")
         
-        # 高优先级任务会先被处理
-        logger.info("⏳ 高优先级任务将优先处理...")
+        # High priority task will be processed first
+        logger.info("⏳ High priority task will be processed first...")
+        
+    except Exception as e:
+        logger.error(f"Error in Example 3: {e}")
 
 
-async def example_queue_monitoring():
-    """示例4：监控队列状态"""
-    logger.info("=" * 60)
-    logger.info("示例4：监控队列状态")
-    logger.info("=" * 60)
+async def example_stats(client: TianshuClient):
+    """Example 4: Monitoring queue status"""
+    logger.info("Example 4: Monitoring queue status")
     
     client = HeavyClient()
     
@@ -263,56 +244,44 @@ async def example_queue_monitoring():
         # 获取队列统计
         stats = await client.get_queue_stats(session)
         
-        logger.info("📊 Queue Statistics:")
-        logger.info(f"   Total: {stats.get('total', 0)}")
-        for status, count in stats.get('stats', {}).items():
-            logger.info(f"   {status:12s}: {count}")
+    except Exception as e:
+        logger.error(f"Error in Example 4: {e}")
 
 
 async def main():
-    """主函数"""
-    import sys
+    """Main function"""
+    # Configure Tianshu server address
+    base_url = os.getenv('TIANSHU_URL', 'http://localhost:8000')
+    client = TianshuClient(base_url)
     
-    if len(sys.argv) > 1:
-        example = sys.argv[1]
-    else:
-        example = 'all'
+    # Path to test file
+    test_pdf = "../../demo/pdfs/demo1.pdf"
     
+    if not os.path.exists(test_pdf):
+        logger.error(f"❌ Test file not found: {test_pdf}")
+        return
+
+    # Check server connectivity
     try:
-        if example == 'single' or example == 'all':
-            await example_single_task()
-            print()
-        
-        if example == 'batch' or example == 'all':
-            await example_batch_tasks()
-            print()
-        
-        if example == 'priority' or example == 'all':
-            await example_priority_tasks()
-            print()
-        
-        if example == 'monitor' or example == 'all':
-            await example_queue_monitoring()
-            print()
-            
-    except Exception as e:
-        logger.error(f"Example failed: {e}")
-        import traceback
-        traceback.print_exc()
+        await client.get_queue_stats()
+        logger.info("✅ Connected to Tianshu server")
+    except Exception:
+        logger.error(f"❌ Failed to connect to server at {base_url}")
+        logger.info("   Make sure the server is running (python start_all.py)")
+        return
+
+    # Choose examples to run
+    # Usage:
+    # # Run all examples
+    # await example_single_task(client, test_pdf)
+    # await example_batch_tasks(client, [test_pdf, test_pdf])
+    # await example_priority_queue(client, test_pdf)
+    # await example_stats(client)
+    
+    # Run specific example
+    await example_single_task(client, test_pdf)
+    await example_stats(client)
 
 
-if __name__ == '__main__':
-    """
-    使用方法:
-    
-    # 运行所有示例
-    python client_example.py
-    
-    # 运行特定示例
-    python client_example.py single
-    python client_example.py batch
-    python client_example.py priority
-    python client_example.py monitor
-    """
+if __name__ == "__main__":
     asyncio.run(main())
-

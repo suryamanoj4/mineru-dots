@@ -6,56 +6,56 @@ from mcp.client import MCPClient
 
 
 async def convert_file_url_example():
-    """从 URL 转换 File 的示例。"""
+    """Example of converting a file from a URL."""
     client = MCPClient("http://localhost:8000")
 
-    # 转换单个 File URL
+    # Convert a single file URL
     result = await client.call(
         "convert_file_url", url="https://example.com/sample.pdf", enable_ocr=True
     )
-    print(f"转换结果: {result}")
+    print(f"Conversion result: {result}")
 
-    # 转换多个 File URL
+    # Convert multiple file URLs
     urls = """
     https://example.com/doc1.pdf
     https://example.com/doc2.pdf
     """
     result = await client.call("convert_file_url", url=urls, enable_ocr=True)
-    print(f"多个转换结果: {result}")
+    print(f"Multiple conversion results: {result}")
 
 
 async def convert_file_file_example():
-    """转换本地 File 文件的示例。"""
+    """Example of converting a local file."""
     client = MCPClient("http://localhost:8000")
 
-    # 获取测试 File 的绝对路径
+    # Get absolute path of the test file
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(script_dir)))
     test_file_path = os.path.join(project_root, "test_files", "test.pdf")
 
-    # 转换单个 File 文件
+    # Convert a single local file
     result = await client.call(
         "convert_file_file", file_path=test_file_path, enable_ocr=True
     )
-    print(f"文件转换结果: {result}")
+    print(f"File conversion result: {result}")
 
 
 async def get_api_status_example():
-    """获取 API 状态的示例。"""
+    """Example of retrieving API status."""
     client = MCPClient("http://localhost:8000")
 
-    # 获取 API 状态
+    # Get API status
     status = await client.get_resource("status://api")
-    print(f"API 状态: {status}")
+    print(f"API Status: {status}")
 
-    # 获取使用帮助
+    # Get usage help
     help_text = await client.get_resource("help://usage")
-    print(f"使用帮助: {help_text[:100]}...")  # 显示前 100 个字符
+    print(f"Usage help: {help_text[:100]}...")  # Show first 100 characters
 
 
 async def main():
-    """运行所有示例。"""
-    print("运行 File 到 Markdown 转换示例...")
+    """Run all examples."""
+    print("Running File to Markdown conversion examples...")
 
     # 检查是否设置了 API_KEY
     if not os.environ.get("VPARSE_API_KEY"):
@@ -63,10 +63,10 @@ async def main():
         print("使用以下命令设置: export VPARSE_API_KEY=your_api_key")
         print("跳过需要 API 访问的示例...")
 
-        # 仅获取 API 状态
+        # Only get API status
         await get_api_status_example()
     else:
-        # 运行所有示例
+        # Run all examples
         await convert_file_url_example()
         await convert_file_file_example()
         await get_api_status_example()

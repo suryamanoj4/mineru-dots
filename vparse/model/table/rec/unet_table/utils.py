@@ -212,7 +212,7 @@ cv2_interp_codes = {
 
 def resize_img(img, scale, keep_ratio=True):
     if keep_ratio:
-        # 缩小使用area更保真
+        # Better fidelity when downscaling using 'area'
         if min(img.shape[:2]) > min(scale):
             interpolation = "area"
         else:
@@ -428,11 +428,11 @@ class VisTable:
         :param sorted_polygons: [xmin,ymin,xmax,ymax]
         :return:
         """
-        # 读取原图
+        # Read original image
         img = cv2.copyMakeBorder(
             img, 0, 0, 0, 100, cv2.BORDER_CONSTANT, value=[255, 255, 255]
         )
-        # 绘制 polygons 矩形
+        # Draw polygon rectangles
         for idx, polygon in enumerate(sorted_polygons):
             x0, y0, x1, y1 = polygon[0], polygon[1], polygon[2], polygon[3]
             x0 = round(x0)
@@ -440,9 +440,9 @@ class VisTable:
             x1 = round(x1)
             y1 = round(y1)
             cv2.rectangle(img, (x0, y0), (x1, y1), (0, 0, 255), 1)
-            # 增大字体大小和线宽
-            font_scale = 0.9  # 原先是0.5
-            thickness = 1  # 原先是1
+            # Increase font size and thickness
+            font_scale = 0.9  # Previously 0.5
+            thickness = 1  # Previously 1
             logic_point = logic_points[idx]
             cv2.putText(
                 img,
@@ -463,7 +463,7 @@ class VisTable:
                 thickness,
             )
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
-            # 保存绘制后的图像
+            # Save drawn image
             self.save_img(output_path, img)
 
     @staticmethod

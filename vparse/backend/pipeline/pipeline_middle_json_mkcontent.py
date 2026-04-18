@@ -1,3 +1,4 @@
+# Copyright (c) Opendatalab. All rights reserved.
 from loguru import logger
 
 from vparse.utils.char_utils import full_to_half_exclude_marks, is_hyphen_at_line_end
@@ -15,7 +16,7 @@ def make_blocks_to_markdown(paras_of_layout,
     for para_block in paras_of_layout:
         para_text = ''
         para_type = para_block['type']
-        if para_type in [BlockType.TEXT, BlockType.LIST, BlockType.INDEX]:
+        if para_type in [BlockType.TEXT, BlockType.LIST, BlockType.INDEX, BlockType.REF_TEXT, BlockType.PHONETIC]:
             para_text = merge_para_with_text(para_block)
         elif para_type == BlockType.TITLE:
             title_level = get_title_level(para_block)
@@ -31,42 +32,42 @@ def make_blocks_to_markdown(paras_of_layout,
             if mode == MakeMode.NLP_MD:
                 continue
             elif mode == MakeMode.MM_MD:
-                # 检测是否存在图片脚注
+                # Detect if an image footnote exists
                 has_image_footnote = any(block['type'] == BlockType.IMAGE_FOOTNOTE for block in para_block['blocks'])
-                # 如果存在图片脚注，则将图片脚注拼接到图片正文后面
+                # If an image footnote exists, append it after the image body
                 if has_image_footnote:
-                    for block in para_block['blocks']:  # 1st.拼image_caption
+                    for block in para_block['blocks']:  # 1st: Append image_caption
                         if block['type'] == BlockType.IMAGE_CAPTION:
                             para_text += merge_para_with_text(block) + '  \n'
-                    for block in para_block['blocks']:  # 2nd.拼image_body
+                    for block in para_block['blocks']:  # 2nd: Append image_body
                         if block['type'] == BlockType.IMAGE_BODY:
                             for line in block['lines']:
                                 for span in line['spans']:
                                     if span['type'] == ContentType.IMAGE:
                                         if span.get('image_path', ''):
                                             para_text += f"![]({img_buket_path}/{span['image_path']})"
-                    for block in para_block['blocks']:  # 3rd.拼image_footnote
+                    for block in para_block['blocks']:  # 3rd: Append image_footnote
                         if block['type'] == BlockType.IMAGE_FOOTNOTE:
                             para_text += '  \n' + merge_para_with_text(block)
                 else:
-                    for block in para_block['blocks']:  # 1st.拼image_body
+                    for block in para_block['blocks']:  # 1st: Append image_body
                         if block['type'] == BlockType.IMAGE_BODY:
                             for line in block['lines']:
                                 for span in line['spans']:
                                     if span['type'] == ContentType.IMAGE:
                                         if span.get('image_path', ''):
                                             para_text += f"![]({img_buket_path}/{span['image_path']})"
-                    for block in para_block['blocks']:  # 2nd.拼image_caption
+                    for block in para_block['blocks']:  # 2nd: Append image_caption
                         if block['type'] == BlockType.IMAGE_CAPTION:
                             para_text += '  \n' + merge_para_with_text(block)
         elif para_type == BlockType.TABLE:
             if mode == MakeMode.NLP_MD:
                 continue
             elif mode == MakeMode.MM_MD:
-                for block in para_block['blocks']:  # 1st.拼table_caption
+                for block in para_block['blocks']:  # 1st: Append table_caption
                     if block['type'] == BlockType.TABLE_CAPTION:
                         para_text += merge_para_with_text(block) + '  \n'
-                for block in para_block['blocks']:  # 2nd.拼table_body
+                for block in para_block['blocks']:  # 2nd: Append table_body
                     if block['type'] == BlockType.TABLE_BODY:
                         for line in block['lines']:
                             for span in line['spans']:
@@ -76,7 +77,7 @@ def make_blocks_to_markdown(paras_of_layout,
                                         para_text += f"\n{span['html']}\n"
                                     elif span.get('image_path', ''):
                                         para_text += f"![]({img_buket_path}/{span['image_path']})"
-                for block in para_block['blocks']:  # 3rd.拼table_footnote
+                for block in para_block['blocks']:  # 3rd: Append table_footnote
                     if block['type'] == BlockType.TABLE_FOOTNOTE:
                         para_text += '\n' + merge_para_with_text(block) + '  '
 
@@ -139,28 +140,28 @@ def merge_para_with_text(para_block):
                     para_text += content
                     continue
 
-                # 定义CJK语言集合(中日韩)
+                # Define CJK language set (Chinese, Japanese, Korean)
                 cjk_langs = {'zh', 'ja', 'ko'}
                 # logger.info(f'block_lang: {block_lang}, content: {content}')
 
-                # 判断是否为行末span
+                # Determine if it is the end-of-line span
                 is_last_span = j == len(line['spans']) - 1
 
-                if block_lang in cjk_langs: # 中文/日语/韩文语境下，换行不需要空格分隔,但是如果是行内公式结尾，还是要加空格
+                if block_lang in cjk_langs: # For CJK languages, line breaks do not need spaces; however, spaces are still needed after inline equations.
                     if is_last_span and span_type not in [ContentType.INLINE_EQUATION]:
                         para_text += content
                     else:
                         para_text += f'{content} '
                 else:
-                    # 西方文本语境下 每行的最后一个span判断是否要去除连字符
+                    # In Western text context, check if the hyphen at the end of each line should be removed.
                     if span_type in [ContentType.TEXT, ContentType.INLINE_EQUATION]:
-                        # 如果span是line的最后一个且末尾带有-连字符，那么末尾不应该加空格,同时应该把-删除
+                        # If the span is the last in the line and ends with a hyphen, remove the hyphen and do not add a space.
                         if (
                                 is_last_span
                                 and span_type == ContentType.TEXT
                                 and is_hyphen_at_line_end(content)
                         ):
-                            # 如果下一行的第一个span是小写字母开头，删除连字符
+                            # If the first span of the next line starts with a lowercase letter, remove the hyphen.
                             if (
                                     i + 1 < len(para_block['lines'])
                                     and para_block['lines'][i + 1].get('spans')
@@ -169,9 +170,9 @@ def merge_para_with_text(para_block):
                                     and para_block['lines'][i + 1]['spans'][0]['content'][0].islower()
                             ):
                                 para_text += content[:-1]
-                            else:  # 如果没有下一行，或者下一行的第一个span不是小写字母开头，则保留连字符但不加空格
+                            else:  # If no next line exists or the next line does not start with a lowercase letter, keep the hyphen but do not add a space.
                                 para_text += content
-                        else:  # 西方文本语境下 content间需要空格分隔
+                        else:  # In Western text context, content should be separated by spaces.
                             para_text += f'{content} '
             else:
                 continue
@@ -186,6 +187,8 @@ def make_blocks_to_content_list(para_block, img_buket_path, page_idx, page_size)
         BlockType.TEXT,
         BlockType.LIST,
         BlockType.INDEX,
+        BlockType.PHONETIC,
+        BlockType.REF_TEXT,
     ]:
         para_content = {
             'type': ContentType.TEXT,
@@ -287,7 +290,7 @@ def union_make(pdf_info_dict: list,
 
     if make_mode in [MakeMode.MM_MD, MakeMode.NLP_MD]:
         return '\n\n'.join(output_content)
-    elif make_mode == MakeMode.CONTENT_LIST:
+    elif make_mode in [MakeMode.CONTENT_LIST]:
         return output_content
     else:
         logger.error(f"Unsupported make mode: {make_mode}")
@@ -305,7 +308,7 @@ def get_title_level(block):
 
 def escape_special_markdown_char(content):
     """
-    转义正文里对markdown语法有特殊意义的字符
+    Escape special Markdown characters in text.
     """
     special_chars = ["*", "`", "~", "$"]
     for char in special_chars:

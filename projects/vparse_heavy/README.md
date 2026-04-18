@@ -3,19 +3,19 @@
 > Heavy - 企业级多GPU文档解析服务  
 > 结合 SQLite 任务队列 + LitServe GPU负载均衡的最佳方案
 
-## 🌟 核心特性
+## 🌟 Core Features
 
-### 高性能架构
-- ✅ **Worker 主动拉取** - 0.5秒响应速度,无需调度器触发
-- ✅ **并发安全** - 原子操作防止任务重复,支持多Worker并发
-- ✅ **GPU 负载均衡** - LitServe 自动调度,避免显存冲突
-- ✅ **多GPU隔离** - 每个进程只使用分配的GPU,彻底解决多卡占用
+### High-Performance Architecture
+- ✅ **Worker Auto-Polling** - 0.5s response time; no scheduler trigger required.
+- ✅ **Concurrency Safe** - Atomic operations prevent duplicate tasks; supports multiple concurrent workers.
+- ✅ **GPU Load Balancing** - LitServe handles automatic scheduling, avoiding VRAM conflicts.
+- ✅ **Multi-GPU Isolation** - Each process uses only its assigned GPU, eliminating multi-card contention.
 
-### 企业级功能
-- ✅ **异步处理** - 客户端立即响应（~100ms）,无需等待处理完成
-- ✅ **任务持久化** - SQLite 存储,服务重启任务不丢失
-- ✅ **优先级队列** - 重要任务优先处理
-- ✅ **自动清理** - 定期清理旧结果文件,保留数据库记录
+### Enterprise Features
+- ✅ **Asynchronous Processing** - Instant client response (~100ms); no need to wait for parsing to finish.
+- ✅ **Task Persistence** - SQLite storage ensures no task loss on service restart.
+- ✅ **Priority Queue** - Prioritize critical tasks.
+- ✅ **Auto-Cleanup** - Regularly cleans up old result files while preserving database records.
 
 ### 智能解析
 - ✅ **双解析器** - PDF/图片用 VParse(GPU加速), Office/HTML等用 MarkItDown(快速)
@@ -23,7 +23,7 @@
 - ✅ **RESTful API** - 支持任何编程语言接入
 - ✅ **实时查询** - 随时查看任务进度和状态
 
-## 🏗️ 系统架构
+## 🏗️ System Architecture
 
 ```
 客户端请求 → FastAPI Server (立即返回 task_id)
@@ -43,9 +43,9 @@
 - ✅ **自动负载均衡**: LitServe 自动分配任务到空闲 GPU
 - ✅ **智能解析**: PDF/图片用 VParse,其他格式用 MarkItDown
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 1. 安装依赖
+### 1. Install Dependencies
 
 ```bash
 cd projects/vparse_heavy
@@ -56,48 +56,48 @@ pip install -r requirements.txt
 > - 📄 **PDF 和图片** (.pdf, .png, .jpg, .jpeg, .bmp, .tiff, .webp) - 使用 VParse 解析（GPU 加速）
 > - 📊 **其他所有格式** (Office、HTML、文本等) - 使用 MarkItDown 解析（快速处理）
 >   - Office: .docx, .doc, .xlsx, .xls, .pptx, .ppt
->   - 网页: .html, .htm
->   - 文本: .txt, .md, .csv, .json, .xml 等
+>   - Web: .html, .htm
+>   - Text: .txt, .md, .csv, .json, .xml, etc.
 
-### 2. 启动服务
+### 2. Start Services
 
 ```bash
-# 一键启动所有服务（推荐）
+# Start all services with one click (recommended)
 python start_all.py
 
-# 或自定义配置
+# Or with custom configuration
 python start_all.py --workers-per-device 2 --devices 0,1
 ```
 
-> **Windows 用户注意**: 项目已针对 Windows 的 multiprocessing 进行优化，可直接运行。
+> **Note for Windows Users**: Optimized for Windows multiprocessing; works out of the box.
 
-### 3. 使用 API
+### 3. Use the API
 
-**方式A: 浏览器访问 API 文档**
+**Option A: Browser API Docs**
 ```
 http://localhost:8000/docs
 ```
 
-**方式B: Python 客户端**
+**Option B: Python Client**
 ```python
 python client_example.py
 ```
 
-**方式C: cURL 命令**
+**Option C: cURL Command**
 ```bash
-# 提交任务
+# Submit a task
 curl -X POST http://localhost:8000/api/v1/tasks/submit \
   -F "file=@document.pdf" \
   -F "lang=ch"
 
-# 查询状态（任务完成后自动返回解析内容）
+# Query status (returns content automatically on completion)
 curl http://localhost:8000/api/v1/tasks/{task_id}
 
-# 查询状态并上传图片到MinIO
-curl http://localhost:8000/api/v1/tasks/{task_id}?upload_images=true
+# Query status and upload images to MinIO
+curl "http://localhost:8000/api/v1/tasks/{task_id}?upload_images=true"
 ```
 
-## 📁 项目结构
+## 📁 Project Structure
 
 ```
 vparse_heavy/
@@ -116,15 +116,15 @@ vparse_heavy/
 - `litserve_worker.py`: Worker主动循环拉取任务,支持VParse和MarkItDown双解析
 - `task_scheduler.py`: 可选组件,仅用于监控和健康检查(默认5分钟监控,15分钟健康检查)
 
-## 📚 使用示例
+## 📚 Examples
 
-### 示例 1: 提交任务并等待结果 (新版本 - 自动返回内容)
+### Example 1: Submit Task and Wait for Results (Auto-return)
 
 ```python
 import requests
 import time
 
-# 提交文档
+# Submit document
 with open('document.pdf', 'rb') as f:
     response = requests.post(
         'http://localhost:8000/api/v1/tasks/submit',
@@ -132,63 +132,63 @@ with open('document.pdf', 'rb') as f:
         data={'lang': 'ch', 'priority': 0}
     )
     task_id = response.json()['task_id']
-    print(f"✅ 任务已提交: {task_id}")
+    print(f"✅ Task submitted: {task_id}")
 
-# 轮询等待完成
+# Poll for completion
 while True:
     response = requests.get(f'http://localhost:8000/api/v1/tasks/{task_id}')
     result = response.json()
     
     if result['status'] == 'completed':
-        # v2.0 新特性: 任务完成后自动返回解析内容
+        # v2.0 feature: Content is returned automatically
         if result.get('data'):
             content = result['data']['content']
-            print(f"✅ 解析完成，内容长度: {len(content)} 字符")
-            print(f"   解析方法: {result['data'].get('parser', 'Unknown')}")
+            print(f"✅ Parsing complete, length: {len(content)} chars")
+            print(f"   Parser: {result['data'].get('parser', 'Unknown')}")
             
-            # 保存结果
+            # Save result
             with open('output.md', 'w', encoding='utf-8') as f:
                 f.write(content)
         else:
-            # 结果文件已被清理
-            print(f"⚠️  任务完成但结果文件已清理: {result.get('message', '')}")
+            # Result files cleaned up
+            print(f"⚠️  Task completed but files were cleaned up: {result.get('message', '')}")
         break
     elif result['status'] == 'failed':
-        print(f"❌ 失败: {result['error_message']}")
+        print(f"❌ Failed: {result['error_message']}")
         break
     
-    print(f"⏳ 处理中... 状态: {result['status']}")
+    print(f"⏳ Processing... status: {result['status']}")
     time.sleep(2)
 ```
 
-### 示例 2: 图片上传到 MinIO (可选功能)
+### Example 2: Upload Images to MinIO (Optional)
 
 ```python
 import requests
 
 task_id = "your-task-id"
 
-# v2.0: 查询时自动返回内容,同时可选上传图片到 MinIO
+# v2.0: Returns content automatically, optionally uploads images to MinIO
 response = requests.get(
     f'http://localhost:8000/api/v1/tasks/{task_id}',
-    params={'upload_images': True}  # 启用图片上传
+    params={'upload_images': True}  # Enable image upload
 )
 
 result = response.json()
 if result['status'] == 'completed' and result.get('data'):
-    # 图片已替换为 MinIO URL (HTML img 标签格式)
+    # Image links replaced with MinIO URLs (HTML <img> format)
     content = result['data']['content']
     images_uploaded = result['data']['images_uploaded']
     
-    print(f"✅ 图片已上传到 MinIO: {images_uploaded}")
-    print(f"   内容长度: {len(content)} 字符")
+    print(f"✅ Images uploaded to MinIO: {images_uploaded}")
+    print(f"   Content length: {len(content)} chars")
     
-    # 保存包含 MinIO 图片链接的 Markdown
+    # Save Markdown with cloud image links
     with open('output_with_cloud_images.md', 'w', encoding='utf-8') as f:
         f.write(content)
 ```
 
-### 示例 3: 批量处理
+### Example 3: Batch Processing
 
 ```python
 import requests
@@ -197,7 +197,7 @@ import concurrent.futures
 files = ['doc1.pdf', 'report.docx', 'data.xlsx']
 
 def process_file(file_path):
-    # 提交任务
+    # Submit task
     with open(file_path, 'rb') as f:
         response = requests.post(
             'http://localhost:8000/api/v1/tasks/submit',
@@ -205,30 +205,45 @@ def process_file(file_path):
         )
     return response.json()['task_id']
 
-# 并发提交
+# Concurrent submission
 with concurrent.futures.ThreadPoolExecutor() as executor:
     task_ids = list(executor.map(process_file, files))
-    print(f"✅ 已提交 {len(task_ids)} 个任务")
+    print(f"✅ Submitted {len(task_ids)} tasks")
 ```
 
-### 示例 4: 使用内置客户端
+## ⚙️ Configuration
+
+### Startup Parameters
 
 ```bash
-# 运行完整示例
-python client_example.py
+python start_all.py [options]
 
-# 运行特定示例
-python client_example.py single   # 单任务
-python client_example.py batch    # 批量任务
-python client_example.py priority # 优先级队列
+Options:
+  --output-dir PATH                 Output directory (default: /tmp/mineru_tianshu_output)
+  --api-port PORT                   API server port (default: 8000)
+  --worker-port PORT                Worker server port (default: 9000)
+  --accelerator TYPE                Accelerator: auto/cuda/cpu/mps (default: auto)
+  --workers-per-device N            Workers per GPU (default: 1)
+  --devices DEVICES                 Specific GPUs to use (default: auto, all GPUs)
+  --poll-interval SECONDS           Worker poll interval (default: 0.5s)
+  --enable-scheduler                Enable the optional task scheduler (default: False)
+  --monitor-interval SECONDS        Scheduler monitor interval (default: 300s = 5m)
+  --cleanup-old-files-days N        Days to keep result files (default: 7, 0=disable)
 ```
 
-## ⚙️ 配置说明
+**New Features**:
+- `--poll-interval`: Frequency of worker polling when idle; 0.5s for near-instant response.
+- `--enable-scheduler`: Optional; used only for system health and monitoring.
+- `--monitor-interval`: Logging frequency for scheduler; recommended 5-10m.
+- `--cleanup-old-files-days`: Automatically purges old result files but keeps DB records.
 
-### 启动参数
+### Hardware Requirements
 
-```bash
-python start_all.py [选项]
+| Backend | VRAM Requirement | Recommended Configuration |
+| --- | --- | --- |
+| pipeline | 6GB+ | RTX 2060 or higher |
+| vlm-transformers | 8GB+ | RTX 3060 or higher |
+| vlm-vllm-engine | 8GB+ | RTX 4070 or higher |
 
 选项:
   --output-dir PATH                 输出目录 (默认: /tmp/vparse_heavy_output)
@@ -243,72 +258,66 @@ python start_all.py [选项]
   --cleanup-old-files-days N        清理N天前的结果文件 (默认: 7天, 0=禁用)
 ```
 
-**新增功能说明**:
-- `--poll-interval`: Worker空闲时拉取任务的频率,默认0.5秒响应极快
-- `--enable-scheduler`: 是否启动调度器(可选),仅用于监控和健康检查
-- `--monitor-interval`: 调度器日志输出频率,建议5-10分钟避免刷屏
-- `--cleanup-old-files-days`: 自动清理旧结果文件但保留数据库记录
+> Full Docs: http://localhost:8000/docs
 
-### 配置示例
+### 1. Submit Task
+`POST /api/v1/tasks/submit`
 
-```bash
-# 基础启动（推荐）
-python start_all.py
+Parameters:
+- `file`: File (required)
+- `backend`: pipeline | vlm-transformers | vlm-vllm-engine (default: pipeline)
+- `lang`: ch | en | korean | japan | ... (default: ch)
+- `priority`: 0-100 (higher is prioritized, default: 0)
 
-# CPU模式（无GPU或测试）
-python start_all.py --accelerator cpu
+### 2. Query Task
+`GET /api/v1/tasks/{task_id}?upload_images=false`
 
-# GPU模式: 24GB显卡，每卡2个worker
-python start_all.py --accelerator cuda --workers-per-device 2
+Parameters:
+- `upload_images`: Whether to upload to MinIO (default: false)
 
-# 指定GPU: 只使用GPU 0和1
-python start_all.py --accelerator cuda --devices 0,1
+Returns:
+- `status`: pending | processing | completed | failed
+- `data`: **Automatically returned** upon completion
+  - `markdown_file`: Filename
+  - `content`: Full Markdown content
+  - `images_uploaded`: Boolean
+  - `has_images`: Boolean
 
-# 启用监控调度器（可选）
-python start_all.py --enable-scheduler --monitor-interval 300
+### 3. Queue Statistics
+`GET /api/v1/queue/stats`
 
-# 调整Worker拉取频率（高负载场景）
-python start_all.py --poll-interval 1.0
+Returns counts of tasks in each state.
 
-# 禁用旧文件清理（保留所有结果）
-python start_all.py --cleanup-old-files-days 0
+## 🆕 Version Updates
 
-# 完整配置示例
-python start_all.py \
-  --accelerator cuda \
-  --devices 0,1 \
-  --workers-per-device 2 \
-  --poll-interval 0.5 \
-  --enable-scheduler \
-  --monitor-interval 300 \
-  --cleanup-old-files-days 7
+### v2.0 Major Improvements
 
-# Mac M系列芯片
-python start_all.py --accelerator mps
-```
+**1. Worker Auto-Polling Mode**
+- ✅ Workers pull tasks in a loop; no scheduler trigger required.
+- ✅ Default 0.5s interval for extreme responsiveness.
+- ✅ Idle sleep avoids CPU waste.
 
-### MinIO 配置（可选）
+**2. Concurrency Enhancements**
+- ✅ Uses `BEGIN IMMEDIATE` for atomic database access.
+- ✅ Prevents duplicate task processing.
 
-如需使用图片上传到 MinIO 功能：
+**3. Optional Scheduler**
+- ✅ No longer required; workers run independently.
+- ✅ Reduces system overhead.
 
-```bash
-export MINIO_ENDPOINT="your-endpoint.com"
-export MINIO_ACCESS_KEY="your-access-key"
-export MINIO_SECRET_KEY="your-secret-key"
-export MINIO_BUCKET="your-bucket"
-```
+**4. Auto-Cleanup**
+- ✅ Configurable retention period for result files (default 7 days).
+- ✅ Preserves DB records for audit trails.
 
-### 硬件要求
+**5. multi-GPU Optimization**
+- ✅ Fixed multi-card VRAM contention issues.
+- ✅ Process isolation via `CUDA_VISIBLE_DEVICES`.
 
-| 后端 | 显存要求 | 推荐配置 |
-|------|---------|---------|
-| pipeline | 6GB+ | RTX 2060 以上 |
-| vlm-transformers | 8GB+ | RTX 3060 以上 |
-| vlm-vllm-engine | 8GB+ | RTX 4070 以上 |
+## 🤝 Contributing
 
-## 📡 API 接口
+Issues and Pull Requests are welcome!
 
-> 完整文档: http://localhost:8000/docs
+## 📄 License
 
 ### 1. 提交任务
 ```http

@@ -91,9 +91,9 @@ class YOLOv8MFDModel:
             xmin, ymin, xmax, ymax = poly[0], poly[1], poly[4], poly[5]
             print(
                 f"Detected box: {xmin}, {ymin}, {xmax}, {ymax}, Category ID: {res['category_id']}, Score: {res['score']}")
-            # 使用PIL在图像上画框
+            # Draw bounding box using PIL
             draw.rectangle([xmin, ymin, xmax, ymax], outline="red", width=2)
-            # 在框旁边画置信度
+            # Draw confidence score next to the box
             draw.text((xmax + 10, ymin + 10), f"{res['score']:.2f}", fill="red", font_size=22)
         return image
 
@@ -111,4 +111,4 @@ if __name__ == '__main__':
 
     image = model.visualize(image, results)
 
-    image.show()  # 显示图像
+    image.show()  # Display image

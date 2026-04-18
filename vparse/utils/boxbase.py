@@ -2,29 +2,28 @@ import math
 
 
 def is_in(box1, box2) -> bool:
-    """box1是否完全在box2里面."""
+    """Check if box1 is completely inside box2."""
     x0_1, y0_1, x1_1, y1_1 = box1
     x0_2, y0_2, x1_2, y1_2 = box2
 
     return (
-        x0_1 >= x0_2  # box1的左边界不在box2的左边外
-        and y0_1 >= y0_2  # box1的上边界不在box2的上边外
-        and x1_1 <= x1_2  # box1的右边界不在box2的右边外
-        and y1_1 <= y1_2
-    )  # box1的下边界不在box2的下边外
+        x0_1 >= x0_2  # left boundary of box1 is not outside box2
+        and y0_1 >= y0_2  # top boundary of box1 is not outside box2
+        and x1_1 <= x1_2  # right boundary of box1 is not outside box2
+        and y1_1 <= y1_2  # bottom boundary of box1 is not outside box2
+    )
 
 
 def bbox_relative_pos(bbox1, bbox2):
-    """判断两个矩形框的相对位置关系.
+    """Determine the relative positional relationship between two rectangular boxes.
 
     Args:
-        bbox1: 一个四元组，表示第一个矩形框的左上角和右下角的坐标，格式为(x1, y1, x1b, y1b)
-        bbox2: 一个四元组，表示第二个矩形框的左上角和右下角的坐标，格式为(x2, y2, x2b, y2b)
+        bbox1: A tuple of 4 floats representing the coordinates of the first box (x1, y1, x1b, y1b).
+        bbox2: A tuple of 4 floats representing the coordinates of the second box (x2, y2, x2b, y2b).
 
     Returns:
-        一个四元组，表示矩形框1相对于矩形框2的位置关系，格式为(left, right, bottom, top)
-        其中，left表示矩形框1是否在矩形框2的左侧，right表示矩形框1是否在矩形框2的右侧，
-        bottom表示矩形框1是否在矩形框2的下方，top表示矩形框1是否在矩形框2的上方
+        A tuple (left, right, bottom, top) representing relative position.
+        left/right/bottom/top indicate if box1 is to the left/right/bottom/top of box2.
     """
     x1, y1, x1b, y1b = bbox1
     x2, y2, x2b, y2b = bbox2
@@ -37,14 +36,14 @@ def bbox_relative_pos(bbox1, bbox2):
 
 
 def bbox_distance(bbox1, bbox2):
-    """计算两个矩形框的距离。
+    """Calculate the distance between two rectangular boxes.
 
     Args:
-        bbox1 (tuple): 第一个矩形框的坐标，格式为 (x1, y1, x2, y2)，其中 (x1, y1) 为左上角坐标，(x2, y2) 为右下角坐标。
-        bbox2 (tuple): 第二个矩形框的坐标，格式为 (x1, y1, x2, y2)，其中 (x1, y1) 为左上角坐标，(x2, y2) 为右下角坐标。
+        bbox1 (tuple): Coordinates of the first box (x1, y1, x2, y2).
+        bbox2 (tuple): Coordinates of the second box (x1, y1, x2, y2).
 
     Returns:
-        float: 矩形框之间的距离。
+        float: Distance between the boxes.
     """
 
     def dist(point1, point2):
@@ -75,31 +74,31 @@ def bbox_distance(bbox1, bbox2):
 
 
 def bbox_center_distance(bbox1, bbox2):
-    """计算两个矩形框中心点之间的欧氏距离。
+    """Calculate the Euclidean distance between the centers of two rectangular boxes.
 
     Args:
-        bbox1 (tuple): 第一个矩形框的坐标，格式为 (x1, y1, x2, y2)
-        bbox2 (tuple): 第二个矩形框的坐标，格式为 (x1, y1, x2, y2)
+        bbox1 (tuple): Coordinates of the first box.
+        bbox2 (tuple): Coordinates of the second box.
 
     Returns:
-        float: 两个矩形框中心点之间的距离
+        float: Euclidean distance between centers.
     """
     x1, y1, x1b, y1b = bbox1
     x2, y2, x2b, y2b = bbox2
 
-    # 计算中心点
+    # Calculate centers
     center1_x = (x1 + x1b) / 2
     center1_y = (y1 + y1b) / 2
     center2_x = (x2 + x2b) / 2
     center2_y = (y2 + y2b) / 2
 
-    # 计算欧氏距离
+    # Calculate Euclidean distance
     return math.sqrt((center1_x - center2_x) ** 2 + (center1_y - center2_y) ** 2)
 
 
 def get_minbox_if_overlap_by_ratio(bbox1, bbox2, ratio):
-    """通过calculate_overlap_area_2_minbox_area_ratio计算两个bbox重叠的面积占最小面积的box的比例
-    如果比例大于ratio，则返回小的那个bbox, 否则返回None."""
+    """Calculate the overlap ratio between two bboxes as a fraction of the smaller box area.
+    Returns the smaller bbox if ratio > threshold, otherwise None."""
     x1_min, y1_min, x1_max, y1_max = bbox1
     x2_min, y2_min, x2_max, y2_max = bbox2
     area1 = (x1_max - x1_min) * (y1_max - y1_min)
@@ -115,7 +114,7 @@ def get_minbox_if_overlap_by_ratio(bbox1, bbox2, ratio):
 
 
 def calculate_overlap_area_2_minbox_area_ratio(bbox1, bbox2):
-    """计算box1和box2的重叠面积占最小面积的box的比例."""
+    """Calculate the ratio of overlap area between box1 and box2 to the area of the smaller box."""
     # Determine the coordinates of the intersection rectangle
     x_left = max(bbox1[0], bbox2[0])
     y_top = max(bbox1[1], bbox2[1])
@@ -136,14 +135,14 @@ def calculate_overlap_area_2_minbox_area_ratio(bbox1, bbox2):
 
 
 def calculate_iou(bbox1, bbox2):
-    """计算两个边界框的交并比(IOU)。
+    """Calculate the Intersection over Union (IoU) of two bounding boxes.
 
     Args:
-        bbox1 (list[float]): 第一个边界框的坐标，格式为 [x1, y1, x2, y2]，其中 (x1, y1) 为左上角坐标，(x2, y2) 为右下角坐标。
-        bbox2 (list[float]): 第二个边界框的坐标，格式与 `bbox1` 相同。
+        bbox1 (list[float]): Coordinates of the first box.
+        bbox2 (list[float]): Coordinates of the second box.
 
     Returns:
-        float: 两个边界框的交并比(IOU)，取值范围为 [0, 1]。
+        float: Intersection over Union (IoU) value, range [0, 1].
     """
     # Determine the coordinates of the intersection rectangle
     x_left = max(bbox1[0], bbox2[0])
@@ -172,7 +171,7 @@ def calculate_iou(bbox1, bbox2):
 
 
 def calculate_overlap_area_in_bbox1_area_ratio(bbox1, bbox2):
-    """计算box1和box2的重叠面积占bbox1的比例."""
+    """Calculate the ratio of overlap area between box1 and box2 to the area of bbox1."""
     # Determine the coordinates of the intersection rectangle
     x_left = max(bbox1[0], bbox2[0])
     y_top = max(bbox1[1], bbox2[1])

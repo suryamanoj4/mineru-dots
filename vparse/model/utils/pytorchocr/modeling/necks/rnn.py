@@ -19,13 +19,13 @@ class Im2Seq(nn.Module):
 
     # def forward(self, x):
     #     B, C, H, W = x.shape
-    #     # 处理四维张量，将空间维度展平为序列
+    #     # Process 4D tensor, flattening spatial dimensions into a sequence
     #     if H == 1:
-    #         # 原来的处理逻辑，适用于H=1的情况
+    #         # Original logic for H=1
     #         x = x.squeeze(dim=2)
     #         x = x.permute(0, 2, 1)  # (B, W, C)
     #     else:
-    #         # 处理H不为1的情况
+    #         # Handle cases where H is not 1
     #         x = x.permute(0, 2, 3, 1)  # (B, H, W, C)
     #         x = x.reshape(B, H * W, C)  # (B, H*W, C)
     #

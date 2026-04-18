@@ -55,12 +55,12 @@ class RapidTable:
             copy.deepcopy(img)
         )
 
-        # 适配slanet-plus模型输出的box缩放还原
+        # Adapt box scaling for slanet-plus model output
         cell_bboxes = self.adapt_slanet_plus(img, cell_bboxes)
 
         pred_html = self.table_matcher(pred_structures, cell_bboxes, dt_boxes, rec_res)
 
-        # 过滤掉占位的bbox
+        # Filter out placeholder bboxes
         mask = ~np.all(cell_bboxes == 0, axis=1)
         cell_bboxes = cell_bboxes[mask]
 
@@ -74,7 +74,7 @@ class RapidTable:
         ocr_results: List[List[Union[List[List[float]], str, str]]],
         batch_size: int = 4,
     ) -> List[RapidTableOutput]:
-        """批量处理图像"""
+        """Batch process images"""
         s = time.perf_counter()
 
         batch_dt_boxes = []
@@ -86,19 +86,19 @@ class RapidTable:
             batch_dt_boxes.append(dt_boxes)
             batch_rec_res.append(rec_res)
 
-        # 批量表格结构识别
+        # Batch table structure recognition
         batch_results = self.table_structure.batch_process(images)
 
         output_results = []
         for i, (img, ocr_result, (pred_structures, cell_bboxes, _)) in enumerate(
             zip(images, ocr_results, batch_results)
         ):
-            # 适配slanet-plus模型输出的box缩放还原
+            # Adapt box scaling for slanet-plus model output
             cell_bboxes = self.adapt_slanet_plus(img, cell_bboxes)
             pred_html = self.table_matcher(
                 pred_structures, cell_bboxes, batch_dt_boxes[i], batch_rec_res[i]
             )
-            # 过滤掉占位的bbox
+            # Filter out placeholder bboxes
             mask = ~np.all(cell_bboxes == 0, axis=1)
             cell_bboxes = cell_bboxes[mask]
 
@@ -184,7 +184,7 @@ class RapidTableModel(object):
         return None, None, None, None
 
     def batch_predict(self, table_res_list: List[Dict], batch_size: int = 4) -> None:
-        """对传入的字典列表进行批量预测，无返回值"""
+        """Perform batch prediction on the provided list of dictionaries, no return value"""
 
         not_none_table_res_list = []
         for table_res in table_res_list:
@@ -208,5 +208,5 @@ class RapidTableModel(object):
                     if result.pred_html:
                         not_none_table_res_list[index + i]['table_res']['html'] = result.pred_html
 
-                # 更新进度条
+                # Update progress bar
                 pbar.update(len(results))

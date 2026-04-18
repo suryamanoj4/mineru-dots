@@ -423,7 +423,7 @@ class TextRecognizer(BaseOCRV20):
                     rec_res[indices[beg_img_no + rno]] = rec_result[rno]
                 elapse += time.time() - starttime
 
-                # 更新进度条，每次增加batch_size，但要注意最后一个batch可能不足batch_size
+                # Update progress bar by batch_size, ensuring last partial batch is handled.
                 current_batch_size = min(batch_num, img_num - index * batch_num)
                 index += 1
                 pbar.update(current_batch_size)

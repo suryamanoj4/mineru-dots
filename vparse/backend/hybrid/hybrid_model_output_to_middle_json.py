@@ -1,5 +1,4 @@
-#  Copyright (c) Opendatalab. All rights reserved.
-
+# Copyright (c) Opendatalab. All rights reserved.
 import os
 import time
 
@@ -43,7 +42,7 @@ def blocks_to_page_info(
         _ocr_enable,
         _vlm_ocr_enable,
 ) -> dict:
-    """将blocks转换为页面信息"""
+    """Convert blocks to page information."""
 
     scale = image_dict["scale"]
     page_pil_img = image_dict["img_pil"]
@@ -71,9 +70,9 @@ def blocks_to_page_info(
     phonetic_blocks = magic_model.get_phonetic_blocks()
     list_blocks = magic_model.get_list_blocks()
 
-    # 如果有标题优化需求，计算标题的平均行高
+    # If title optimization is required, calculate the average line height of titles.
     if heading_level_import_success:
-        if _vlm_ocr_enable:  # vlm_ocr导致没有line信息，需要重新det获取平均行高
+        if _vlm_ocr_enable:  # vlm_ocr results in missing line info; re-run detection to obtain average line height.
             atom_model_manager = AtomModelSingleton()
             ocr_model = atom_model_manager.get_atom_model(
                 atom_model_name='ocr',
@@ -84,21 +83,21 @@ def blocks_to_page_info(
             for title_block in title_blocks:
                 title_pil_img = get_crop_img(title_block['bbox'], page_pil_img, scale)
                 title_np_img = np.array(title_pil_img)
-                # 给title_pil_img添加上下左右各50像素白边padding
+                # Add 50px white padding to title_np_img (top, bottom, left, right).
                 title_np_img = cv2.copyMakeBorder(
                     title_np_img, 50, 50, 50, 50, cv2.BORDER_CONSTANT, value=[255, 255, 255]
                 )
                 title_img = cv2.cvtColor(title_np_img, cv2.COLOR_RGB2BGR)
                 ocr_det_res = ocr_model.ocr(title_img, rec=False)[0]
                 if len(ocr_det_res) > 0:
-                    # 计算所有res的平均高度
+                    # Calculate the average height of all detection results.
                     avg_height = np.mean([box[2][1] - box[0][1] for box in ocr_det_res])
                     title_block['line_avg_height'] = round(avg_height/scale)
-        else:  # 有line信息，直接计算平均行高
+        else:  # Line info exists; calculate average line height directly.
             for title_block in title_blocks:
                 lines = title_block.get('lines', [])
                 if lines:
-                    # 使用列表推导式和内置函数,一次性计算平均高度
+                    # Use list comprehension and built-in functions to calculate average height efficiently.
                     avg_height = sum(line['bbox'][3] - line['bbox'][1] for line in lines) / len(lines)
                     title_block['line_avg_height'] = round(avg_height)
                 else:
@@ -108,7 +107,7 @@ def blocks_to_page_info(
     interline_equation_blocks = magic_model.get_interline_equation_blocks()
 
     all_spans = magic_model.get_all_spans()
-    # 对image/table/interline_equation的span截图
+    # Crop screenshots for image, table, and interline_equation spans.
     for span in all_spans:
         if span["type"] in [ContentType.IMAGE, ContentType.TABLE, ContentType.INTERLINE_EQUATION]:
             span = cut_image_and_table(span, page_pil_img, page_img_md5, page_index, image_writer, scale=scale)
@@ -125,7 +124,7 @@ def blocks_to_page_info(
         *interline_equation_blocks,
         *list_blocks,
     ])
-    # 对page_blocks根据index的值进行排序
+    # Sort page_blocks based on their index.
     page_blocks.sort(key=lambda x: x["index"])
 
     page_info = {"para_blocks": page_blocks, "discarded_blocks": discarded_blocks, "page_size": [width, height], "page_idx": page_index}
@@ -162,7 +161,7 @@ def result_to_middle_json(
         middle_json["pdf_info"].append(page_info)
 
     if not (_vlm_ocr_enable or _ocr_enable):
-        """后置ocr处理"""
+        # Post-process OCR
         need_ocr_list = []
         img_crop_list = []
         text_block_list = []
@@ -201,12 +200,12 @@ def result_to_middle_json(
     if table_enable:
         cross_page_table_merge(middle_json["pdf_info"])
 
-    """llm优化标题分级"""
+    """Optimize heading hierarchy using LLM."""
     if heading_level_import_success:
         llm_aided_title_start_time = time.time()
         llm_aided_title(middle_json["pdf_info"], title_aided_config)
         logger.info(f'llm aided title time: {round(time.time() - llm_aided_title_start_time, 2)}')
 
-    # 关闭pdf文档
+    # Close PDF document.
     pdf_doc.close()
     return middle_json

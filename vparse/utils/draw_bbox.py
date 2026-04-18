@@ -76,11 +76,11 @@ def draw_bbox_without_number(i, bbox_list, page, c, rgb_config, fill_config):
 def draw_bbox_with_number(i, bbox_list, page, c, rgb_config, fill_config, draw_bbox=True):
     new_rgb = [float(color) / 255 for color in rgb_config]
     page_data = bbox_list[i]
-    # 强制转换为 float
+    # Force conversion to float
     page_width, page_height = float(page.cropbox[2]), float(page.cropbox[3])
 
     for j, bbox in enumerate(page_data):
-        # 确保bbox的每个元素都是float
+        # Ensure each element of bbox is a float
         rect = cal_canvas_rect(page, bbox)  # Define the rectangle  
         
         if draw_bbox:
@@ -242,12 +242,12 @@ def draw_layout_bbox(pdf_info, pdf_bytes, out_path, filename):
     output_pdf = PdfWriter()
 
     for i, page in enumerate(pdf_docs.pages):
-        # 获取原始页面尺寸
+        # Get original page dimensions
         page_width, page_height = float(page.cropbox[2]), float(page.cropbox[3])
         custom_page_size = (page_width, page_height)
 
         packet = BytesIO()
-        # 使用原始PDF的尺寸创建canvas
+        # Create canvas using original PDF dimensions
         c = canvas.Canvas(packet, pagesize=custom_page_size)
 
         c = draw_bbox_without_number(i, codes_body_list, page, c, [102, 0, 204], True)
@@ -271,20 +271,20 @@ def draw_layout_bbox(pdf_info, pdf_bytes, out_path, filename):
         packet.seek(0)
         overlay_pdf = PdfReader(packet)
 
-        # 添加检查确保overlay_pdf.pages不为空
+        # Add check to ensure overlay_pdf.pages is not empty
         if len(overlay_pdf.pages) > 0:
             new_page = PageObject(pdf=None)
             new_page.update(page)
             page = new_page
             page.merge_page(overlay_pdf.pages[0])
         else:
-            # 记录日志并继续处理下一个页面
-            # logger.warning(f"layout.pdf: 第{i + 1}页未能生成有效的overlay PDF")
+            # Log and continue processing the next page
+            # logger.warning(f"layout.pdf: Page {i + 1} failed to generate a valid overlay PDF")
             pass
 
         output_pdf.add_page(page)
 
-    # 保存结果
+    # Save results
     with open(f"{out_path}/{filename}", "wb") as f:
         output_pdf.write(f)
 
@@ -318,15 +318,15 @@ def draw_span_bbox(pdf_info, pdf_bytes, out_path, filename):
         page_dropped_list = []
 
 
-        # 构造dropped_list
+        # Construct dropped_list
         for block in page['discarded_blocks']:
             if block['type'] == BlockType.DISCARDED:
                 for line in block['lines']:
                     for span in line['spans']:
                         page_dropped_list.append(span['bbox'])
         dropped_list.append(page_dropped_list)
-        # 构造其余useful_list
-        # for block in page['para_blocks']:  # span直接用分段合并前的结果就可以
+        # Construct remaining useful_list
+        # for block in page['para_blocks']:  # Spans can directly use results from before segment merging
         for block in page['preproc_blocks']:
             if block['type'] in [
                 BlockType.TEXT,
@@ -354,15 +354,15 @@ def draw_span_bbox(pdf_info, pdf_bytes, out_path, filename):
     output_pdf = PdfWriter()
 
     for i, page in enumerate(pdf_docs.pages):
-        # 获取原始页面尺寸
+        # Get original page dimensions
         page_width, page_height = float(page.cropbox[2]), float(page.cropbox[3])
         custom_page_size = (page_width, page_height)
 
         packet = BytesIO()
-        # 使用原始PDF的尺寸创建canvas
+        # Create canvas using original PDF dimensions
         c = canvas.Canvas(packet, pagesize=custom_page_size)
 
-        # 获取当前页面的数据
+        # Get current page data
         draw_bbox_without_number(i, text_list, page, c,[255, 0, 0], False)
         draw_bbox_without_number(i, inline_equation_list, page, c, [0, 255, 0], False)
         draw_bbox_without_number(i, interline_equation_list, page, c, [0, 0, 255], False)
@@ -374,15 +374,15 @@ def draw_span_bbox(pdf_info, pdf_bytes, out_path, filename):
         packet.seek(0)
         overlay_pdf = PdfReader(packet)
 
-        # 添加检查确保overlay_pdf.pages不为空
+        # Add check to ensure overlay_pdf.pages is not empty
         if len(overlay_pdf.pages) > 0:
             new_page = PageObject(pdf=None)
             new_page.update(page)
             page = new_page
             page.merge_page(overlay_pdf.pages[0])
         else:
-            # 记录日志并继续处理下一个页面
-            # logger.warning(f"span.pdf: 第{i + 1}页未能生成有效的overlay PDF")
+            # Log and continue processing the next page
+            # logger.warning(f"span.pdf: Page {i + 1} failed to generate a valid overlay PDF")
             pass
 
         output_pdf.add_page(page)
@@ -440,30 +440,30 @@ def draw_line_sort_bbox(pdf_info, pdf_bytes, out_path, filename):
     output_pdf = PdfWriter()
 
     for i, page in enumerate(pdf_docs.pages):
-        # 获取原始页面尺寸
+        # Get original page dimensions
         page_width, page_height = float(page.cropbox[2]), float(page.cropbox[3])
         custom_page_size = (page_width, page_height)
 
         packet = BytesIO()
-        # 使用原始PDF的尺寸创建canvas
+        # Create canvas using original PDF dimensions
         c = canvas.Canvas(packet, pagesize=custom_page_size)
 
-        # 获取当前页面的数据
+        # Get current page data
         draw_bbox_with_number(i, layout_bbox_list, page, c, [255, 0, 0], False)
 
         c.save()
         packet.seek(0)
         overlay_pdf = PdfReader(packet)
 
-        # 添加检查确保overlay_pdf.pages不为空
+        # Add check to ensure overlay_pdf.pages is not empty
         if len(overlay_pdf.pages) > 0:
             new_page = PageObject(pdf=None)
             new_page.update(page)
             page = new_page
             page.merge_page(overlay_pdf.pages[0])
         else:
-            # 记录日志并继续处理下一个页面
-            # logger.warning(f"span.pdf: 第{i + 1}页未能生成有效的overlay PDF")
+            # Log and continue processing the next page
+            # logger.warning(f"span.pdf: Page {i + 1} failed to generate a valid overlay PDF")
             pass
 
         output_pdf.add_page(page)
@@ -474,16 +474,16 @@ def draw_line_sort_bbox(pdf_info, pdf_bytes, out_path, filename):
 
 
 if __name__ == "__main__":
-    # 读取PDF文件
+    # Read PDF file
     pdf_path = "examples/demo1.pdf"
     with open(pdf_path, "rb") as f:
         pdf_bytes = f.read()
 
-    # 从json文件读取pdf_info
+    # Read pdf_info from json file
 
     json_path = "examples/demo1_1746005777.0863056_middle.json"
     with open(json_path, "r", encoding="utf-8") as f:
         pdf_ann = json.load(f)
     pdf_info = pdf_ann["pdf_info"]
-    # 调用可视化函数,输出到examples目录
+    # Call visualization function, output to examples directory
     draw_layout_bbox(pdf_info, pdf_bytes, "examples", "output_with_layout.pdf")

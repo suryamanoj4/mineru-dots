@@ -34,13 +34,13 @@ async def parse_pdf(doc_path, output_dir, end_page_id, is_ocr, formula_enable, t
     try:
         file_name = f'{safe_stem(Path(doc_path).stem)}_{time.strftime("%y%m%d_%H%M%S")}'
         pdf_data = read_fn(doc_path)
-        # 根据 backend 确定 parse_method
+        # Determine parse_method based on backend
         if backend.startswith("vlm"):
             parse_method = "vlm"
         else:
             parse_method = 'ocr' if is_ocr else 'auto'
 
-        # 根据 backend 类型准备环境目录
+        # Prepare environment directory based on backend type
         if backend.startswith("hybrid"):
             env_name = f"hybrid_{parse_method}"
         elif backend == "lite":
@@ -289,22 +289,22 @@ async def stream_pdf_via_api(
 
 
 def compress_directory_to_zip(directory_path, output_zip_path):
-    """压缩指定目录到一个 ZIP 文件。
+    """Compress a specified directory to a ZIP file.
 
-    :param directory_path: 要压缩的目录路径
-    :param output_zip_path: 输出的 ZIP 文件路径
+    :param directory_path: Path of the directory to compress
+    :param output_zip_path: Path of the output ZIP file
     """
     try:
         with zipfile.ZipFile(output_zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
 
-            # 遍历目录中的所有文件和子目录
+            # Iterate through all files and subdirectories in the directory
             for root, dirs, files in os.walk(directory_path):
                 for file in files:
-                    # 构建完整的文件路径
+                    # Build the full file path
                     file_path = os.path.join(root, file)
-                    # 计算相对路径
+                    # Calculate relative path
                     arcname = os.path.relpath(file_path, directory_path)
-                    # 添加文件到 ZIP 文件
+                    # Add file to ZIP file
                     zipf.write(file_path, arcname)
         return 0
     except Exception as e:
@@ -318,21 +318,21 @@ def image_to_base64(image_path):
 
 
 def replace_image_with_base64(markdown_text, image_dir_path):
-    # 匹配Markdown中的图片标签
+    # Match image tags in Markdown
     pattern = r'\!\[(?:[^\]]*)\]\(([^)]+)\)'
 
-    # 替换图片链接
+    # Replace image links
     def replace(match):
         relative_path = match.group(1)
-        # 只处理以.jpg结尾的图片
+        # Only process images ending in .jpg
         if relative_path.endswith('.jpg'):
             full_path = os.path.join(image_dir_path, relative_path)
             base64_image = image_to_base64(full_path)
             return f'![{relative_path}](data:image/jpeg;base64,{base64_image})'
         else:
-            # 其他格式的图片保持原样
+            # Keep other image formats unchanged
             return match.group(0)
-    # 应用替换
+    # Apply replacements
     return re.sub(pattern, replace, markdown_text)
 
 
@@ -348,7 +348,7 @@ async def to_markdown(
     stream_output=False,
 ):
     idle_progress = "Pages: 0/0"
-    # 如果language包含()，则提取括号前的内容作为实际语言
+    # If language contains (), extract content before parentheses as actual language
     if '(' in language and ')' in language:
         language = language.split('(')[0].strip()
     file_path = to_pdf(file_path)
@@ -484,8 +484,8 @@ async def to_markdown(
     with open(md_path, 'r', encoding='utf-8') as f:
         txt_content = f.read()
     md_content = replace_image_with_base64(txt_content, local_md_dir)
-    # 返回转换后的PDF路径
-    new_pdf_path = os.path.join(local_md_dir, file_name + '_layout.pdf')
+    # Return converted PDF path
+    new_pdf_path = os.path.join(local_md_dir, file_name + '.md_layout.pdf')
 
     yield md_content, txt_content, archive_zip_path, new_pdf_path, idle_progress
 
@@ -534,7 +534,7 @@ all_lang = [*other_lang, *add_lang]
 
 def safe_stem(file_path):
     stem = Path(file_path).stem
-    # 只保留字母、数字、下划线和点，其他字符替换为下划线
+    # Retain only letters, digits, underscores, and dots; replace others with underscores
     return re.sub(r'[^\w.]', '_', stem)
 
 
@@ -548,10 +548,10 @@ def to_pdf(file_path):
     # unique_filename = f'{uuid.uuid4()}.pdf'
     unique_filename = f'{safe_stem(file_path)}.pdf'
 
-    # 构建完整的文件路径
+    # Build full file path
     tmp_file_path = os.path.join(os.path.dirname(file_path), unique_filename)
 
-    # 将字节数据写入文件
+    # Write byte data to file
     with open(tmp_file_path, 'wb') as tmp_pdf_file:
         tmp_pdf_file.write(pdf_bytes)
 
@@ -639,7 +639,7 @@ def main(ctx,
         server_name, server_port, latex_delimiters_type, default_backend, backend_api_url, backend_options, **kwargs
 ):
 
-    # 创建 i18n 实例，支持中英文
+    # Create i18n instance, supporting English and Chinese
     i18n = gr.I18n(
         en={
             "upload_file": "Please upload a PDF or image",
@@ -707,7 +707,7 @@ def main(ctx,
         },
     )
 
-    # 根据后端类型获取公式识别标签（闭包函数以支持 i18n）
+    # Get formula recognition label based on backend type (closure function for i18n support)
     def get_formula_label(backend_choice):
         if backend_choice.startswith("vlm"):
             return i18n("formula_label_vlm")
@@ -740,7 +740,7 @@ def main(ctx,
         else:
             return i18n("backend_info_default")
 
-    # 更新界面函数
+    # Update UI function
     def update_interface(backend_choice):
         formula_label_update = gr.update(label=get_formula_label(backend_choice), info=get_formula_info(backend_choice))
         backend_info_update = gr.update(info=get_backend_info(backend_choice))
@@ -859,34 +859,34 @@ def main(ctx,
                         md = gr.Markdown(
                             label=i18n("md_rendering"),
                             height=1200,
-                            # buttons=["copy"],  # gradio 6 以上版本使用
-                            show_copy_button=True,  # gradio 6 以下版本使用
+                            # buttons=["copy"],  # Use in Gradio 6+
+                            show_copy_button=True,  # Use in Gradio <6
                             latex_delimiters=latex_delimiters,
                             line_breaks=True
                         )
                     with gr.Tab(i18n("md_text")):
                         md_text = gr.TextArea(
                             lines=45,
-                            # buttons=["copy"],  # gradio 6 以上版本使用
-                            show_copy_button=True,  # gradio 6 以下版本使用
+                            # buttons=["copy"],  # Use in Gradio 6+
+                            show_copy_button=True,  # Use in Gradio <6
                             label=i18n("md_text")
                         )
 
-        # 添加事件处理
+        # Add event handling
         backend.change(
             fn=update_interface,
             inputs=[backend],
             outputs=[client_options, ocr_options, formula_enable, backend],
-            # api_visibility="private"  # gradio 6 以上版本使用
-            api_name=False  # gradio 6 以下版本使用
+            # api_visibility="private"  # Use in Gradio 6+
+            api_name=False  # Use in Gradio <6
         )
-        # 添加demo.load事件，在页面加载时触发一次界面更新
+        # Add demo.load event to trigger a UI update on page load
         demo.load(
             fn=update_interface,
             inputs=[backend],
             outputs=[client_options, ocr_options, formula_enable, backend],
-            # api_visibility="private"  # gradio 6 以上版本使用
-            api_name=False  # gradio 6 以下版本使用
+            # api_visibility="private"  # Use in Gradio 6+
+            api_name=False  # Use in Gradio <6
         )
         clear_bu.add([input_file, md, pdf_show, md_text, output_file, is_ocr, stream_progress])
 
@@ -894,15 +894,15 @@ def main(ctx,
             fn=to_pdf,
             inputs=input_file,
             outputs=pdf_show,
-            api_name="to_pdf" if api_enable else False,  # gradio 6 以下版本使用
-            # api_visibility="public" if api_enable else "private"  # gradio 6 以上版本使用
+            api_name="to_pdf" if api_enable else False,  # Use in Gradio <6
+            # api_visibility="public" if api_enable else "private"  # Use in Gradio 6+
         )
         change_bu.click(
             fn=to_markdown,
             inputs=[input_file, max_pages, is_ocr, formula_enable, table_enable, language, backend, url, stream_output],
             outputs=[md, md_text, output_file, pdf_show, stream_progress],
-            api_name="to_markdown" if api_enable else False,  # gradio 6 以下版本使用
-            # api_visibility="public" if api_enable else "private"  # gradio 6 以上版本使用
+            api_name="to_markdown" if api_enable else False,  # Use in Gradio <6
+            # api_visibility="public" if api_enable else "private"  # Use in Gradio 6+
         )
 
     footer_links = ["gradio", "settings"]
@@ -911,8 +911,8 @@ def main(ctx,
     demo.launch(
         server_name=server_name,
         server_port=server_port,
-        # footer_links=footer_links,  # gradio 6 以上版本使用
-        show_api=api_enable,  # gradio 6 以下版本使用
+        # footer_links=footer_links,  # Use in Gradio 6+
+        show_api=api_enable,  # Use in Gradio <6
         i18n=i18n
     )
 

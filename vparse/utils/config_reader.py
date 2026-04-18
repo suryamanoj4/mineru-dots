@@ -31,7 +31,7 @@ def read_config():
 
 
 def get_s3_config(bucket_name: str):
-    """~/magic-pdf.json 读出来."""
+    """Read ~/mineru.json."""
     config = read_config()
 
     bucket_info = config.get("bucket_info")
@@ -60,8 +60,8 @@ def get_bucket_name(path):
 
 def parse_bucket_key(s3_full_path: str):
     """
-    输入 s3://bucket/path/to/my/file.txt
-    输出 bucket, path/to/my/file.txt
+    Input: s3://bucket/path/to/my/file.txt
+    Output: bucket, path/to/my/file.txt
     """
     s3_full_path = s3_full_path.strip()
     if s3_full_path.startswith("s3://"):

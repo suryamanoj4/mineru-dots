@@ -1,3 +1,4 @@
+# Copyright (c) Opendatalab. All rights reserved.
 import re
 from typing import Literal
 
@@ -60,7 +61,7 @@ class MagicModel:
                 virtual_block = [0, 0, width, height, None, None, None, "text"]
                 page_text_inline_formula_spans = txt_spans_extract(page, page_text_inline_formula_spans, page_pil_img, scale, [virtual_block],[])
 
-        # 解析每个块
+        # Parse each block
         for index, block_info in enumerate(page_blocks):
             try:
                 block_bbox = self.cal_real_bbox(block_info["bbox"])
@@ -68,12 +69,12 @@ class MagicModel:
                 block_content = block_info["content"]
                 block_angle = block_info["angle"]
 
-                # print(f"坐标: {block_bbox}")
-                # print(f"类型: {block_type}")
-                # print(f"内容: {block_content}")
+                # print(f"Coordinates: {block_bbox}")
+                # print(f"Type: {block_type}")
+                # print(f"Content: {block_content}")
                 # print("-" * 50)
             except Exception as e:
-                # 如果解析失败，可能是因为格式不正确，跳过这个块
+                # If parsing fails, it may be because of incorrect format, skip this block
                 logger.warning(f"Invalid block format: {block_info}, error: {e}")
                 continue
 
@@ -115,7 +116,7 @@ class MagicModel:
                 block_type = BlockType.INTERLINE_EQUATION
                 span_type = ContentType.INTERLINE_EQUATION
 
-            #  code 和 algorithm 类型的块，如果内容中包含行内公式，则需要将块类型切换为algorithm
+            # Switch 'code' or 'algorithm' block to 'algorithm' if it contains inline equations.
             switch_code_to_algorithm = False
 
             span = None
@@ -133,8 +134,8 @@ class MagicModel:
                     "content": isolated_formula_clean(block_content),
                 }
             elif _vlm_ocr_enable or block_type not in not_extract_list:
-                #  vlm_ocr_enable模式下，所有文本块都直接使用block的内容
-                #  非vlm_ocr_enable模式下，非提取块需要使用span填充方式
+                # In vlm_ocr_enable mode, use block content directly for all text blocks.
+                # In non-vlm_ocr_enable mode, non-extraction blocks require span filling.
                 if block_content:
                     block_content = clean_content(block_content)
 
@@ -142,15 +143,15 @@ class MagicModel:
 
                     switch_code_to_algorithm = True
 
-                    # 生成包含文本和公式的span列表
+                    # Generate list of spans containing text and equations
                     spans = []
                     last_end = 0
 
-                    # 查找所有公式
+                    # Find all equations
                     for match in re.finditer(r'\\\((.+?)\\\)', block_content):
                         start, end = match.span()
 
-                        # 添加公式前的文本
+                        # Add text before the equation
                         if start > last_end:
                             text_before = block_content[last_end:start]
                             if text_before.strip():
@@ -160,7 +161,7 @@ class MagicModel:
                                     "content": text_before
                                 })
 
-                        # 添加公式（去除\(和\)）
+                        # Add equation (removing \( and \))
                         formula = match.group(1)
                         spans.append({
                             "bbox": block_bbox,
@@ -170,7 +171,7 @@ class MagicModel:
 
                         last_end = end
 
-                    # 添加最后一个公式后的文本
+                    # Add text after the last equation
                     if last_end < len(block_content):
                         text_after = block_content[last_end:]
                         if text_after.strip():
@@ -194,7 +195,7 @@ class MagicModel:
             ):
                 if span is None:
                     continue
-                # 处理span类型并添加到all_spans
+                # Process span type and add to all_spans
                 if isinstance(span, dict) and "bbox" in span:
                     self.all_spans.append(span)
                     spans = [span]
@@ -204,7 +205,7 @@ class MagicModel:
                 else:
                     raise ValueError(f"Invalid span type: {span_type}, expected dict or list, got {type(span)}")
 
-                # 构造line对象
+                # Construct line object
                 if block_type in [BlockType.CODE_BODY]:
                     if switch_code_to_algorithm and code_block_sub_type == "code":
                         code_block_sub_type = "algorithm"
@@ -221,12 +222,12 @@ class MagicModel:
                     "index": index,
                 }
 
-            else:  #  使用span填充方式
+            else:  # Use span filling method
                 block_spans = []
                 for span in page_text_inline_formula_spans:
                     if calculate_overlap_area_in_bbox1_area_ratio(span['bbox'], block_bbox) > 0.5:
                         block_spans.append(span)
-                # 从spans删除已经放入block_spans中的span
+                # Remove spans already placed in block_spans from the spans list
                 if len(block_spans) > 0:
                     for span in block_spans:
                         page_text_inline_formula_spans.remove(span)
@@ -355,7 +356,7 @@ def isolated_formula_clean(txt):
 
 
 def code_content_clean(content):
-    """清理代码内容，移除Markdown代码块的开始和结束标记"""
+    """Clean code content, removing Markdown code block markers."""
     if not content:
         return ""
 
@@ -363,15 +364,15 @@ def code_content_clean(content):
     start_idx = 0
     end_idx = len(lines)
 
-    # 处理开头的三个反引号
+    # Handle opening triple backticks
     if lines and lines[0].startswith("```"):
         start_idx = 1
 
-    # 处理结尾的三个反引号
+    # Handle closing triple backticks
     if lines and end_idx > start_idx and lines[end_idx - 1].strip() == "```":
         end_idx -= 1
 
-    # 只有在有内容时才进行join操作
+    # Perform join only if content exists
     if start_idx < end_idx:
         return "\n".join(lines[start_idx:end_idx]).strip()
     return ""
@@ -393,8 +394,8 @@ def clean_content(content):
 
 
 def __tie_up_category_by_index(blocks, subject_block_type, object_block_type):
-    """基于index的主客体关联包装函数"""
-    # 定义获取主体和客体对象的函数
+    """Wrapper function for index-based subject-object association."""
+    # Define functions to retrieve subject and object entities
     def get_subjects():
         return reduct_overlap(
             list(
@@ -421,7 +422,7 @@ def __tie_up_category_by_index(blocks, subject_block_type, object_block_type):
             )
         )
 
-    # 调用通用方法
+    # Call the general association method
     return tie_up_category_by_index(
         get_subjects,
         get_objects,
@@ -430,7 +431,7 @@ def __tie_up_category_by_index(blocks, subject_block_type, object_block_type):
 
 
 def get_type_blocks_by_index(blocks, block_type: Literal["image", "table", "code"]):
-    """使用基于index的匹配策略来组织blocks"""
+    """Organize blocks using an index-based matching strategy."""
     with_captions = __tie_up_category_by_index(blocks, f"{block_type}_body", f"{block_type}_caption")
     with_footnotes = __tie_up_category_by_index(blocks, f"{block_type}_body", f"{block_type}_footnote")
     ret = []
@@ -452,17 +453,17 @@ def fix_two_layer_blocks(blocks, fix_type: Literal["image", "table", "code"]):
     not_include_blocks = []
     processed_indices = set()
 
-    # 特殊处理表格类型，确保标题在表格前，注脚在表格后
+    # Special handling for tables: ensure captions precede bodies and footnotes follow.
     if fix_type in ["table", "image"]:
-        # 收集所有不合适的caption和footnote
-        misplaced_footnotes = []  # 存储(footnote, 原始block索引)
+        # Collect misplaced captions and footnotes
+        misplaced_footnotes = []  # Store (footnote, original block index)
 
-        # 第一步：移除不符合位置要求的footnote
+        # Step 1: Remove misplaced footnotes
         for block_idx, block in enumerate(need_fix_blocks):
             body = block[f"{fix_type}_body"]
             body_index = body["index"]
 
-            # 检查footnote应在body后或同位置
+            # Verify footnote is positioned after or at the same level as the body
             valid_footnotes = []
             for footnote in block[f"{fix_type}_footnote_list"]:
                 if footnote["index"] >= body_index:
@@ -471,13 +472,13 @@ def fix_two_layer_blocks(blocks, fix_type: Literal["image", "table", "code"]):
                     misplaced_footnotes.append((footnote, block_idx))
             block[f"{fix_type}_footnote_list"] = valid_footnotes
 
-        # 第三步：重新分配不合规的footnote到合适的body
+        # Step 3: Reassign misplaced footnotes to appropriate bodies
         for footnote, original_block_idx in misplaced_footnotes:
             footnote_index = footnote["index"]
             best_block_idx = None
             min_distance = float('inf')
 
-            # 寻找索引小于等于footnote_index的最近body
+            # Find the nearest body with an index <= footnote_index
             for idx, block in enumerate(need_fix_blocks):
                 body_index = block[f"{fix_type}_body"]["index"]
                 if body_index <= footnote_index and idx != original_block_idx:
@@ -487,60 +488,60 @@ def fix_two_layer_blocks(blocks, fix_type: Literal["image", "table", "code"]):
                         best_block_idx = idx
 
             if best_block_idx is not None:
-                # 找到合适的body，添加到对应block的footnote_list
+                # Add to body's footnote_list if a match is found
                 need_fix_blocks[best_block_idx][f"{fix_type}_footnote_list"].append(footnote)
             else:
-                # 没找到合适的body，作为普通block处理
+                # Process as a normal block if no suitable body is found
                 not_include_blocks.append(footnote)
 
-        # 第四步:将每个block的caption_list和footnote_list中不连续index的元素提出来作为普通block处理
+        # Step 4: Extract non-contiguous captions/footnotes from lists and process as normal blocks.
         for block in need_fix_blocks:
             caption_list = block[f"{fix_type}_caption_list"]
             footnote_list = block[f"{fix_type}_footnote_list"]
             body_index = block[f"{fix_type}_body"]["index"]
 
-            # 处理caption_list (从body往前看,caption在body之前)
+            # Process caption_list (looking backward from the body)
             if caption_list:
-                # 按index降序排列,从最接近body的开始检查
+                # Sort by index descending; check from nearest to body
                 caption_list.sort(key=lambda x: x["index"], reverse=True)
                 filtered_captions = [caption_list[0]]
                 for i in range(1, len(caption_list)):
                     prev_index = caption_list[i - 1]["index"]
                     curr_index = caption_list[i]["index"]
 
-                    # 检查是否连续
+                    # Check for continuity
                     if curr_index == prev_index - 1:
                         filtered_captions.append(caption_list[i])
                     else:
-                        # 检查gap中是否只有body_index
+                        # Check if the gap contains only the body_index
                         gap_indices = set(range(curr_index + 1, prev_index))
                         if gap_indices == {body_index}:
-                            # gap中只有body_index,不算真正的gap
+                            # Gap contains only body_index; not a true gap
                             filtered_captions.append(caption_list[i])
                         else:
-                            # 出现真正的gap,后续所有caption都作为普通block
+                            # True gap detected; treat subsequent captions as normal blocks
                             not_include_blocks.extend(caption_list[i:])
                             break
-                # 恢复升序
+                # Restore ascending order
                 filtered_captions.reverse()
                 block[f"{fix_type}_caption_list"] = filtered_captions
 
-            # 处理footnote_list (从body往后看,footnote在body之后)
+            # Process footnote_list (looking forward from the body)
             if footnote_list:
-                # 按index升序排列,从最接近body的开始检查
+                # Sort by index ascending; check from nearest to body
                 footnote_list.sort(key=lambda x: x["index"])
                 filtered_footnotes = [footnote_list[0]]
                 for i in range(1, len(footnote_list)):
-                    # 检查是否与前一个footnote连续
+                    # Check for continuity with the previous footnote
                     if footnote_list[i]["index"] == footnote_list[i - 1]["index"] + 1:
                         filtered_footnotes.append(footnote_list[i])
                     else:
-                        # 出现gap,后续所有footnote都作为普通block
+                        # Gap detected; treat subsequent footnotes as normal blocks
                         not_include_blocks.extend(footnote_list[i:])
                         break
                 block[f"{fix_type}_footnote_list"] = filtered_footnotes
 
-    # 构建两层结构blocks
+    # Construct two-layer block structures
     for block in need_fix_blocks:
         body = block[f"{fix_type}_body"]
         caption_list = block[f"{fix_type}_caption_list"]
@@ -563,12 +564,12 @@ def fix_two_layer_blocks(blocks, fix_type: Literal["image", "table", "code"]):
             "index": body["index"],
         }
         two_layer_block["blocks"].extend([*caption_list, *footnote_list])
-        # 对blocks按index排序
+        # Sort blocks by index
         two_layer_block["blocks"].sort(key=lambda x: x["index"])
 
         fixed_blocks.append(two_layer_block)
 
-    # 添加未处理的blocks
+    # Add unprocessed blocks
     for block in blocks:
         block.pop("type", None)
         if block["index"] not in processed_indices and block not in not_include_blocks:
@@ -598,11 +599,11 @@ def fix_list_blocks(list_blocks, text_blocks, ref_text_blocks):
         elif block in ref_text_blocks:
             ref_text_blocks.remove(block)
 
-    # 移除blocks为空的list_block
+    # Remove list_blocks with no children
     list_blocks = [lb for lb in list_blocks if lb["blocks"]]
 
     for list_block in list_blocks:
-        # 统计list_block["blocks"]中所有block的type，用众数作为list_block的sub_type
+        # Determine list_block sub_type using the mode of its children's types.
         type_count = {}
         for sub_block in list_block["blocks"]:
             sub_block_type = sub_block["type"]

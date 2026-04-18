@@ -88,7 +88,7 @@ def convert_pdf_bytes_to_bytes_by_pypdfium2(pdf_bytes, start_page_id=0, end_page
     try:
         end_page_id = get_end_page_id(end_page_id, len(pdf))
 
-        # 逐页导入,失败则跳过
+        # Import page by page, skip if failed
         output_index = 0
         for page_index in range(start_page_id, end_page_id + 1):
             try:
@@ -99,11 +99,11 @@ def convert_pdf_bytes_to_bytes_by_pypdfium2(pdf_bytes, start_page_id=0, end_page
                 logger.warning(f"Failed to import page {page_index}: {page_error}, skipping this page.")
                 continue
 
-        # 将新PDF保存到内存缓冲区
+        # Save new PDF to memory buffer
         output_buffer = io.BytesIO()
         output_pdf.save(output_buffer)
 
-        # 获取字节数据
+        # Get byte data
         output_bytes = output_buffer.getvalue()
     except Exception as e:
         logger.warning(f"Error in converting PDF bytes: {e}, Using original PDF bytes.")
@@ -114,7 +114,7 @@ def convert_pdf_bytes_to_bytes_by_pypdfium2(pdf_bytes, start_page_id=0, end_page
 
 
 def _prepare_pdf_bytes(pdf_bytes_list, start_page_id, end_page_id):
-    """准备处理PDF字节数据"""
+    """Prepare PDF byte data for processing"""
     result = []
     for pdf_bytes in pdf_bytes_list:
         new_pdf_bytes = convert_pdf_bytes_to_bytes_by_pypdfium2(pdf_bytes, start_page_id, end_page_id)
@@ -512,7 +512,7 @@ def do_parse(
         end_page_id=None,
         **kwargs,
 ):
-    # 预处理PDF字节数据
+    # Preprocess PDF byte data
     pdf_bytes_list = _prepare_pdf_bytes(pdf_bytes_list, start_page_id, end_page_id)
 
     if backend in ["pipeline", "pipeline-lite"]:
@@ -591,11 +591,11 @@ async def aio_do_parse(
         end_page_id=None,
         **kwargs,
 ):
-    # 预处理PDF字节数据
+    # Preprocess PDF byte data
     pdf_bytes_list = _prepare_pdf_bytes(pdf_bytes_list, start_page_id, end_page_id)
 
     if backend in ["pipeline", "pipeline-lite"]:
-        # pipeline模式暂不支持异步，使用同步处理方式
+        # pipeline mode does not support async yet; using synchronous processing
         _process_pipeline(
             output_dir, pdf_file_names, pdf_bytes_list, p_lang_list,
             backend, parse_method, formula_enable, table_enable,

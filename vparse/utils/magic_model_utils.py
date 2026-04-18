@@ -1,5 +1,5 @@
 """
-包含两个MagicModel类中重复使用的方法和逻辑
+Contains reusable methods and logic for MagicModel classes
 """
 from typing import List, Dict, Any, Callable
 
@@ -9,13 +9,13 @@ from vparse.utils.boxbase import bbox_distance, bbox_center_distance, is_in
 
 def reduct_overlap(bboxes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
-    去除重叠的bbox，保留不被其他bbox包含的bbox
+    Remove overlapping bboxes, keeping those not contained within others
 
     Args:
-        bboxes: 包含bbox信息的字典列表
+        bboxes: List of dictionaries containing bbox information
 
     Returns:
-        去重后的bbox列表
+        Deduplicated list of bboxes
     """
     N = len(bboxes)
     keep = [True] * N
@@ -35,21 +35,21 @@ def tie_up_category_by_distance_v3(
         extract_object_func: Callable = None
 ):
     """
-    通用的类别关联方法，用于将主体对象与客体对象进行关联
+    General category association method for linking subject and object entities
 
-    参数:
-        get_subjects_func: 函数，提取主体对象
-        get_objects_func: 函数，提取客体对象
-        extract_subject_func: 函数，自定义提取主体属性（默认使用bbox和其他属性）
-        extract_object_func: 函数，自定义提取客体属性（默认使用bbox和其他属性）
+    Args:
+        get_subjects_func: Function to extract subject objects
+        get_objects_func: Function to extract object objects
+        extract_subject_func: Custom function to extract subject attributes (defaults to bbox and other properties)
+        extract_object_func: Custom function to extract object attributes (defaults to bbox and other properties)
 
-    返回:
-        关联后的对象列表
+    Returns:
+        List of associated objects
     """
     subjects = get_subjects_func()
     objects = get_objects_func()
 
-    # 如果没有提供自定义提取函数，使用默认函数
+    # Use default extraction functions if none provided
     if extract_subject_func is None:
         extract_subject_func = lambda x: x
     if extract_object_func is None:
@@ -105,7 +105,7 @@ def tie_up_category_by_distance_v3(
         pair_dis = bbox_distance(subjects[sub_idx]["bbox"], objects[obj_idx]["bbox"])
         nearest_dis = float("inf")
         for i in range(N):
-            # 取消原先算法中 1对1 匹配的偏置
+            # Disable 1-to-1 matching bias from previous algorithm
             # if i in seen_idx or i == sub_idx:continue
             nearest_dis = min(nearest_dis, bbox_distance(subjects[i]["bbox"], objects[obj_idx]["bbox"]))
 
@@ -178,34 +178,35 @@ def tie_up_category_by_index(
         object_block_type: str = "object",
 ):
     """
-    基于index的类别关联方法，用于将主体对象与客体对象进行关联
-    客体优先匹配给index最接近的主体，匹配优先级为：
-    1. index差值（最高优先级）
-    2. bbox边缘距离（相邻边距离）
-    3. bbox中心点距离（最低优先级，作为最终tiebreaker）
+    Index-based category association method for linking subject and object entities.
+    Objects are prioritized for matching with the subject with the closest index, with the following priorities:
+    1. Index difference (highest priority)
+    2. bbox edge distance (distance between adjacent edges)
+    3. bbox center distance (lowest priority, as a final tiebreaker)
 
-    参数:
-        get_subjects_func: 函数，提取主体对象
-        get_objects_func: 函数，提取客体对象
-        extract_subject_func: 函数，自定义提取主体属性（默认使用bbox和其他属性）
-        extract_object_func: 函数，自定义提取客体属性（默认使用bbox和其他属性）
+    Args:
+        get_subjects_func: Function to extract subject objects
+        get_objects_func: Function to extract object objects
+        extract_subject_func: Custom function to extract subject attributes (defaults to bbox and other properties)
+        extract_object_func: Custom function to extract object attributes (defaults to bbox and other properties)
+        object_block_type: Type of object block (default "object")
 
-    返回:
-        关联后的对象列表，按主体index升序排列
+    Returns:
+        List of associated objects, sorted by subject index in ascending order
     """
     subjects = get_subjects_func()
     objects = get_objects_func()
 
-    # 如果没有提供自定义提取函数，使用默认函数
+    # Use default extraction functions if none provided
     if extract_subject_func is None:
         extract_subject_func = lambda x: x
     if extract_object_func is None:
         extract_object_func = lambda x: x
 
-    # 初始化结果字典，key为主体索引，value为关联信息
+    # Initialize results dictionary, key is subject index, value is association info
     result_dict = {}
 
-    # 初始化所有主体
+    # Initialize all subjects
     for i, subject in enumerate(subjects):
         result_dict[i] = {
             "sub_bbox": extract_subject_func(subject),
@@ -213,14 +214,14 @@ def tie_up_category_by_index(
             "sub_idx": i,
         }
 
-    # 提取所有客体的index集合，用于计算有效index差值
+    # Extract index set of all objects to calculate effective index difference
     object_indices = set(obj["index"] for obj in objects)
 
     def calc_effective_index_diff(obj_index: int, sub_index: int) -> int:
         """
-        计算有效的index差值
-        有效差值 = 绝对差值 - 区间内其他客体的数量
-        即：如果obj_index和sub_index之间的差值是由其他客体造成的，则应该扣除这部分差值
+        Calculate the effective index difference.
+        Effective difference = absolute difference - number of other objects in the interval.
+        i.e., if the difference between obj_index and sub_index is caused by other objects, that portion should be deducted.
         """
         if obj_index == sub_index:
             return 0
@@ -228,7 +229,7 @@ def tie_up_category_by_index(
         start, end = min(obj_index, sub_index), max(obj_index, sub_index)
         abs_diff = end - start
 
-        # 计算区间(start, end)内有多少个其他客体的index
+        # Calculate how many other objects' indices are in the interval (start, end)
         other_objects_count = 0
         for idx in range(start + 1, end):
             if idx in object_indices:
@@ -236,17 +237,17 @@ def tie_up_category_by_index(
 
         return abs_diff - other_objects_count
 
-    # 为每个客体找到最匹配的主体
+    # Find the best matching subject for each object
     for obj in objects:
         if len(subjects) == 0:
-            # 如果没有主体，跳过客体
+            # Skip object if there are no subjects
             continue
 
         obj_index = obj["index"]
         min_index_diff = float("inf")
         best_subject_indices = []
 
-        # 找出有效index差值最小的所有主体
+        # Find all subjects with the minimal effective index difference
         for i, subject in enumerate(subjects):
             sub_index = subject["index"]
             index_diff = calc_effective_index_diff(obj_index, sub_index)
@@ -259,9 +260,9 @@ def tie_up_category_by_index(
 
         if len(best_subject_indices) == 1:
             best_subject_idx = best_subject_indices[0]
-        # 如果有多个主体的index差值相同（最多两个），根据边缘距离进行筛选
+        # If multiple subjects have the same minimal index difference (at most two), filter based on edge distance
         elif len(best_subject_indices) == 2:
-            # 计算所有候选主体的边缘距离
+            # Calculate edge distances for all candidate subjects
             edge_distances = [(idx, bbox_distance(obj["bbox"], subjects[idx]["bbox"])) for idx in best_subject_indices]
             edge_dist_diff = abs(edge_distances[0][1] - edge_distances[1][1])
 
@@ -269,19 +270,19 @@ def tie_up_category_by_index(
                 logger.debug(f"Obj index: {obj_index}, Sub index: {subjects[idx]['index']}, Edge distance: {edge_dist}")
 
             if edge_dist_diff > 2:
-                # 边缘距离差值大于2，匹配边缘距离更小的主体
+                # Edge distance difference > 2, match the subject with the smaller edge distance
                 best_subject_idx = min(edge_distances, key=lambda x: x[1])[0]
                 logger.debug(f"Obj index: {obj_index}, edge_dist_diff > 2, matching to subject with min edge distance, index: {subjects[best_subject_idx]['index']}")
             elif object_block_type == "table_caption":
-                # 边缘距离差值<=2且为table_caption，匹配index更大的主体
+                # Edge distance difference <= 2 and it's a table_caption, match the later subject (higher index)
                 best_subject_idx = max(best_subject_indices, key=lambda idx: subjects[idx]["index"])
                 logger.debug(f"Obj index: {obj_index}, edge_dist_diff <= 2 and table_caption, matching to later subject with index: {subjects[best_subject_idx]['index']}")
             elif object_block_type.endswith("footnote"):
-                # 边缘距离差值<=2且为footnote，匹配index更小的主体
+                # Edge distance difference <= 2 and it's a footnote, match the earlier subject (lower index)
                 best_subject_idx = min(best_subject_indices, key=lambda idx: subjects[idx]["index"])
                 logger.debug(f"Obj index: {obj_index}, edge_dist_diff <= 2 and footnote, matching to earlier subject with index: {subjects[best_subject_idx]['index']}")
             else:
-                # 边缘距离差值<=2 且不适用特殊匹配规则，使用中心点距离匹配
+                # Edge distance difference <= 2 and no special matching rules apply; use center distance match
                 center_distances = [(idx, bbox_center_distance(obj["bbox"], subjects[idx]["bbox"])) for idx in best_subject_indices]
                 for idx, center_dist in center_distances:
                     logger.debug(f"Obj index: {obj_index}, Sub index: {subjects[idx]['index']}, Center distance: {center_dist}")
@@ -289,10 +290,10 @@ def tie_up_category_by_index(
         else:
             raise ValueError("More than two subjects have the same minimal index difference, which is unexpected.")
 
-        # 将客体添加到最佳主体的obj_bboxes中
+        # Add object to the best subject's obj_bboxes
         result_dict[best_subject_idx]["obj_bboxes"].append(extract_object_func(obj))
 
-    # 转换为列表并按主体index排序
+    # Convert to list and sort by subject index
     ret = list(result_dict.values())
     ret.sort(key=lambda x: x["sub_idx"])
 

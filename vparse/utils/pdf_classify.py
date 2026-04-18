@@ -16,93 +16,93 @@ from pdfminer.converter import PDFPageAggregator
 
 def classify(pdf_bytes):
     """
-    判断PDF文件是可以直接提取文本还是需要OCR
+    Determine if the PDF can have text directly extracted or requires OCR.
 
     Args:
-        pdf_bytes: PDF文件的字节数据
+        pdf_bytes: Byte data of the PDF file
 
     Returns:
-        str: 'txt' 表示可以直接提取文本，'ocr' 表示需要OCR
+        str: 'txt' for direct text extraction, 'ocr' if OCR is required
     """
 
-    # 从字节数据加载PDF
+    # Load PDF from byte data
     sample_pdf_bytes = extract_pages(pdf_bytes)
     pdf = pdfium.PdfDocument(sample_pdf_bytes)
     try:
-        # 获取PDF页数
+        # Get number of PDF pages
         page_count = len(pdf)
 
-        # 如果PDF页数为0，直接返回OCR
+        # If PDF page count is 0, return OCR directly
         if page_count == 0:
             return 'ocr'
 
-        # 检查的页面数（最多检查10页）
+        # Number of pages to check (check at most 10 pages)
         pages_to_check = min(page_count, 10)
 
-        # 设置阈值：如果每页平均少于50个有效字符，认为需要OCR
+        # Set threshold: if avg valid characters per page < 50, assume OCR is needed
         chars_threshold = 50
 
-        # 检查平均字符数和无效字符
+        # Check average character count and invalid characters
         if (get_avg_cleaned_chars_per_page(pdf, pages_to_check) < chars_threshold) or detect_invalid_chars(sample_pdf_bytes):
             return 'ocr'
 
-        # 检查图像覆盖率
+        # Check image coverage
         if get_high_image_coverage_ratio(sample_pdf_bytes, pages_to_check) >= 0.8:
             return 'ocr'
 
         return 'txt'
 
     except Exception as e:
-        logger.error(f"判断PDF类型时出错: {e}")
-        # 出错时默认使用OCR
+        logger.error(f"Error determining PDF type: {e}")
+        # Default to OCR on error
         return 'ocr'
 
     finally:
-        # 无论执行哪个路径，都确保PDF被关闭
+        # Ensure PDF is closed regardless of the execution path
         pdf.close()
 
 
 def get_avg_cleaned_chars_per_page(pdf_doc, pages_to_check):
-    # 总字符数
+    # Total character count
     total_chars = 0
-    # 清理后的总字符数
+    # Total cleaned character count
     cleaned_total_chars = 0
 
-    # 检查前几页的文本
+    # Check the first few pages of text
     for i in range(pages_to_check):
         page = pdf_doc[i]
         text_page = page.get_textpage()
         text = text_page.get_text_bounded()
         total_chars += len(text)
 
-        # 清理提取的文本，移除空白字符
+        # Clean extracted text, remove whitespace
         cleaned_text = re.sub(r'\s+', '', text)
         cleaned_total_chars += len(cleaned_text)
 
-    # 计算平均每页字符数
+    # Calculate average characters per page
     avg_cleaned_chars_per_page = cleaned_total_chars / pages_to_check
 
-    # logger.debug(f"PDF分析: 平均每页清理后{avg_cleaned_chars_per_page:.1f}字符")
+    # logger.debug(f"PDF analysis: average {avg_cleaned_chars_per_page:.1f} cleaned characters per page")
 
     return avg_cleaned_chars_per_page
 
 
 def get_high_image_coverage_ratio(sample_pdf_bytes, pages_to_check):
-    # 创建内存文件对象
+    # Create memory file object
     pdf_stream = BytesIO(sample_pdf_bytes)
 
-    # 创建PDF解析器
+    # Create PDF parser
     parser = PDFParser(pdf_stream)
 
-    # 创建PDF文档对象
+    # Create PDF document object
     document = PDFDocument(parser)
 
-    # 检查文档是否允许文本提取
+    # Check if document allows text extraction
     if not document.is_extractable:
-        # logger.warning("PDF不允许内容提取")
-        return 1.0  # 默认为高覆盖率，因为无法提取内容
+        # logger.warning("PDF does not allow content extraction")
+        return 1.0  # Default to high coverage as content cannot be extracted
 
-    # 创建资源管理器和参数对象
+    # Create resource manager and parameter objects
     rsrcmgr = PDFResourceManager()
     laparams = LAParams(
         line_overlap=0.5,
@@ -114,120 +114,120 @@ def get_high_image_coverage_ratio(sample_pdf_bytes, pages_to_check):
         all_texts=False,
     )
 
-    # 创建聚合器
+    # Create aggregator
     device = PDFPageAggregator(rsrcmgr, laparams=laparams)
 
-    # 创建解释器
+    # Create interpreter
     interpreter = PDFPageInterpreter(rsrcmgr, device)
 
-    # 记录高图像覆盖率的页面数量
+    # Record number of pages with high image coverage
     high_image_coverage_pages = 0
     page_count = 0
 
-    # 遍历页面
+    # Iterate through pages
     for page in PDFPage.create_pages(document):
-        # 控制检查的页数
+        # Control number of pages to check
         if page_count >= pages_to_check:
             break
 
-        # 处理页面
+        # Process page
         interpreter.process_page(page)
         layout = device.get_result()
 
-        # 页面尺寸
+        # Page dimensions
         page_width = layout.width
         page_height = layout.height
         page_area = page_width * page_height
 
-        # 计算图像覆盖的总面积
+        # Calculate total image coverage area
         image_area = 0
 
-        # 遍历页面元素
+        # Iterate through page elements
         for element in layout:
-            # 检查是否为图像或图形元素
+            # Check if it's an image or graphic element
             if isinstance(element, (LTImage, LTFigure)):
-                # 计算图像边界框面积
+                # Calculate image bounding box area
                 img_width = element.width
                 img_height = element.height
                 img_area = img_width * img_height
                 image_area += img_area
 
-        # 计算覆盖率
+        # Calculate coverage ratio
         coverage_ratio = min(image_area / page_area, 1.0) if page_area > 0 else 0
-        # logger.debug(f"PDF分析: 页面 {page_count + 1} 图像覆盖率: {coverage_ratio:.2f}")
+        # logger.debug(f"PDF analysis: page {page_count + 1} image coverage ratio: {coverage_ratio:.2f}")
 
-        # 判断是否为高覆盖率
-        if coverage_ratio >= 0.8:  # 使用80%作为高覆盖率的阈值
+        # Determine if it's high coverage
+        if coverage_ratio >= 0.8:  # Use 80% as threshold for high coverage
             high_image_coverage_pages += 1
 
         page_count += 1
 
-    # 关闭资源
+    # Close resources
     pdf_stream.close()
 
-    # 如果没有处理任何页面，返回0
+    # If no pages were processed, return 0
     if page_count == 0:
         return 0.0
 
-    # 计算高图像覆盖率的页面比例
+    # Calculate proportion of pages with high image coverage
     high_coverage_ratio = high_image_coverage_pages / page_count
-    # logger.debug(f"PDF分析: 高图像覆盖页面比例: {high_coverage_ratio:.2f}")
+    # logger.debug(f"PDF analysis: Proportion of high image coverage pages: {high_coverage_ratio:.2f}")
 
     return high_coverage_ratio
 
 
 def extract_pages(src_pdf_bytes: bytes) -> bytes:
     """
-    从PDF字节数据中随机提取最多10页，返回新的PDF字节数据
+    Randomly extract up to 10 pages from PDF byte data and return new PDF bytes.
 
     Args:
-        src_pdf_bytes: PDF文件的字节数据
+        src_pdf_bytes: Byte data of the PDF file
 
     Returns:
-        bytes: 提取页面后的PDF字节数据
+        bytes: New PDF bytes with extracted pages
     """
 
-    # 从字节数据加载PDF
+    # Load PDF from byte data
     pdf = pdfium.PdfDocument(src_pdf_bytes)
 
-    # 获取PDF页数
+    # Get number of PDF pages
     total_page = len(pdf)
     if total_page == 0:
-        # 如果PDF没有页面，直接返回空文档
+        # If PDF has no pages, return empty document
         logger.warning("PDF is empty, return empty document")
         return b''
 
-    # 选择最多10页
+    # Select up to 10 pages
     select_page_cnt = min(10, total_page)
 
-    # 从总页数中随机选择页面
+    # Randomly select page indices from total pages
     page_indices = np.random.choice(total_page, select_page_cnt, replace=False).tolist()
 
-    # 创建一个新的PDF文档
+    # Create a new PDF document
     sample_docs = pdfium.PdfDocument.new()
 
     try:
-        # 将选择的页面导入新文档
+        # Import selected pages to new document
         sample_docs.import_pages(pdf, page_indices)
         pdf.close()
 
-        # 将新PDF保存到内存缓冲区
+        # Save new PDF to memory buffer
         output_buffer = BytesIO()
         sample_docs.save(output_buffer)
 
-        # 获取字节数据
+        # Get byte data
         return output_buffer.getvalue()
     except Exception as e:
         pdf.close()
         logger.exception(e)
-        return b''  # 出错时返回空字节
+        return b''  # Return empty bytes on error
 
 
 def detect_invalid_chars(sample_pdf_bytes: bytes) -> bool:
-    """"
-    检测PDF中是否包含非法字符
     """
-    '''pdfminer比较慢,需要先随机抽取10页左右的sample'''
+    Detect if PDF contains invalid characters.
+    """
+    # pdfminer is slow, so we randomly extract about 10 pages first
     # sample_pdf_bytes = extract_pages(src_pdf_bytes)
     sample_pdf_file_like_object = BytesIO(sample_pdf_bytes)
     laparams = LAParams(
@@ -242,7 +242,7 @@ def detect_invalid_chars(sample_pdf_bytes: bytes) -> bool:
     text = extract_text(pdf_file=sample_pdf_file_like_object, laparams=laparams)
     text = text.replace("\n", "")
     # logger.info(text)
-    '''乱码文本用pdfminer提取出来的文本特征是(cid:xxx)'''
+    # CID character patterns extracted by pdfminer are formatted as (cid:xxx)
     cid_pattern = re.compile(r'\(cid:\d+\)')
     matches = cid_pattern.findall(text)
     cid_count = len(matches)
@@ -253,14 +253,14 @@ def detect_invalid_chars(sample_pdf_bytes: bytes) -> bool:
     else:
         cid_chars_radio = cid_count/(cid_count + text_len - cid_len)
     # logger.debug(f"cid_count: {cid_count}, text_len: {text_len}, cid_chars_radio: {cid_chars_radio}")
-    '''当一篇文章存在5%以上的文本是乱码时,认为该文档为乱码文档'''
+    # If more than 5% of text is garbled, it's considered an invalid document
     if cid_chars_radio > 0.05:
-        return True  # 乱码文档
+        return True  # Garbled document
     else:
-        return False   # 正常文档
+        return False   # Normal document
 
 
 if __name__ == '__main__':
     with open('/Users/myhloli/pdf/luanma2x10.pdf', 'rb') as f:
         p_bytes = f.read()
-        logger.info(f"PDF分类结果: {classify(p_bytes)}")
+        logger.info(f"PDF Classification Result: {classify(p_bytes)}")

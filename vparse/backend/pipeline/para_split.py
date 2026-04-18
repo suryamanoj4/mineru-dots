@@ -1,3 +1,4 @@
+# Copyright (c) Opendatalab. All rights reserved.
 import copy
 from loguru import logger
 from vparse.utils.enum_class import ContentType, BlockType, SplitFlag
@@ -14,9 +15,9 @@ class ListLineTag:
 
 
 def __process_blocks(blocks, ocr_engine=None):
-    # 对所有block预处理
-    # 1.通过title和interline_equation将block分组
-    # 2.bbox边界根据line信息重置
+    # Pre-process all blocks
+    # 1. Group blocks by 'title' and 'interline_equation'
+    # 2. Reset bbox boundaries based on line information
 
     result = []
     current_group = []
@@ -24,7 +25,7 @@ def __process_blocks(blocks, ocr_engine=None):
     for i in range(len(blocks)):
         current_block = blocks[i]
 
-        # 如果当前块是 text 类型
+        # If current block is of type 'text'
         if current_block['type'] == 'text':
             current_block['bbox_fs'] = copy.deepcopy(current_block['bbox'])
             if ocr_engine != "tesseract":
@@ -37,15 +38,15 @@ def __process_blocks(blocks, ocr_engine=None):
                     ]
             current_group.append(current_block)
 
-        # 检查下一个块是否存在
+        # Check if next block exists
         if i + 1 < len(blocks):
             next_block = blocks[i + 1]
-            # 如果下一个块不是 text 类型且是 title 或 interline_equation 类型
+            # If next block is not 'text' and is 'title' or 'interline_equation'
             if next_block['type'] in ['title', 'interline_equation']:
                 result.append(current_group)
                 current_group = []
 
-    # 处理最后一个 group
+    # Handle the last group
     if current_group:
         result.append(current_group)
 
@@ -53,14 +54,14 @@ def __process_blocks(blocks, ocr_engine=None):
 
 
 def __is_list_or_index_block(block):
-    # 一个block如果是list block 应该同时满足以下特征
-    # 1.block内有多个line 2.block 内有多个line左侧顶格写 3.block内有多个line 右侧不顶格（狗牙状）
-    # 1.block内有多个line 2.block 内有多个line左侧顶格写 3.多个line以endflag结尾
-    # 1.block内有多个line 2.block 内有多个line左侧顶格写 3.block内有多个line 左侧不顶格
+    # A list block should satisfy the following characteristics:
+    # 1. Multiple lines in block. 2. Multiple lines aligned to the left. 3. Multiple lines not aligned to the right (jagged).
+    # 1. Multiple lines in block. 2. Multiple lines aligned to the left. 3. Multiple lines end with an end-flag.
+    # 1. Multiple lines in block. 2. Multiple lines aligned to the left. 3. Multiple lines indented on the left.
 
-    # index block 是一种特殊的list block
-    # 一个block如果是index block 应该同时满足以下特征
-    # 1.block内有多个line 2.block 内有多个line两侧均顶格写 3.line的开头或者结尾均为数字
+    # index block is a special type of list block
+    # An index block should satisfy the following characteristics:
+    # 1. Multiple lines in block. 2. Multiple lines aligned on both sides. 3. Lines start or end with a digit.
     if len(block['lines']) >= 2:
         first_line = block['lines'][0]
         line_height = first_line['bbox'][3] - first_line['bbox'][1]
@@ -84,7 +85,7 @@ def __is_list_or_index_block(block):
             block_weight_radio = block_weight / page_weight
         # logger.info(f"block_weight_radio: {block_weight_radio}")
 
-        # 如果首行左边不顶格而右边顶格,末行左边顶格而右边不顶格 （第一行可能可以右边不顶格）
+        # If the first line is not left-aligned but right-aligned, and the last line is left-aligned but not right-aligned (first line may be right-unaligned).
         if (
             first_line['bbox'][0] - block['bbox_fs'][0] > line_height / 2
             and abs(last_line['bbox'][0] - block['bbox_fs'][0]) < line_height / 2
@@ -101,7 +102,7 @@ def __is_list_or_index_block(block):
                 span_type = span['type']
                 if span_type == ContentType.TEXT:
                     line_text += span['content'].strip()
-            # 添加所有文本，包括空行，保持与block['lines']长度一致
+            # Add all text, including empty lines, keeping length consistent with block['lines'].
             lines_text_list.append(line_text)
             block_text = ''.join(lines_text_list)
 
@@ -119,22 +120,22 @@ def __is_list_or_index_block(block):
             if abs(line_mid_x - block_mid_x) < line_height / 2:
                 center_close_num += 1
 
-            # 计算line左侧顶格数量是否大于2，是否顶格用abs(block['bbox_fs'][0] - line['bbox'][0]) < line_height/2 来判断
+            # Check if count of left-aligned lines > 2 (alignment threshold: abs(diff) < line_height/2).
             if abs(block['bbox_fs'][0] - line['bbox'][0]) < line_height / 2:
                 left_close_num += 1
             elif line['bbox'][0] - block['bbox_fs'][0] > line_height:
                 left_not_close_num += 1
 
-            # 计算右侧是否顶格
+            # Check if right side is aligned
             if abs(block['bbox_fs'][2] - line['bbox'][2]) < line_height:
                 right_close_num += 1
             else:
-                # 类中文没有超长单词的情况，可以用统一的阈值
+                # Chinese-like languages don't have extra-long words; use a unified threshold.
                 if block_lang in ['zh', 'ja', 'ko']:
                     closed_area = 0.26 * block_weight
                 else:
-                    # 右侧不顶格情况下是否有一段距离，拍脑袋用0.3block宽度做阈值
-                    # block宽的阈值可以小些，block窄的阈值要大
+                    # Check for gap on the right; use 0.3 * block width as a heuristic threshold.
+                    # Use smaller threshold for wide blocks, larger for narrow blocks.
                     if block_weight_radio >= 0.5:
                         closed_area = 0.26 * block_weight
                     else:
@@ -142,9 +143,9 @@ def __is_list_or_index_block(block):
                 if block['bbox_fs'][2] - line['bbox'][2] > closed_area:
                     right_not_close_num += 1
 
-        # 判断lines_text_list中的元素是否有超过80%都以LIST_END_FLAG结尾
+        # Check if > 80% of lines end with LIST_END_FLAG.
         line_end_flag = False
-        # 判断lines_text_list中的元素是否有超过80%都以数字开头或都以数字结尾
+        # Check if > 80% of lines start or end with a digit.
         line_num_flag = False
         num_start_count = 0
         num_end_count = 0
@@ -168,7 +169,7 @@ def __is_list_or_index_block(block):
             if flag_end_count / len(lines_text_list) >= 0.8:
                 line_end_flag = True
 
-        # 有的目录右侧不贴边, 目前认为左边或者右边有一边全贴边，且符合数字规则极为index
+        # Some tables of contents aren't right-aligned; consider as 'index' if one side is fully aligned and digit rules match.
         if (
             left_close_num / len(block['lines']) >= 0.8
             or right_close_num / len(block['lines']) >= 0.8
@@ -177,8 +178,8 @@ def __is_list_or_index_block(block):
                 line[ListLineTag.IS_LIST_START_LINE] = True
             return BlockType.INDEX
 
-        # 全部line都居中的特殊list识别，每行都需要换行，特征是多行，且大多数行都前后not_close,每line中点x坐标接近
-        # 补充条件block的长宽比有要求
+        # Special list detection for centered lines: multi-line, most lines not aligned on either side, centers horizontally close.
+        # Additional condition: block aspect ratio requirements.
         elif (
             external_sides_not_close_num >= 2
             and center_close_num == len(block['lines'])
@@ -195,14 +196,14 @@ def __is_list_or_index_block(block):
             and not multiple_para_flag
             # and block_weight_radio > 0.27
         ):
-            # 处理一种特殊的没有缩进的list，所有行都贴左边，通过右边的空隙判断是否是item尾
+            # Handle non-indented lists where all lines are left-aligned; determine item ends by right-side gaps.
             if left_close_num / len(block['lines']) > 0.8:
-                # 这种是每个item只有一行，且左边都贴边的短item list
+                # Each item is a single line, fully left-aligned (short item list).
                 if flag_end_count == 0 and right_close_num / len(block['lines']) < 0.5:
                     for line in block['lines']:
                         if abs(block['bbox_fs'][0] - line['bbox'][0]) < line_height / 2:
                             line[ListLineTag.IS_LIST_START_LINE] = True
-                # 这种是大部分line item 都有结束标识符的情况，按结束标识符区分不同item
+                # Most line items have end markers; use them to distinguish items.
                 elif line_end_flag:
                     for i, line in enumerate(block['lines']):
                         if (
@@ -214,7 +215,7 @@ def __is_list_or_index_block(block):
                                 block['lines'][i + 1][
                                     ListLineTag.IS_LIST_START_LINE
                                 ] = True
-                # line item基本没有结束标识符，而且也没有缩进，按右侧空隙判断哪些是item end
+                # Items lack end markers and indentation; use right-side gaps to identify item ends.
                 else:
                     line_start_flag = False
                     for i, line in enumerate(block['lines']):
@@ -228,7 +229,7 @@ def __is_list_or_index_block(block):
                         ):
                             line[ListLineTag.IS_LIST_END_LINE] = True
                             line_start_flag = True
-            # 一种有缩进的特殊有序list,start line 左侧不贴边且以数字开头，end line 以 IS_LIST_END_FLAG 结尾且数量和start line 一致
+            # Specialized ordered list with indentation: start lines indented and starting with digits; end lines end with end flags (counts must match).
             elif num_start_count >= 2 and num_start_count == flag_end_count:
                 for i, line in enumerate(block['lines']):
                     if len(lines_text_list[i]) > 0:
@@ -237,7 +238,7 @@ def __is_list_or_index_block(block):
                         if lines_text_list[i][-1] in LIST_END_FLAG:
                             line[ListLineTag.IS_LIST_END_LINE] = True
             else:
-                # 正常有缩进的list处理
+                # Normal indented list processing
                 for line in block['lines']:
                     if abs(block['bbox_fs'][0] - line['bbox'][0]) < line_height / 2:
                         line[ListLineTag.IS_LIST_START_LINE] = True
@@ -269,15 +270,15 @@ def __merge_2_text_blocks(block1, block2):
                         span_start_with_num = first_span['content'][0].isdigit()
                         span_start_with_big_char = first_span['content'][0].isupper()
                         if (
-                            # 上一个block的最后一个line的右边界和block的右边界差距不超过line_height
+                            # Gap between previous block's last line right boundary and current block's right boundary <= line_height
                             abs(block2['bbox_fs'][2] - last_line['bbox'][2]) < line_height
-                            # 上一个block的最后一个span不是以特定符号结尾
+                            # Previous block's last span does not end with a stop flag.
                             and not last_span['content'].endswith(LINE_STOP_FLAG)
-                            # 两个block宽度差距超过2倍也不合并
+                            # Do not merge if width difference exceeds 2x.
                             and abs(block1_weight - block2_weight) < min_block_weight
-                            # 下一个block的第一个字符是数字
+                            # Next block does not start with a digit
                             and not span_start_with_num
-                            # 下一个block的第一个字符是大写字母
+                            # Next block does not start with an uppercase letter
                             and not span_start_with_big_char
                         ):
                             if block1['page_num'] != block2['page_num']:
@@ -304,8 +305,8 @@ def __merge_2_list_blocks(block1, block2):
 
 
 def __is_list_group(text_blocks_group):
-    # list group的特征是一个group内的所有block都满足以下条件
-    # 1.每个block都不超过3行 2. 每个block 的左边界都比较接近(逻辑简单点先不加这个规则)
+    # Characteristics of a list group:
+    # 1. Each block <= 3 lines. 2. Left boundaries are close (omitting second rule for simplicity).
     for block in text_blocks_group:
         if len(block['lines']) > 3:
             return False
@@ -316,21 +317,21 @@ def __para_merge_page(blocks, ocr_engine=None):
     page_text_blocks_groups = __process_blocks(blocks, ocr_engine=ocr_engine)
     for text_blocks_group in page_text_blocks_groups:
         if len(text_blocks_group) > 0:
-            # 需要先在合并前对所有block判断是否为list or index block
+            # Determine list/index type for all blocks before merging.
             for block in text_blocks_group:
                 block_type = __is_list_or_index_block(block)
                 block['type'] = block_type
                 # logger.info(f"{block['type']}:{block}")
 
         if len(text_blocks_group) > 1:
-            # 在合并前判断这个group 是否是一个 list group
+            # Determine if the group is a list group before merging.
             is_list_group = __is_list_group(text_blocks_group)
 
-            # 倒序遍历
+            # Iterate in reverse order
             for i in range(len(text_blocks_group) - 1, -1, -1):
                 current_block = text_blocks_group[i]
 
-                # 检查是否有前一个块
+                # Check if a previous block exists
                 if i - 1 >= 0:
                     prev_block = text_blocks_group[i - 1]
 
@@ -369,14 +370,14 @@ def para_split(page_info_list, ocr_engine=None):
             if 'page_num' in block:
                 if block['page_num'] == page_info['page_idx']:
                     page_info['para_blocks'].append(block)
-                    # 从block中删除不需要的page_num和page_size字段
+                    # Delete redundant page_num and page_size fields from block.
                     del block['page_num']
                     del block['page_size']
 
 
 if __name__ == '__main__':
     input_blocks = []
-    # 调用函数
+    # Call function
     groups = __process_blocks(input_blocks)
     for group_index, group in enumerate(groups):
         print(f'Group {group_index}: {group}')

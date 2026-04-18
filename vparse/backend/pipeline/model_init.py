@@ -266,7 +266,7 @@ class VParsePipelineModel:
         atom_model_manager = AtomModelSingleton()
 
         if self.apply_formula:
-            # 初始化公式检测模型
+            # Initialize equation detection model
             self.mfd_model = atom_model_manager.get_atom_model(
                 atom_model_name=AtomicModel.MFD,
                 mfd_weights=str(
@@ -275,7 +275,7 @@ class VParsePipelineModel:
                 device=self.device,
             )
 
-            # 初始化公式解析模型
+            # Initialize equation recognition model
             if MFR_MODEL == "unimernet_small":
                 mfr_model_path = ModelPath.unimernet_small
             elif MFR_MODEL == "pp_formulanet_plus_m":
@@ -290,7 +290,7 @@ class VParsePipelineModel:
                 device=self.device,
             )
 
-        # 初始化layout模型
+        # Initialize layout model
         self.layout_model = atom_model_manager.get_atom_model(
             atom_model_name=AtomicModel.Layout,
             doclayout_yolo_weights=str(
@@ -298,7 +298,7 @@ class VParsePipelineModel:
             ),
             device=self.device,
         )
-        # 初始化ocr
+        # Initialize OCR model
         self.ocr_model = atom_model_manager.get_atom_model(
             atom_model_name=AtomicModel.OCR,
             det_db_box_thresh=0.3,
@@ -352,7 +352,7 @@ class HybridModelSingleton:
         return self._models[key]
 
 def ocr_det_batch_setting(device):
-    # 检测torch的版本号
+    # Detect torch version
     import torch
     from packaging import version
 
@@ -397,7 +397,7 @@ class VParseHybridModel:
 
         self.atom_model_manager = AtomModelSingleton()
 
-        # 初始化OCR模型
+        # Initialize OCR model
         self.ocr_model = self.atom_model_manager.get_atom_model(
             atom_model_name=AtomicModel.OCR,
             det_db_box_thresh=0.3,
@@ -405,7 +405,7 @@ class VParseHybridModel:
         )
 
         if formula_enable:
-            # 初始化公式检测模型
+            # Initialize equation detection model
             self.mfd_model = self.atom_model_manager.get_atom_model(
                 atom_model_name=AtomicModel.MFD,
                 mfd_weights=str(
@@ -414,7 +414,7 @@ class VParseHybridModel:
                 device=self.device,
             )
 
-            # 初始化公式解析模型
+            # Initialize equation recognition model
             if MFR_MODEL == "unimernet_small":
                 mfr_model_path = ModelPath.unimernet_small
             elif MFR_MODEL == "pp_formulanet_plus_m":

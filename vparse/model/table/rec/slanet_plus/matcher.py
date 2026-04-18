@@ -121,7 +121,7 @@ class TableMatch:
         current_col = 0
         max_rows = 0
         max_cols = 0
-        occupied_cells = {}  # 用于记录已经被占用的单元格
+        occupied_cells = {}  # Used to track cells that are already occupied
 
         def is_occupied(row, col):
             return (row, col) in occupied_cells
@@ -136,16 +136,16 @@ class TableMatch:
             token = pred_structures[i]
 
             if token == "<tr>":
-                current_col = 0  # 每次遇到 <tr> 时，重置当前列号
+                current_col = 0  # Reset current column number whenever <tr> is encountered
             elif token == "</tr>":
-                current_row += 1  # 行结束，行号增加
+                current_row += 1  # End of row, increment row number
             elif token.startswith("<td"):
                 colspan = 1
                 rowspan = 1
                 j = i
                 if token != "<td></td>":
                     j += 1
-                    # 提取 colspan 和 rowspan 属性
+                    # Extract colspan and rowspan attributes
                     while j < len(pred_structures) and not pred_structures[
                         j
                     ].startswith(">"):
@@ -155,29 +155,29 @@ class TableMatch:
                             rowspan = int(pred_structures[j].split("=")[1].strip("\"'"))
                         j += 1
 
-                # 跳过已经处理过的属性 token
+                # Skip already processed attribute tokens
                 i = j
 
-                # 找到下一个未被占用的列
+                # Find the next unoccupied column
                 while is_occupied(current_row, current_col):
                     current_col += 1
 
-                # 计算逻辑坐标
+                # Calculate logical coordinates
                 r_start = current_row
                 r_end = current_row + rowspan - 1
                 col_start = current_col
                 col_end = current_col + colspan - 1
 
-                # 记录逻辑坐标
+                # Record logical coordinates
                 logic_points.append([r_start, r_end, col_start, col_end])
 
-                # 标记占用的单元格
+                # Mark occupied cells
                 mark_occupied(r_start, col_start, rowspan, colspan)
 
-                # 更新当前列号
+                # Update current column number
                 current_col += colspan
 
-                # 更新最大行数和列数
+                # Update max row and column counts
                 max_rows = max(max_rows, r_end + 1)
                 max_cols = max(max_cols, col_end + 1)
 

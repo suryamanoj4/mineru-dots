@@ -2,7 +2,7 @@
 VParse Heavy - API Server
 HeavyAPI服务器
 
-提供RESTful API接口用于任务提交、查询和管理
+Provides RESTful API for task submission, query, and management.
 """
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query
 from fastapi.responses import JSONResponse
@@ -21,14 +21,14 @@ from minio import Minio
 
 from task_db import TaskDB
 
-# 初始化 FastAPI 应用
+# Initialize FastAPI application
 app = FastAPI(
     title="VParse Heavy API",
     description="Heavy - 企业级多GPU文档解析服务",
     version="1.0.0"
 )
 
-# 添加 CORS 中间件
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -37,14 +37,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 初始化数据库
+# Initialize database
 db = TaskDB()
 
 # 配置输出目录
 OUTPUT_DIR = Path('/tmp/vparse_heavy_output')
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# MinIO 配置
+# MinIO Configuration
 MINIO_CONFIG = {
     'endpoint': os.getenv('MINIO_ENDPOINT', ''),
     'access_key': os.getenv('MINIO_ACCESS_KEY', ''),
@@ -55,7 +55,7 @@ MINIO_CONFIG = {
 
 
 def get_minio_client():
-    """获取MinIO客户端实例"""
+    """Get MinIO client instance."""
     return Minio(
         endpoint=MINIO_CONFIG['endpoint'],
         access_key=MINIO_CONFIG['access_key'],
@@ -66,15 +66,15 @@ def get_minio_client():
 
 def process_markdown_images(md_content: str, image_dir: Path, upload_images: bool = False):
     """
-    处理 Markdown 中的图片引用
+    Process image references in Markdown.
     
     Args:
-        md_content: Markdown 内容
-        image_dir: 图片所在目录
-        upload_images: 是否上传图片到 MinIO 并替换链接
+        md_content: Markdown content
+        image_dir: Directory containing images
+        upload_images: Whether to upload images to MinIO and replace links
         
     Returns:
-        处理后的 Markdown 内容
+        Processed Markdown content
     """
     if not upload_images:
         return md_content
@@ -84,57 +84,57 @@ def process_markdown_images(md_content: str, image_dir: Path, upload_images: boo
         bucket_name = MINIO_CONFIG['bucket_name']
         minio_endpoint = MINIO_CONFIG['endpoint']
         
-        # 查找所有 markdown 格式的图片
+        # Find all Markdown-formatted images
         img_pattern = r'!\[([^\]]*)\]\(([^)]+)\)'
         
         def replace_image(match):
             alt_text = match.group(1)
             image_path = match.group(2)
             
-            # 构建完整的本地图片路径
+            # Build full local image path
             full_image_path = image_dir / Path(image_path).name
             
             if full_image_path.exists():
-                # 获取文件后缀
+                # Get file suffix
                 file_extension = full_image_path.suffix
-                # 生成 UUID 作为新文件名
+                # Generate UUID as new filename
                 new_filename = f"{uuid.uuid4()}{file_extension}"
                 
                 try:
-                    # 上传到 MinIO
+                    # Upload to MinIO
                     object_name = f"images/{new_filename}"
                     minio_client.fput_object(bucket_name=bucket_name, object_name=object_name, file_path=str(full_image_path))
                     
-                    # 生成 MinIO 访问 URL
+                    # Generate MinIO access URL
                     scheme = 'https' if MINIO_CONFIG['secure'] else 'http'
                     minio_url = f"{scheme}://{minio_endpoint}/{bucket_name}/{object_name}"
                     
-                    # 返回 HTML 格式的 img 标签
+                    # Return HTML-formatted img tag
                     return f'<img src="{minio_url}" alt="{alt_text}">'
                 except Exception as e:
                     logger.error(f"Failed to upload image to MinIO: {e}")
-                    return match.group(0)  # 上传失败，保持原样
+                    return match.group(0)  # Keep as is on failure
             
             return match.group(0)
         
-        # 替换所有图片引用
+        # Replace all image references
         new_content = re.sub(img_pattern, replace_image, md_content)
         return new_content
         
     except Exception as e:
         logger.error(f"Error processing markdown images: {e}")
-        return md_content  # 出错时返回原内容
+        return md_content  # Return original content on error
 
 
 def read_json_file(file_path: Path):
     """
-    读取 JSON 文件
+    Read JSON file.
 
     Args:
-        file_path: JSON 文件路径
+        file_path: Path to the JSON file
 
     Returns:
-        解析后的 JSON 数据，失败返回 None
+        Parsed JSON data, or None on failure
     """
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -146,13 +146,13 @@ def read_json_file(file_path: Path):
 
 def get_file_metadata(file_path: Path):
     """
-    获取文件元数据
+    Get file metadata.
 
     Args:
-        file_path: 文件路径
+        file_path: File path
 
     Returns:
-        包含文件元数据的字典
+        Dictionary containing file metadata
     """
     if not file_path.exists():
         return None
@@ -167,14 +167,14 @@ def get_file_metadata(file_path: Path):
 
 def get_images_info(image_dir: Path, upload_to_minio: bool = False):
     """
-    获取图片目录信息
+    Get information about the image directory.
 
     Args:
-        image_dir: 图片目录路径
-        upload_to_minio: 是否上传到 MinIO
+        image_dir: Image directory path
+        upload_to_minio: Whether to upload to MinIO
 
     Returns:
-        图片信息字典
+        Dictionary of image information
     """
     if not image_dir.exists() or not image_dir.is_dir():
         return {
@@ -183,7 +183,7 @@ def get_images_info(image_dir: Path, upload_to_minio: bool = False):
             'uploaded_to_minio': False
         }
 
-    # 支持的图片格式
+    # Supported image formats
     image_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg'}
     image_files = [f for f in image_dir.iterdir() if f.is_file() and f.suffix.lower() in image_extensions]
 
@@ -196,22 +196,22 @@ def get_images_info(image_dir: Path, upload_to_minio: bool = False):
             'path': str(img_file.relative_to(image_dir.parent))
         }
 
-        # 如果需要上传到 MinIO
+        # If upload to MinIO is required
         if upload_to_minio:
             try:
                 minio_client = get_minio_client()
                 bucket_name = MINIO_CONFIG['bucket_name']
                 minio_endpoint = MINIO_CONFIG['endpoint']
 
-                # 生成 UUID 作为新文件名
+                # Generate UUID as new filename
                 file_extension = img_file.suffix
                 new_filename = f"{uuid.uuid4()}{file_extension}"
                 object_name = f"images/{new_filename}"
 
-                # 上传到 MinIO
+                # Upload to MinIO
                 minio_client.fput_object(bucket_name=bucket_name, object_name=object_name, file_path=str(img_file))
 
-                # 生成访问 URL
+                # Generate access URL
                 scheme = 'https' if MINIO_CONFIG['secure'] else 'http'
                 img_info['url'] = f"{scheme}://{minio_endpoint}/{bucket_name}/{object_name}"
 
@@ -230,7 +230,7 @@ def get_images_info(image_dir: Path, upload_to_minio: bool = False):
 
 @app.get("/")
 async def root():
-    """API根路径"""
+    """API root path"""
     return {
         "service": "VParse Heavy",
         "version": "1.0.0",
@@ -250,15 +250,15 @@ async def submit_task(
     priority: int = Form(0, description="优先级，数字越大越优先"),
 ):
     """
-    提交文档解析任务
+    Submit document parsing task.
     
-    立即返回 task_id，任务在后台异步处理
+    Returns task_id immediately; tasks are processed asynchronously.
     """
     try:
-        # 保存上传的文件到临时目录
+        # Save uploaded file to temporary directory
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix)
         
-        # 流式写入文件到磁盘，避免高内存使用
+        # Stream file to disk to avoid high memory usage
         while True:
             chunk = await file.read(1 << 23)  # 8MB chunks
             if not chunk:
@@ -267,7 +267,7 @@ async def submit_task(
         
         temp_file.close()
         
-        # 创建任务
+        # Create task
         task_id = db.create_task(
             file_name=file.filename,
             file_path=temp_file.name,
@@ -302,13 +302,13 @@ async def get_task_data(
     task_id: str,
     include_fields: str = Query(
         "md,content_list,middle_json,model_output,images",
-        description="需要返回的字段，逗号分隔：md,content_list,middle_json,model_output,images,layout_pdf,span_pdf,origin_pdf"
+        description="Fields to return, comma-separated: md,content_list,middle_json,model_output,images,layout_pdf,span_pdf,origin_pdf"
     ),
-    upload_images: bool = Query(False, description="是否上传图片到MinIO并返回URL"),
-    include_metadata: bool = Query(True, description="是否包含文件元数据")
+    upload_images: bool = Query(False, description="Upload images to MinIO and return URLs"),
+    include_metadata: bool = Query(True, description="Include file metadata")
 ):
     """
-    按需获取任务的解析数据
+    Retrieve parsing data for a task on demand.
 
     支持灵活获取 VParse 解析后的数据，包括：
     - Markdown 内容
@@ -320,13 +320,13 @@ async def get_task_data(
 
     通过 include_fields 参数按需选择需要返回的字段
     """
-    # 获取任务信息
+    # Get task information
     task = db.get_task(task_id)
 
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    # 构建基础响应
+    # Build base response
     response = {
         'success': True,
         'task_id': task_id,
@@ -337,14 +337,14 @@ async def get_task_data(
         'completed_at': task['completed_at']
     }
 
-    # 如果任务未完成，直接返回状态
+    # If task is not completed, return status only
     if task['status'] != 'completed':
         response['message'] = f"Task is in {task['status']} status, data not available yet"
         return response
 
-    # 检查结果路径
+    # Check result path
     if not task['result_path']:
-        response['message'] = 'Task completed but result files have been cleaned up (older than retention period)'
+        response['message'] = 'Task completed but result files have been cleaned up'
         return response
 
     result_dir = Path(task['result_path'])
@@ -352,20 +352,20 @@ async def get_task_data(
         response['message'] = 'Result directory does not exist'
         return response
 
-    # 解析需要返回的字段
+    # Parse requested fields
     fields = [f.strip() for f in include_fields.split(',')]
 
-    # 初始化 data 字段
+    # Initialize data field
     response['data'] = {}  # type: ignore
 
     logger.info(f"📦 Getting complete data for task {task_id}, fields: {fields}")
 
     # 查找文件（递归搜索，VParse 输出结构：task_id/filename/auto/*.md）
     try:
-        # 1. 处理 Markdown 文件
+        # 1. Process Markdown file
         if 'md' in fields:
             md_files = list(result_dir.rglob('*.md'))
-            # 排除带特殊后缀的 md 文件
+            # Exclude md files with special suffixes
             md_files = [f for f in md_files if not any(f.stem.endswith(suffix) for suffix in ['_layout', '_span', '_origin'])] 
 
             if md_files:
@@ -375,7 +375,7 @@ async def get_task_data(
                 with open(md_file, 'r', encoding='utf-8') as f:
                     md_content = f.read()
 
-                # 处理图片（如果需要上传）
+                # Process images if upload is required
                 image_dir = md_file.parent / 'images'
                 if upload_images and image_dir.exists():
                     md_content = process_markdown_images(md_content, image_dir, upload_images)
@@ -390,7 +390,7 @@ async def get_task_data(
                     if metadata:
                         response['data']['markdown']['metadata'] = metadata
 
-        # 2. 处理 Content List JSON
+        # 2. Process Content List JSON
         if 'content_list' in fields:
             content_list_files = list(result_dir.rglob('*_content_list.json'))
             if content_list_files:
@@ -409,7 +409,7 @@ async def get_task_data(
                         if metadata:
                             response['data']['content_list']['metadata'] = metadata
 
-        # 3. 处理 Middle JSON
+        # 3. Process Middle JSON
         if 'middle_json' in fields:
             middle_json_files = list(result_dir.rglob('*_middle.json'))
             if middle_json_files:
@@ -428,7 +428,7 @@ async def get_task_data(
                         if metadata:
                             response['data']['middle_json']['metadata'] = metadata
 
-        # 4. 处理 Model Output JSON
+        # 4. Process Model Output JSON
         if 'model_output' in fields:
             model_output_files = list(result_dir.rglob('*_model.json'))
             if model_output_files:
@@ -447,7 +447,7 @@ async def get_task_data(
                         if metadata:
                             response['data']['model_output']['metadata'] = metadata
 
-        # 5. 处理图片
+        # 5. Process Images
         if 'images' in fields:
             image_dirs = list(result_dir.rglob('images'))
             if image_dirs:
@@ -457,7 +457,7 @@ async def get_task_data(
                 images_info = get_images_info(image_dir, upload_images)
                 response['data']['images'] = images_info
 
-        # 6. 处理 Layout PDF
+        # 6. Process Layout PDF
         if 'layout_pdf' in fields:
             layout_pdf_files = list(result_dir.rglob('*_layout.pdf'))
             if layout_pdf_files:
@@ -472,7 +472,7 @@ async def get_task_data(
                     if metadata:
                         response['data']['layout_pdf']['metadata'] = metadata
 
-        # 7. 处理 Span PDF
+        # 7. Process Span PDF
         if 'span_pdf' in fields:
             span_pdf_files = list(result_dir.rglob('*_span.pdf'))
             if span_pdf_files:
@@ -487,7 +487,7 @@ async def get_task_data(
                     if metadata:
                         response['data']['span_pdf']['metadata'] = metadata
 
-        # 8. 处理 Origin PDF
+        # 8. Process Origin PDF
         if 'origin_pdf' in fields:
             origin_pdf_files = list(result_dir.rglob('*_origin.pdf'))
             if origin_pdf_files:
@@ -515,13 +515,12 @@ async def get_task_data(
 @app.get("/api/v1/tasks/{task_id}")
 async def get_task_status(
     task_id: str,
-    upload_images: bool = Query(False, description="是否上传图片到MinIO并替换链接（仅当任务完成时有效）")
+    upload_images: bool = Query(False, description="Upload images to MinIO and replace URLs (only if completed)")
 ):
     """
-    查询任务状态和详情
+    Retrieve task status and details.
     
-    当任务完成时，会自动返回解析后的 Markdown 内容（data 字段）
-    可选择是否上传图片到 MinIO 并替换为 URL
+    Returns parsed Markdown content (data field) automatically upon completion.
     """
     task = db.get_task(task_id)
     
@@ -544,12 +543,12 @@ async def get_task_status(
     }
     logger.info(f"✅ Task status: {task['status']} - (result_path: {task['result_path']})")
     
-    # 如果任务已完成，尝试返回解析内容
+    # If task is completed, attempt to return parsed content
     if task['status'] == 'completed':
         if not task['result_path']:
-            # 结果文件已被清理
+            # Result files cleaned up
             response['data'] = None
-            response['message'] = 'Task completed but result files have been cleaned up (older than retention period)'
+            response['message'] = 'Task completed but result files have been cleaned up'
             return response
         
         result_dir = Path(task['result_path'])
@@ -563,7 +562,7 @@ async def get_task_status(
             
             if md_files:
                 try:
-                    # 读取 Markdown 内容
+                    # Read Markdown content
                     md_file = md_files[0]
                     logger.info(f"📖 Reading markdown file: {md_file}")
                     with open(md_file, 'r', encoding='utf-8') as f:
@@ -571,15 +570,15 @@ async def get_task_status(
                     
                     logger.info(f"✅ Markdown content loaded, length: {len(md_content)} characters")
                     
-                    # 查找图片目录（在 markdown 文件的同级目录下）
+                    # Find image directory
                     image_dir = md_file.parent / 'images'
                     
-                    # 处理图片（如果需要）
+                    # Process images if needed
                     if upload_images and image_dir.exists():
                         logger.info(f"🖼️  Processing images for task {task_id}, upload_images={upload_images}")
                         md_content = process_markdown_images(md_content, image_dir, upload_images)
                     
-                    # 添加 data 字段
+                    # Add data field
                     response['data'] = {
                         'markdown_file': md_file.name,
                         'content': md_content,
@@ -591,7 +590,7 @@ async def get_task_status(
                 except Exception as e:
                     logger.error(f"❌ Failed to read markdown content: {e}")
                     logger.exception(e)
-                    # 读取失败不影响状态查询，只是不返回 data
+                    # Failure to read doesn't affect status query
                     response['data'] = None
             else:
                 logger.warning(f"⚠️  No markdown files found in {result_dir}")
@@ -608,7 +607,7 @@ async def get_task_status(
 @app.delete("/api/v1/tasks/{task_id}")
 async def cancel_task(task_id: str):
     """
-    取消任务（仅限 pending 状态）
+    Cancel task (pending status only).
     """
     task = db.get_task(task_id)
     
@@ -618,7 +617,7 @@ async def cancel_task(task_id: str):
     if task['status'] == 'pending':
         db.update_task_status(task_id, 'cancelled')
         
-        # 删除临时文件
+        # Delete temporary file
         file_path = Path(task['file_path'])
         if file_path.exists():
             file_path.unlink()
@@ -638,7 +637,7 @@ async def cancel_task(task_id: str):
 @app.get("/api/v1/queue/stats")
 async def get_queue_stats():
     """
-    获取队列统计信息
+    Get queue statistics.
     """
     stats = db.get_queue_stats()
     
@@ -652,16 +651,16 @@ async def get_queue_stats():
 
 @app.get("/api/v1/queue/tasks")
 async def list_tasks(
-    status: Optional[str] = Query(None, description="筛选状态: pending/processing/completed/failed"),
-    limit: int = Query(100, description="返回数量限制", le=1000)
+    status: Optional[str] = Query(None, description="Filter status: pending/processing/completed/failed"),
+    limit: int = Query(100, description="Result limit", le=1000)
 ):
     """
-    获取任务列表
+    Retrieve task list.
     """
     if status:
         tasks = db.get_tasks_by_status(status, limit)
     else:
-        # 返回所有任务（需要修改 TaskDB 添加这个方法）
+        # Return all tasks
         with db.get_cursor() as cursor:
             cursor.execute('''
                 SELECT * FROM tasks 
@@ -678,9 +677,9 @@ async def list_tasks(
 
 
 @app.post("/api/v1/admin/cleanup")
-async def cleanup_old_tasks(days: int = Query(7, description="清理N天前的任务")):
+async def cleanup_old_tasks(days: int = Query(7, description="Clean up tasks older than N days")):
     """
-    清理旧任务记录（管理接口）
+    Clean up old task records (Admin interface).
     """
     deleted_count = db.cleanup_old_tasks(days)
     
@@ -694,9 +693,9 @@ async def cleanup_old_tasks(days: int = Query(7, description="清理N天前的�
 
 
 @app.post("/api/v1/admin/reset-stale")
-async def reset_stale_tasks(timeout_minutes: int = Query(60, description="超时时间（分钟）")):
+async def reset_stale_tasks(timeout_minutes: int = Query(60, description="Timeout in minutes")):
     """
-    重置超时的 processing 任务（管理接口）
+    Reset timed-out processing tasks (Admin interface).
     """
     reset_count = db.reset_stale_tasks(timeout_minutes)
     
@@ -710,12 +709,12 @@ async def reset_stale_tasks(timeout_minutes: int = Query(60, description="超时
 
 
 @app.get("/api/v1/health")
-async def health_check():
+async def health_check_endpoint():
     """
-    健康检查接口
+    Health check endpoint.
     """
     try:
-        # 检查数据库连接
+        # Check database connection
         stats = db.get_queue_stats()
         
         return {
@@ -736,7 +735,7 @@ async def health_check():
 
 
 if __name__ == '__main__':
-    # 从环境变量读取端口，默认为8000
+    # Read port from environment, default to 8000
     api_port = int(os.getenv('API_PORT', '8000'))
     
     logger.info("🚀 Starting VParse Heavy API Server...")

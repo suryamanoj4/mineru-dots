@@ -30,16 +30,16 @@ from vparse.utils.cli_parser import arg_parse
 from vparse.utils.guess_suffix_or_lang import guess_suffix_by_path
 from vparse.version import __version__
 
-# 并发控制器
+# Concurrency controller
 _request_semaphore: Optional[asyncio.Semaphore] = None
 _stream_jobs: dict[str, dict] = {}
 _stream_jobs_lock = threading.Lock()
 
 
-# 并发控制依赖函数
+# Concurrency control dependency function
 async def limit_concurrency():
     if _request_semaphore is not None:
-        # 检查信号量是否已用尽，如果是则拒绝请求
+        # Check if semaphore is exhausted; if so, reject request
         if _request_semaphore._value == 0:
             raise HTTPException(
                 status_code=503,
@@ -87,9 +87,9 @@ app = create_app()
 
 def sanitize_filename(filename: str) -> str:
     """
-    格式化压缩文件的文件名
-    移除路径遍历字符, 保留 Unicode 字母、数字、._-
-    禁止隐藏文件
+    Format filename for zip files
+    Remove path traversal characters; retain Unicode letters, digits, and ._-
+    Prohibit hidden files
     """
     sanitized = re.sub(r"[/\\.]{2,}|[/\\]", "", filename)
     sanitized = re.sub(r"[^\w.-]", "_", sanitized, flags=re.UNICODE)
@@ -99,7 +99,7 @@ def sanitize_filename(filename: str) -> str:
 
 
 def cleanup_file(file_path: str) -> None:
-    """清理临时文件或目录"""
+    """Clean up temporary files or directories"""
     try:
         if os.path.exists(file_path):
             if os.path.isfile(file_path):
@@ -133,7 +133,7 @@ def render_markdown_with_base64(markdown_text: str, image_dir_path: str) -> str:
 def get_infer_result(
     file_suffix_identifier: str, pdf_name: str, parse_dir: str
 ) -> Optional[str]:
-    """从结果文件中读取推理结果"""
+    """Read inference results from the result file"""
     result_file_path = os.path.join(parse_dir, f"{pdf_name}{file_suffix_identifier}")
     if os.path.exists(result_file_path):
         with open(result_file_path, "r", encoding="utf-8") as fp:
@@ -530,16 +530,16 @@ async def parse_pdf(
         99999, description="The ending page for PDF parsing, beginning from 0"
     ),
 ):
-    # 获取命令行配置参数
+    # Get command line configuration parameters
     config = getattr(app.state, "config", {})
 
     try:
-        # 创建唯一的输出目录
+        # Create a unique output directory
         unique_dir = os.path.join(output_dir, str(uuid.uuid4()))
         os.makedirs(unique_dir, exist_ok=True)
         background_tasks.add_task(cleanup_file, unique_dir)
 
-        # 处理上传的PDF文件
+        # Process uploaded PDF files
         pdf_file_names = []
         pdf_bytes_list = []
 
@@ -547,19 +547,19 @@ async def parse_pdf(
             content = await file.read()
             file_path = Path(file.filename)
 
-            # 创建临时文件
+            # Create temporary files
             temp_path = Path(unique_dir) / file_path.name
             with open(temp_path, "wb") as f:
                 f.write(content)
 
-            # 如果是图像文件或PDF，使用read_fn处理
+            # If it's an image or PDF, process using read_fn
             file_suffix = guess_suffix_by_path(temp_path)
             if file_suffix in pdf_suffixes + image_suffixes:
                 try:
                     pdf_bytes = read_fn(temp_path)
                     pdf_bytes_list.append(pdf_bytes)
                     pdf_file_names.append(file_path.stem)
-                    os.remove(temp_path)  # 删除临时文件
+                    os.remove(temp_path)  # Delete temporary files
                 except Exception as e:
                     return JSONResponse(
                         status_code=400,
@@ -571,15 +571,15 @@ async def parse_pdf(
                     content={"error": f"Unsupported file type: {file_suffix}"},
                 )
 
-        # 设置语言列表，确保与文件数量一致
+        # Set language list, ensuring consistency with file count
         actual_lang_list = lang_list
         if len(actual_lang_list) != len(pdf_file_names):
-            # 如果语言列表长度不匹配，使用第一个语言或默认"ch"
+            # If language list length mismatch, use the first language or default "ch"
             actual_lang_list = [
                 actual_lang_list[0] if actual_lang_list else "ch"
             ] * len(pdf_file_names)
 
-        # 调用异步处理函数
+        # Call asynchronous processing function
         await aio_do_parse(
             output_dir=unique_dir,
             pdf_file_names=pdf_file_names,
@@ -602,7 +602,7 @@ async def parse_pdf(
             **config,
         )
 
-        # 根据 response_format_zip 决定返回类型
+        # Determine return type based on response_format_zip
         if response_format_zip:
             zip_fd, zip_path = tempfile.mkstemp(suffix=".zip", prefix="vparse_results_")
             os.close(zip_fd)
@@ -623,14 +623,14 @@ async def parse_pdf(
                             unique_dir, pdf_name, f"hybrid_{parse_method}"
                         )
                     else:
-                        # 未知 backend，跳过此文件
+                        # Unknown backend, skipping this file
                         logger.warning(f"Unknown backend type: {backend}, skipping {pdf_name}")
                         continue
 
                     if not os.path.exists(parse_dir):
                         continue
 
-                    # 写入文本类结果
+                    # Write text results
                     if return_md:
                         path = os.path.join(parse_dir, f"{pdf_name}.md")
                         if os.path.exists(path):
@@ -671,7 +671,7 @@ async def parse_pdf(
                                 ),
                             )
 
-                    # 写入图片
+                    # Write images
                     if return_images:
                         images_dir = os.path.join(parse_dir, "images")
                         image_paths = glob.glob(
@@ -702,7 +702,7 @@ async def parse_pdf(
                 filename="results.zip",
             )
         else:
-            # 构建 JSON 结果
+            # Construct JSON result
             result_dict = {}
             for pdf_name in pdf_file_names:
                 result_dict[pdf_name] = {}
@@ -719,7 +719,7 @@ async def parse_pdf(
                         unique_dir, pdf_name, f"hybrid_{parse_method}"
                     )
                 else:
-                    # 未知 backend，跳过此文件
+                    # Unknown backend, skipping this file
                     logger.warning(f"Unknown backend type: {backend}, skipping {pdf_name}")
                     continue
 
@@ -776,10 +776,10 @@ async def parse_pdf(
 def main(ctx, host, port, reload, **kwargs):
     kwargs.update(arg_parse(ctx))
 
-    # 将配置参数存储到应用状态中
+    # Store configuration parameters in application state
     app.state.config = kwargs
 
-    # 将 CLI 的并发参数同步到环境变量，确保 uvicorn 重载子进程可见
+    # Sync CLI concurrency parameters to environment variables to ensure visibility for uvicorn reloaded subprocesses
     try:
         mcr = int((kwargs.get("vparse_api_max_concurrent_requests", kwargs.get("mineru_api_max_concurrent_requests", 0))) or 0)
     except ValueError:
