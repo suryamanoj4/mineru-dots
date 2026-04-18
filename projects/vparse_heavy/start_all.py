@@ -1,6 +1,6 @@
 """
-VParse Tianshu - Unified Startup Script
-天枢统一启动脚本
+VParse Heavy - Unified Startup Script
+Heavy统一启动脚本
 
 一键启动所有服务：API Server + LitServe Workers + Task Scheduler
 """
@@ -14,12 +14,12 @@ from pathlib import Path
 import argparse
 
 
-class TianshuLauncher:
-    """天枢服务启动器"""
+class HeavyLauncher:
+    """Heavy服务启动器"""
     
     def __init__(
         self,
-        output_dir='/tmp/mineru_tianshu_output',
+        output_dir='/tmp/vparse_heavy_output',
         api_port=8000,
         worker_port=9000,
         workers_per_device=1,
@@ -37,9 +37,9 @@ class TianshuLauncher:
     def start_services(self):
         """启动所有服务"""
         logger.info("=" * 70)
-        logger.info("🚀 VParse Tianshu - Starting All Services")
+        logger.info("🚀 VParse Heavy - Starting All Services")
         logger.info("=" * 70)
-        logger.info("天枢 - 企业级多GPU文档解析服务")
+        logger.info("Heavy - 企业级多GPU文档解析服务")
         logger.info("")
         
         try:
@@ -184,7 +184,7 @@ class TianshuLauncher:
 def main():
     """主函数"""
     parser = argparse.ArgumentParser(
-        description='VParse Tianshu - 统一启动脚本',
+        description='VParse Heavy - 统一启动脚本',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
@@ -205,8 +205,8 @@ def main():
         """
     )
     
-    parser.add_argument('--output-dir', type=str, default='/tmp/mineru_tianshu_output',
-                       help='输出目录 (默认: /tmp/mineru_tianshu_output)')
+    parser.add_argument('--output-dir', type=str, default='/tmp/vparse_heavy_output',
+                       help='输出目录 (默认: /tmp/vparse_heavy_output)')
     parser.add_argument('--api-port', type=int, default=8000,
                        help='API服务器端口 (默认: 8000)')
     parser.add_argument('--worker-port', type=int, default=9000,
@@ -231,7 +231,7 @@ def main():
             devices = 'auto'
     
     # 创建启动器
-    launcher = TianshuLauncher(
+    launcher = HeavyLauncher(
         output_dir=args.output_dir,
         api_port=args.api_port,
         worker_port=args.worker_port,
@@ -253,4 +253,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

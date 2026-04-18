@@ -33,10 +33,11 @@ def download_json(url):
 
 def load_template_json(url):
     repo_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-    local_template = os.path.join(repo_root, "mineru.template.json")
-    if os.path.exists(local_template):
-        with open(local_template, "r", encoding="utf-8") as f:
-            return json.load(f)
+    for template_name in ("vparse.template.json", "mineru.template.json"):
+        local_template = os.path.join(repo_root, template_name)
+        if os.path.exists(local_template):
+            with open(local_template, "r", encoding="utf-8") as f:
+                return json.load(f)
     return download_json(url)
 
 

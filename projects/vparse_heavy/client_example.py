@@ -1,6 +1,6 @@
 """
-VParse Tianshu - Client Example
-天枢客户端示例
+VParse Heavy - Client Example
+Heavy客户端示例
 
 演示如何使用 Python 客户端提交任务和查询状态
 """
@@ -12,8 +12,8 @@ import time
 from typing import Dict
 
 
-class TianshuClient:
-    """天枢客户端"""
+class HeavyClient:
+    """Heavy客户端"""
     
     def __init__(self, api_url='http://localhost:8000'):
         self.api_url = api_url
@@ -152,7 +152,7 @@ async def example_single_task():
     logger.info("示例1：提交单个任务")
     logger.info("=" * 60)
     
-    client = TianshuClient()
+    client = HeavyClient()
     
     async with aiohttp.ClientSession() as session:
         # 提交任务
@@ -181,7 +181,7 @@ async def example_batch_tasks():
     logger.info("示例2：批量提交多个任务")
     logger.info("=" * 60)
     
-    client = TianshuClient()
+    client = HeavyClient()
     
     # 准备任务列表
     files = [
@@ -228,7 +228,7 @@ async def example_priority_tasks():
     logger.info("示例3：优先级队列")
     logger.info("=" * 60)
     
-    client = TianshuClient()
+    client = HeavyClient()
     
     async with aiohttp.ClientSession() as session:
         # 提交低优先级任务
@@ -257,7 +257,7 @@ async def example_queue_monitoring():
     logger.info("示例4：监控队列状态")
     logger.info("=" * 60)
     
-    client = TianshuClient()
+    client = HeavyClient()
     
     async with aiohttp.ClientSession() as session:
         # 获取队列统计

@@ -1,6 +1,6 @@
 """
-VParse Tianshu - SQLite Task Database Manager
-天枢任务数据库管理器
+VParse Heavy - SQLite Task Database Manager
+Heavy任务数据库管理器
 
 负责任务的持久化存储、状态管理和原子性操作
 """
@@ -15,7 +15,7 @@ from pathlib import Path
 class TaskDB:
     """任务数据库管理类"""
     
-    def __init__(self, db_path='mineru_tianshu.db'):
+    def __init__(self, db_path='vparse_heavy.db'):
         self.db_path = db_path
         self._init_db()
     
@@ -410,7 +410,7 @@ class TaskDB:
 
 if __name__ == '__main__':
     # 测试代码
-    db = TaskDB('test_tianshu.db')
+    db = TaskDB('test_heavy.db')
     
     # 创建测试任务
     task_id = db.create_task(
@@ -431,6 +431,5 @@ if __name__ == '__main__':
     print(f"Queue stats: {stats}")
     
     # 清理测试数据库
-    Path('test_tianshu.db').unlink(missing_ok=True)
+    Path('test_heavy.db').unlink(missing_ok=True)
     print("Test completed!")
-

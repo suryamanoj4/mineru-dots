@@ -15,8 +15,10 @@ dist
 .eggs
 *.egg-info
 /.cache
+/.vparse
 /.mineru
 /models
 /huggingface
 /modelscope
+/vparse.json
 /mineru.json

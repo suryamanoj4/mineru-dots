@@ -55,7 +55,7 @@ tesseract = [
     "pytesseract>=0.3.10",
 ]
 lite = [
-    "mineru[tesseract]",
+    "vparse[tesseract]",
 ]
 vlm = [
     "torch>=2.6.0,<3",

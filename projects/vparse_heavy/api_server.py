@@ -1,6 +1,6 @@
 """
-VParse Tianshu - API Server
-天枢API服务器
+VParse Heavy - API Server
+HeavyAPI服务器
 
 提供RESTful API接口用于任务提交、查询和管理
 """
@@ -23,8 +23,8 @@ from task_db import TaskDB
 
 # 初始化 FastAPI 应用
 app = FastAPI(
-    title="VParse Tianshu API",
-    description="天枢 - 企业级多GPU文档解析服务",
+    title="VParse Heavy API",
+    description="Heavy - 企业级多GPU文档解析服务",
     version="1.0.0"
 )
 
@@ -41,7 +41,7 @@ app.add_middleware(
 db = TaskDB()
 
 # 配置输出目录
-OUTPUT_DIR = Path('/tmp/mineru_tianshu_output')
+OUTPUT_DIR = Path('/tmp/vparse_heavy_output')
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # MinIO 配置
@@ -232,9 +232,9 @@ def get_images_info(image_dir: Path, upload_to_minio: bool = False):
 async def root():
     """API根路径"""
     return {
-        "service": "VParse Tianshu",
+        "service": "VParse Heavy",
         "version": "1.0.0",
-        "description": "天枢 - 企业级多GPU文档解析服务",
+        "description": "Heavy - 企业级多GPU文档解析服务",
         "docs": "/docs"
     }
 
@@ -739,7 +739,7 @@ if __name__ == '__main__':
     # 从环境变量读取端口，默认为8000
     api_port = int(os.getenv('API_PORT', '8000'))
     
-    logger.info("🚀 Starting VParse Tianshu API Server...")
+    logger.info("🚀 Starting VParse Heavy API Server...")
     logger.info(f"📖 API Documentation: http://localhost:{api_port}/docs")
     
     uvicorn.run(
@@ -748,4 +748,3 @@ if __name__ == '__main__':
         port=api_port,
         log_level='info'
     )
-

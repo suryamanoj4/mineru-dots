@@ -9,6 +9,7 @@ import numpy as np
 
 from .model_init import AtomModelSingleton
 from .model_list import AtomicModel
+from ...utils.compat import get_env_with_legacy
 from ...utils.config_reader import get_formula_enable, get_table_enable
 from ...utils.model_utils import crop_img, get_res_list_from_layout_res, clean_vram
 from ...utils.ocr_utils import merge_det_boxes, update_det_boxes, sorted_boxes
@@ -54,7 +55,7 @@ class BatchAnalyze:
             pil_images, YOLO_LAYOUT_BASE_BATCH_SIZE
         )
 
-        ocr_engine = os.getenv("MINERU_OCR_ENGINE", "paddle")
+        ocr_engine = get_env_with_legacy("VPARSE_OCR_ENGINE", "MINERU_OCR_ENGINE", "paddle")
 
         if self.formula_enable:
             # 公式检测
@@ -284,7 +285,7 @@ class BatchAnalyze:
 
                 if not hasattr(ocr_model, "text_detector"):
                     logger.info(
-                        f"OCR engine {os.getenv('MINERU_OCR_ENGINE', 'paddle')} does not support batched detection; "
+                        f"OCR engine {get_env_with_legacy('VPARSE_OCR_ENGINE', 'MINERU_OCR_ENGINE', 'paddle')} does not support batched detection; "
                         f"falling back to per-image OCR detection for language {lang}."
                     )
                     for crop_info in tqdm(lang_crop_list, desc=f"OCR-det {lang}"):

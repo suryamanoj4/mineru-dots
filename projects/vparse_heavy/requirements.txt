@@ -1,5 +1,5 @@
-# VParse Tianshu Requirements
-# 天枢项目依赖
+# VParse Heavy Requirements
+# Heavy项目依赖
 
 # Core VParse
 vparse[core]>=2.5.0

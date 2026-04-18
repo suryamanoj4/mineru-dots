@@ -5,9 +5,10 @@ import os
 import subprocess
 import sys
 
-from mineru.cli.models_download import configure_model, has_pipeline_models
-from mineru.utils.config_reader import get_local_models_dir
-from mineru.utils.enum_class import ModelPath
+from vparse.cli.models_download import configure_model, has_pipeline_models
+from vparse.utils.compat import get_config_file_path, get_env_with_legacy
+from vparse.utils.config_reader import get_local_models_dir
+from vparse.utils.enum_class import ModelPath
 
 
 DEFAULT_CONFIG_TEMPLATE = {
@@ -40,10 +41,7 @@ def set_default_env(var_name: str, default: str) -> str:
 
 
 def get_config_path() -> str:
-    config_name = os.getenv("MINERU_TOOLS_CONFIG_JSON") or "mineru.json"
-    if os.path.isabs(config_name):
-        return config_name
-    return os.path.join(os.path.expanduser("~"), config_name)
+    return get_config_file_path(prefer_existing=True)
 
 
 def ensure_config_file() -> None:
@@ -68,7 +66,7 @@ def requested_model_types(prefetch_value: str) -> list[str]:
             continue
         if part not in {"pipeline", "vlm"}:
             raise SystemExit(
-                f"[docker-startup] Unsupported MINERU_PREFETCH_MODELS value: {prefetch_value}"
+                f"[docker-startup] Unsupported VPARSE_PREFETCH_MODELS value: {prefetch_value}"
             )
         if part not in ordered:
             ordered.append(part)
@@ -117,7 +115,7 @@ def cache_candidates(model_type: str, model_source: str) -> list[str]:
         pattern = os.path.expanduser(f"~/.cache/modelscope/hub/{repo_name}*")
     else:
         raise SystemExit(
-            f"[docker-startup] Unsupported MINERU_MODEL_SOURCE value: {model_source}"
+            f"[docker-startup] Unsupported VPARSE_MODEL_SOURCE value: {model_source}"
         )
 
     candidates = [path for path in glob.glob(pattern) if os.path.isdir(path)]
@@ -138,14 +136,14 @@ def resolve_download_mode(prefetch_mode: str) -> str:
     if prefetch_mode in {"pipeline,vlm", "vlm,pipeline"}:
         return "all"
     raise SystemExit(
-        f"[docker-startup] Unsupported MINERU_PREFETCH_MODELS value: {prefetch_mode}"
+        f"[docker-startup] Unsupported VPARSE_PREFETCH_MODELS value: {prefetch_mode}"
     )
 
 
 def ensure_required_models(prefetch_mode: str) -> None:
     requested = requested_model_types(prefetch_mode)
     configured_roots = get_local_models_dir() or {}
-    model_source = os.environ["MINERU_MODEL_SOURCE"]
+    model_source = get_env_with_legacy("VPARSE_MODEL_SOURCE", "MINERU_MODEL_SOURCE")
 
     missing: list[str] = []
     for model_type in requested:
@@ -176,7 +174,7 @@ def ensure_required_models(prefetch_mode: str) -> None:
         f"[docker-startup] Downloading {download_mode} models into mounted cache volumes..."
     )
     subprocess.run(
-        ["mineru-models-download", "-s", model_source, "-m", download_mode],
+        ["vparse-models-download", "-s", model_source, "-m", download_mode],
         check=True,
     )
 
@@ -187,8 +185,20 @@ def configured_model_exists() -> bool:
 
 
 def main(argv: list[str]) -> int:
-    set_default_env("MINERU_MODEL_SOURCE", "huggingface")
-    prefetch_mode = set_default_env("MINERU_PREFETCH_MODELS", "none").lower()
+    model_source = get_env_with_legacy("VPARSE_MODEL_SOURCE", "MINERU_MODEL_SOURCE")
+    if model_source is None:
+        model_source = set_default_env("VPARSE_MODEL_SOURCE", "huggingface")
+    else:
+        os.environ["VPARSE_MODEL_SOURCE"] = model_source
+    os.environ["MINERU_MODEL_SOURCE"] = model_source
+
+    prefetch_mode = get_env_with_legacy("VPARSE_PREFETCH_MODELS", "MINERU_PREFETCH_MODELS")
+    if prefetch_mode is None:
+        prefetch_mode = set_default_env("VPARSE_PREFETCH_MODELS", "none")
+    else:
+        os.environ["VPARSE_PREFETCH_MODELS"] = prefetch_mode
+    os.environ["MINERU_PREFETCH_MODELS"] = prefetch_mode
+    prefetch_mode = prefetch_mode.lower()
 
     ensure_config_file()
 
@@ -196,6 +206,7 @@ def main(argv: list[str]) -> int:
         ensure_required_models(prefetch_mode)
 
     if configured_model_exists():
+        os.environ["VPARSE_MODEL_SOURCE"] = "local"
         os.environ["MINERU_MODEL_SOURCE"] = "local"
 
     if not argv:

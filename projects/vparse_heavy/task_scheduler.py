@@ -1,6 +1,6 @@
 """
-VParse Tianshu - Task Scheduler (Optional)
-天枢任务调度器（可选）
+VParse Heavy - Task Scheduler (Optional)
+Heavy任务调度器（可选）
 
 在 Worker 自动循环模式下，调度器主要用于：
 1. 监控队列状态（默认5分钟一次）
@@ -183,7 +183,7 @@ class TaskScheduler:
     
     def start(self):
         """启动调度器"""
-        logger.info("🚀 Starting VParse Tianshu Task Scheduler...")
+        logger.info("🚀 Starting VParse Heavy Task Scheduler...")
         
         # 设置信号处理
         def signal_handler(sig, frame):
@@ -219,7 +219,7 @@ async def health_check(litserve_url: str) -> bool:
 if __name__ == '__main__':
     import argparse
     
-    parser = argparse.ArgumentParser(description='VParse Tianshu Task Scheduler (Optional)')
+    parser = argparse.ArgumentParser(description='VParse Heavy Task Scheduler (Optional)')
     parser.add_argument('--litserve-url', type=str, default='http://localhost:9000/predict',
                        help='LitServe worker URL')
     parser.add_argument('--monitor-interval', type=int, default=300,

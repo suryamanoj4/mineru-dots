@@ -1,6 +1,6 @@
 """
-VParse Tianshu - LitServe Worker
-天枢 LitServe Worker
+VParse Heavy - LitServe Worker
+Heavy LitServe Worker
 
 使用 LitServe 实现 GPU 资源的自动负载均衡
 Worker 主动循环拉取任务并处理
@@ -50,7 +50,7 @@ class VParseWorkerAPI(ls.LitAPI):
     PDF_IMAGE_FORMATS = {'.pdf', '.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.tif', '.webp'}
     # 其他所有格式都使用 MarkItDown 解析
     
-    def __init__(self, output_dir='/tmp/mineru_tianshu_output', worker_id_prefix='tianshu', 
+    def __init__(self, output_dir='/tmp/vparse_heavy_output', worker_id_prefix='heavy', 
                  poll_interval=0.5, enable_worker_loop=True):
         super().__init__()
         self.output_dir = Path(output_dir)
@@ -425,7 +425,7 @@ class VParseWorkerAPI(ls.LitAPI):
 
 
 def start_litserve_workers(
-    output_dir='/tmp/mineru_tianshu_output',
+    output_dir='/tmp/vparse_heavy_output',
     accelerator='auto',
     devices='auto',
     workers_per_device=1,
@@ -446,7 +446,7 @@ def start_litserve_workers(
         enable_worker_loop: 是否启用 worker 自动循环拉取任务
     """
     logger.info("=" * 60)
-    logger.info("🚀 Starting VParse Tianshu LitServe Worker Pool")
+    logger.info("🚀 Starting VParse Heavy LitServe Worker Pool")
     logger.info("=" * 60)
     logger.info(f"📂 Output Directory: {output_dir}")
     logger.info(f"🎮 Accelerator: {accelerator}")
@@ -505,8 +505,8 @@ def start_litserve_workers(
 if __name__ == '__main__':
     import argparse
     
-    parser = argparse.ArgumentParser(description='VParse Tianshu LitServe Worker Pool')
-    parser.add_argument('--output-dir', type=str, default='/tmp/mineru_tianshu_output',
+    parser = argparse.ArgumentParser(description='VParse Heavy LitServe Worker Pool')
+    parser.add_argument('--output-dir', type=str, default='/tmp/vparse_heavy_output',
                        help='Output directory for processed files')
     parser.add_argument('--accelerator', type=str, default='auto',
                        choices=['auto', 'cuda', 'cpu', 'mps'],
@@ -542,5 +542,4 @@ if __name__ == '__main__':
         poll_interval=args.poll_interval,
         enable_worker_loop=not args.disable_worker_loop
     )
-
 

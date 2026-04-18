@@ -4,11 +4,17 @@ import types
 import unittest
 from unittest import mock
 
-from mineru.cli import common
-from mineru.model.ocr.tesseract import TesseractOCRModel
+from mineru.cli import common as legacy_common
+from mineru.model.ocr.tesseract import TesseractOCRModel as LegacyTesseractOCRModel
+from vparse.cli import common
+from vparse.model.ocr.tesseract import TesseractOCRModel
 
 
 class PipelineLiteTests(unittest.TestCase):
+    def test_legacy_imports_alias_vparse_modules(self):
+        self.assertIs(legacy_common, common)
+        self.assertIs(LegacyTesseractOCRModel, TesseractOCRModel)
+
     def test_get_pipeline_subdir(self):
         self.assertEqual(common.get_pipeline_subdir("pipeline", "auto"), "auto")
         self.assertEqual(
@@ -22,6 +28,23 @@ class PipelineLiteTests(unittest.TestCase):
                 self.assertEqual(common.os.environ["MINERU_OCR_ENGINE"], "tesseract")
 
             self.assertEqual(common.os.environ["MINERU_OCR_ENGINE"], "paddle")
+
+    def test_vparse_env_preferred_with_mineru_fallback(self):
+        with mock.patch.dict(common.os.environ, {}, clear=False):
+            common.os.environ.pop("VPARSE_OCR_ENGINE", None)
+            common.os.environ.pop("MINERU_OCR_ENGINE", None)
+
+            common.os.environ["MINERU_OCR_ENGINE"] = "tesseract"
+            self.assertEqual(
+                common.get_env_with_legacy("VPARSE_OCR_ENGINE", "MINERU_OCR_ENGINE", "paddle"),
+                "tesseract",
+            )
+
+            common.os.environ["VPARSE_OCR_ENGINE"] = "paddle"
+            self.assertEqual(
+                common.get_env_with_legacy("VPARSE_OCR_ENGINE", "MINERU_OCR_ENGINE", "tesseract"),
+                "paddle",
+            )
 
     def test_do_parse_routes_pipeline_lite_to_pipeline_handler(self):
         captured = {}

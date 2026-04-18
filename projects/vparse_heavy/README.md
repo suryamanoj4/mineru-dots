@@ -1,6 +1,6 @@
-# VParse Tianshu (天枢)
+# VParse Heavy (Heavy)
 
-> 天枢 - 企业级多GPU文档解析服务  
+> Heavy - 企业级多GPU文档解析服务  
 > 结合 SQLite 任务队列 + LitServe GPU负载均衡的最佳方案
 
 ## 🌟 核心特性
@@ -48,7 +48,7 @@
 ### 1. 安装依赖
 
 ```bash
-cd projects/mineru_tianshu
+cd projects/vparse_heavy
 pip install -r requirements.txt
 ```
 
@@ -100,7 +100,7 @@ curl http://localhost:8000/api/v1/tasks/{task_id}?upload_images=true
 ## 📁 项目结构
 
 ```
-mineru_tianshu/
+vparse_heavy/
 ├── task_db.py              # 数据库管理 (并发安全,支持清理)
 ├── api_server.py           # API 服务器 (自动返回内容)
 ├── litserve_worker.py      # Worker Pool (主动拉取 + 双解析器)
@@ -231,7 +231,7 @@ python client_example.py priority # 优先级队列
 python start_all.py [选项]
 
 选项:
-  --output-dir PATH                 输出目录 (默认: /tmp/mineru_tianshu_output)
+  --output-dir PATH                 输出目录 (默认: /tmp/vparse_heavy_output)
   --api-port PORT                   API端口 (默认: 8000)
   --worker-port PORT                Worker端口 (默认: 9000)
   --accelerator TYPE                加速器类型: auto/cuda/cpu/mps (默认: auto)
@@ -475,7 +475,7 @@ python start_all.py --cleanup-old-files-days 0
 **排查**:
 ```bash
 # 检查是否有多个 TaskDB 实例连接不同的数据库文件
-# 确保所有组件使用同一个 mineru_tianshu.db
+# 确保所有组件使用同一个 vparse_heavy.db
 ```
 
 ## 🛠️ 技术栈
@@ -559,7 +559,6 @@ minio>=7.2.0             # MinIO 对象存储
 
 ---
 
-**天枢 (Tianshu)** - 企业级多 GPU 文档解析服务 ⚡️
+**Heavy (Heavy)** - 企业级多 GPU 文档解析服务 ⚡️
 
 *北斗第一星，寓意核心调度能力*
-
