@@ -3,13 +3,13 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mineru"
+name = "vparse"
 dynamic = ["version"]
 license = { text = "AGPL-3.0" }
 description = "A practical tool for converting PDF to Markdown"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
-keywords = ["magic-pdf", "mineru", "MinerU", "convert", "pdf", "markdown"]
+keywords = ["magic-pdf", "vparse", "VParse", "convert", "pdf", "markdown"]
 classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -41,7 +41,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
-    "mineru[core]",
+    "vparse[core]",
     "pytest",
     "pytest-cov",
     "coverage",
@@ -55,7 +55,7 @@ tesseract = [
     "pytesseract>=0.3.10",
 ]
 lite = [
-    "mineru[tesseract]",
+    "vparse[tesseract]",
 ]
 vlm = [
     "torch>=2.6.0,<3",
@@ -102,55 +102,63 @@ gradio = [
     "gradio-pdf==0.0.22",
 ]
 core = [
-    "mineru[lite]",
-    "mineru[vlm]",
-    "mineru[pipeline]",
-    "mineru[api]",
-    "mineru[gradio]",
+    "vparse[lite]",
+    "vparse[vlm]",
+    "vparse[pipeline]",
+    "vparse[api]",
+    "vparse[gradio]",
 ]
 all = [
-    "mineru[core]",
-    "mineru[mlx] ; sys_platform == 'darwin'",
-    "mineru[vllm] ; sys_platform == 'linux'",
-    "mineru[lmdeploy] ; sys_platform == 'windows'",
+    "vparse[core]",
+    "vparse[mlx] ; sys_platform == 'darwin'",
+    "vparse[vllm] ; sys_platform == 'linux'",
+    "vparse[lmdeploy] ; sys_platform == 'windows'",
 ]
 
 [project.urls]
-homepage = "https://mineru.net/"
-documentation = "https://opendatalab.github.io/MinerU/"
-repository = "https://github.com/opendatalab/MinerU"
-issues = "https://github.com/opendatalab/MinerU/issues"
+homepage = "https://vparse.net/"
+documentation = "https://opendatalab.github.io/VParse/"
+repository = "https://github.com/opendatalab/VParse"
+issues = "https://github.com/opendatalab/VParse/issues"
 
 [project.scripts]
-mineru = "mineru.cli.__main__:main"
-mineru-vllm-server = "mineru.cli.vlm_server:vllm_server"
-mineru-lmdeploy-server = "mineru.cli.vlm_server:lmdeploy_server"
-mineru-openai-server = "mineru.cli.vlm_server:openai_server"
-mineru-models-download = "mineru.cli.models_download:download_models"
-mineru-api = "mineru.cli.fast_api:main"
-mineru-gradio = "mineru.cli.gradio_app:main"
+vparse = "vparse.cli.__main__:main"
+vparse-vllm-server = "vparse.cli.vlm_server:vllm_server"
+vparse-lmdeploy-server = "vparse.cli.vlm_server:lmdeploy_server"
+vparse-openai-server = "vparse.cli.vlm_server:openai_server"
+vparse-models-download = "vparse.cli.models_download:download_models"
+vparse-api = "vparse.cli.fast_api:main"
+vparse-gradio = "vparse.cli.gradio_app:main"
+# Backward-compatible CLI aliases
+mineru = "vparse.cli.__main__:main"
+mineru-vllm-server = "vparse.cli.vlm_server:vllm_server"
+mineru-lmdeploy-server = "vparse.cli.vlm_server:lmdeploy_server"
+mineru-openai-server = "vparse.cli.vlm_server:openai_server"
+mineru-models-download = "vparse.cli.models_download:download_models"
+mineru-api = "vparse.cli.fast_api:main"
+mineru-gradio = "vparse.cli.gradio_app:main"
 
 [tool.setuptools.dynamic]
-version = { attr = "mineru.version.__version__" }
+version = { attr = "vparse.version.__version__" }
 
 [tool.setuptools.packages.find]
-include = ["mineru*"]
+include = ["vparse*", "mineru*"]
 namespaces = false
 
 [tool.setuptools.package-data]
-"mineru" = ["resources/**"]
-"mineru.model.utils.pytorchocr.utils" = ["resources/**"]
+"vparse" = ["resources/**"]
+"vparse.model.utils.pytorchocr.utils" = ["resources/**"]
 
 [tool.setuptools]
 include-package-data = true
 zip-safe = false
 
 [tool.pytest.ini_options]
-addopts = "-s --cov=mineru --cov-report html"
+addopts = "-s --cov=vparse --cov-report html"
 
 [tool.coverage.run]
 command_line = "-m pytest tests/unittest/test_e2e.py"
-source = ["mineru/"]
+source = ["vparse/"]
 omit = [
     "*/gradio_app.py",
     "*/models_download.py",

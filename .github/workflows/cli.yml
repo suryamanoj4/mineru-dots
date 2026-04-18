@@ -12,7 +12,7 @@ on:
       - "**.md"
 jobs:
   cli-test:
-    if: github.repository == 'opendatalab/MinerU'
+    if: github.repository == 'opendatalab/VParse'
     runs-on: ubuntu-latest
     timeout-minutes: 240
     strategy:

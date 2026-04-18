@@ -6,22 +6,22 @@ from pathlib import Path
 from loguru import logger
 from bs4 import BeautifulSoup
 from fuzzywuzzy import fuzz
-from mineru.cli.common import (
+from vparse.cli.common import (
     convert_pdf_bytes_to_bytes_by_pypdfium2,
     prepare_env,
     read_fn,
 )
-from mineru.data.data_reader_writer import FileBasedDataWriter
-from mineru.utils.enum_class import MakeMode
-from mineru.backend.vlm.vlm_analyze import doc_analyze as vlm_doc_analyze
-from mineru.backend.pipeline.pipeline_analyze import doc_analyze as pipeline_doc_analyze
-from mineru.backend.pipeline.pipeline_middle_json_mkcontent import (
+from vparse.data.data_reader_writer import FileBasedDataWriter
+from vparse.utils.enum_class import MakeMode
+from vparse.backend.vlm.vlm_analyze import doc_analyze as vlm_doc_analyze
+from vparse.backend.pipeline.pipeline_analyze import doc_analyze as pipeline_doc_analyze
+from vparse.backend.pipeline.pipeline_middle_json_mkcontent import (
     union_make as pipeline_union_make,
 )
-from mineru.backend.pipeline.model_json_to_middle_json import (
+from vparse.backend.pipeline.model_json_to_middle_json import (
     result_to_middle_json as pipeline_result_to_middle_json,
 )
-from mineru.backend.vlm.vlm_middle_json_mkcontent import union_make as vlm_union_make
+from vparse.backend.vlm.vlm_middle_json_mkcontent import union_make as vlm_union_make
 
 
 def test_pipeline_with_two_config():
@@ -36,7 +36,7 @@ def test_pipeline_with_two_config():
         if doc_path.suffix in pdf_suffixes + image_suffixes:
             doc_path_list.append(doc_path)
 
-    # os.environ["MINERU_MODEL_SOURCE"] = "modelscope"
+    # os.environ["VPARSE_MODEL_SOURCE"] = "modelscope"
 
     pdf_file_names = []
     pdf_bytes_list = []
@@ -108,7 +108,7 @@ def test_pipeline_with_two_config():
 #         if doc_path.suffix in pdf_suffixes + image_suffixes:
 #             doc_path_list.append(doc_path)
 #
-#     # os.environ["MINERU_MODEL_SOURCE"] = "modelscope"
+#     # os.environ["VPARSE_MODEL_SOURCE"] = "modelscope"
 #
 #     pdf_file_names = []
 #     pdf_bytes_list = []

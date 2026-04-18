@@ -1,15 +1,8 @@
 #!/usr/bin/env python
-# Entry point with spawn multiprocessing for vLLM compatibility
-import os
-import sys
+"""Legacy mineru CLI entrypoint forwarding to vparse."""
 
-# Set environment variable to force vLLM to use spawn method
-# This must be set before importing vllm or initializing CUDA
-os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
-
-# Import main CLI command (needed for package entry point)
-from mineru.cli.client import main
+from vparse.cli.__main__ import main
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

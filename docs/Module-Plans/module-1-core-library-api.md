@@ -149,7 +149,7 @@ Wire up `vparse/__init__.py` to export all public symbols. Refactor the existing
 ## Phase dependency graph
 
 ```
-Phase 1: Rebranding MinerU → VParse            (no dependencies)
+Phase 1: Rebranding VParse → VParse            (no dependencies)
     ↓
 Phase 2: Exceptions + PyPI Packaging          (depends on Phase 1)
     ↓

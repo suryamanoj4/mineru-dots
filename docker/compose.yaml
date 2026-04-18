@@ -1,23 +1,23 @@
 services:
-  mineru-api-cpu:
+  vparse-api-cpu:
     profiles: ["cpu"]
     build:
       context: ..
       dockerfile: docker/global/Dockerfile.cpu
-    container_name: mineru-api-cpu
+    container_name: vparse-api-cpu
     restart: always
     ports:
       - "8000:8000"
     environment:
-      MINERU_MODEL_SOURCE: huggingface
-      MINERU_PREFETCH_MODELS: pipeline
-      MINERU_TOOLS_CONFIG_JSON: /root/.mineru/mineru.json
-      MINERU_API_ENABLE_FASTAPI_DOCS: "1"
+      VPARSE_MODEL_SOURCE: huggingface
+      VPARSE_PREFETCH_MODELS: pipeline
+      VPARSE_TOOLS_CONFIG_JSON: /root/.vparse/vparse.json
+      VPARSE_API_ENABLE_FASTAPI_DOCS: "1"
     entrypoint:
       - python3
       - /app/docker/global/start-with-models.py
     command:
-      - mineru-api
+      - vparse-api
       - --host
       - 0.0.0.0
       - --port
@@ -27,61 +27,63 @@ services:
       stack: 67108864
     ipc: host
     volumes:
-      - mineru-hf-cache:/root/.cache/huggingface
-      - mineru-ms-cache:/root/.cache/modelscope
-      - mineru-config:/root/.mineru
+      - vparse-hf-cache:/root/.cache/huggingface
+      - vparse-ms-cache:/root/.cache/modelscope
+      - vparse-config:/root/.vparse
+      - vparse-config:/root/.mineru
 
-  mineru-gradio-cpu:
+  vparse-gradio-cpu:
     profiles: ["cpu"]
     build:
       context: ..
       dockerfile: docker/global/Dockerfile.cpu
-    container_name: mineru-gradio-cpu
+    container_name: vparse-gradio-cpu
     restart: always
     depends_on:
-      - mineru-api-cpu
+      - vparse-api-cpu
     ports:
       - "7860:7860"
     environment:
-      MINERU_MODEL_SOURCE: huggingface
-      MINERU_PREFETCH_MODELS: none
-      MINERU_TOOLS_CONFIG_JSON: /root/.mineru/mineru.json
-      MINERU_GRADIO_BACKEND_OPTIONS: pipeline
-      MINERU_GRADIO_DEFAULT_BACKEND: pipeline
-      MINERU_GRADIO_BACKEND_API_URL: http://mineru-api-cpu:8000
+      VPARSE_MODEL_SOURCE: huggingface
+      VPARSE_PREFETCH_MODELS: none
+      VPARSE_TOOLS_CONFIG_JSON: /root/.vparse/vparse.json
+      VPARSE_GRADIO_BACKEND_OPTIONS: pipeline
+      VPARSE_GRADIO_DEFAULT_BACKEND: pipeline
+      VPARSE_GRADIO_BACKEND_API_URL: http://vparse-api-cpu:8000
     entrypoint:
       - python3
       - /app/docker/global/start-with-models.py
     command:
-      - mineru-gradio
+      - vparse-gradio
       - --server-name
       - 0.0.0.0
       - --server-port
       - "7860"
     volumes:
-      - mineru-hf-cache:/root/.cache/huggingface
-      - mineru-ms-cache:/root/.cache/modelscope
-      - mineru-config:/root/.mineru
+      - vparse-hf-cache:/root/.cache/huggingface
+      - vparse-ms-cache:/root/.cache/modelscope
+      - vparse-config:/root/.vparse
+      - vparse-config:/root/.mineru
 
-  mineru-api-gpu:
+  vparse-api-gpu:
     profiles: ["gpu"]
     build:
       context: ..
       dockerfile: docker/global/Dockerfile
-    container_name: mineru-api-gpu
+    container_name: vparse-api-gpu
     restart: always
     ports:
       - "8000:8000"
     environment:
-      MINERU_MODEL_SOURCE: huggingface
-      MINERU_PREFETCH_MODELS: vlm
-      MINERU_TOOLS_CONFIG_JSON: /root/.mineru/mineru.json
-      MINERU_API_ENABLE_FASTAPI_DOCS: "1"
+      VPARSE_MODEL_SOURCE: huggingface
+      VPARSE_PREFETCH_MODELS: vlm
+      VPARSE_TOOLS_CONFIG_JSON: /root/.vparse/vparse.json
+      VPARSE_API_ENABLE_FASTAPI_DOCS: "1"
     entrypoint:
       - python3
       - /app/docker/global/start-with-models.py
     command:
-      - mineru-api
+      - vparse-api
       - --host
       - 0.0.0.0
       - --port
@@ -93,9 +95,10 @@ services:
       stack: 67108864
     ipc: host
     volumes:
-      - mineru-hf-cache:/root/.cache/huggingface
-      - mineru-ms-cache:/root/.cache/modelscope
-      - mineru-config:/root/.mineru
+      - vparse-hf-cache:/root/.cache/huggingface
+      - vparse-ms-cache:/root/.cache/modelscope
+      - vparse-config:/root/.vparse
+      - vparse-config:/root/.mineru
     deploy:
       resources:
         reservations:
@@ -104,57 +107,58 @@ services:
               device_ids: ["0"]
               capabilities: [gpu]
 
-  mineru-gradio-gpu:
+  vparse-gradio-gpu:
     profiles: ["gpu"]
     build:
       context: ..
       dockerfile: docker/global/Dockerfile.cpu
-    container_name: mineru-gradio-gpu
+    container_name: vparse-gradio-gpu
     restart: always
     depends_on:
-      - mineru-api-gpu
+      - vparse-api-gpu
     ports:
       - "7860:7860"
     environment:
-      MINERU_MODEL_SOURCE: huggingface
-      MINERU_PREFETCH_MODELS: none
-      MINERU_TOOLS_CONFIG_JSON: /root/.mineru/mineru.json
-      MINERU_GRADIO_BACKEND_OPTIONS: vlm-auto-engine
-      MINERU_GRADIO_DEFAULT_BACKEND: vlm-auto-engine
-      MINERU_GRADIO_BACKEND_API_URL: http://mineru-api-gpu:8000
+      VPARSE_MODEL_SOURCE: huggingface
+      VPARSE_PREFETCH_MODELS: none
+      VPARSE_TOOLS_CONFIG_JSON: /root/.vparse/vparse.json
+      VPARSE_GRADIO_BACKEND_OPTIONS: vlm-auto-engine
+      VPARSE_GRADIO_DEFAULT_BACKEND: vlm-auto-engine
+      VPARSE_GRADIO_BACKEND_API_URL: http://vparse-api-gpu:8000
     entrypoint:
       - python3
       - /app/docker/global/start-with-models.py
     command:
-      - mineru-gradio
+      - vparse-gradio
       - --server-name
       - 0.0.0.0
       - --server-port
       - "7860"
     volumes:
-      - mineru-hf-cache:/root/.cache/huggingface
-      - mineru-ms-cache:/root/.cache/modelscope
-      - mineru-config:/root/.mineru
+      - vparse-hf-cache:/root/.cache/huggingface
+      - vparse-ms-cache:/root/.cache/modelscope
+      - vparse-config:/root/.vparse
+      - vparse-config:/root/.mineru
 
-  mineru-api-hybrid:
+  vparse-api-hybrid:
     profiles: ["hybrid"]
     build:
       context: ..
       dockerfile: docker/global/Dockerfile
-    container_name: mineru-api-hybrid
+    container_name: vparse-api-hybrid
     restart: always
     ports:
       - "8000:8000"
     environment:
-      MINERU_MODEL_SOURCE: huggingface
-      MINERU_PREFETCH_MODELS: all
-      MINERU_TOOLS_CONFIG_JSON: /root/.mineru/mineru.json
-      MINERU_API_ENABLE_FASTAPI_DOCS: "1"
+      VPARSE_MODEL_SOURCE: huggingface
+      VPARSE_PREFETCH_MODELS: all
+      VPARSE_TOOLS_CONFIG_JSON: /root/.vparse/vparse.json
+      VPARSE_API_ENABLE_FASTAPI_DOCS: "1"
     entrypoint:
       - python3
       - /app/docker/global/start-with-models.py
     command:
-      - mineru-api
+      - vparse-api
       - --host
       - 0.0.0.0
       - --port
@@ -166,9 +170,10 @@ services:
       stack: 67108864
     ipc: host
     volumes:
-      - mineru-hf-cache:/root/.cache/huggingface
-      - mineru-ms-cache:/root/.cache/modelscope
-      - mineru-config:/root/.mineru
+      - vparse-hf-cache:/root/.cache/huggingface
+      - vparse-ms-cache:/root/.cache/modelscope
+      - vparse-config:/root/.vparse
+      - vparse-config:/root/.mineru
     deploy:
       resources:
         reservations:
@@ -177,39 +182,40 @@ services:
               device_ids: ["0"]
               capabilities: [gpu]
 
-  mineru-gradio-hybrid:
+  vparse-gradio-hybrid:
     profiles: ["hybrid"]
     build:
       context: ..
       dockerfile: docker/global/Dockerfile.cpu
-    container_name: mineru-gradio-hybrid
+    container_name: vparse-gradio-hybrid
     restart: always
     depends_on:
-      - mineru-api-hybrid
+      - vparse-api-hybrid
     ports:
       - "7860:7860"
     environment:
-      MINERU_MODEL_SOURCE: huggingface
-      MINERU_PREFETCH_MODELS: none
-      MINERU_TOOLS_CONFIG_JSON: /root/.mineru/mineru.json
-      MINERU_GRADIO_BACKEND_OPTIONS: hybrid-auto-engine
-      MINERU_GRADIO_DEFAULT_BACKEND: hybrid-auto-engine
-      MINERU_GRADIO_BACKEND_API_URL: http://mineru-api-hybrid:8000
+      VPARSE_MODEL_SOURCE: huggingface
+      VPARSE_PREFETCH_MODELS: none
+      VPARSE_TOOLS_CONFIG_JSON: /root/.vparse/vparse.json
+      VPARSE_GRADIO_BACKEND_OPTIONS: hybrid-auto-engine
+      VPARSE_GRADIO_DEFAULT_BACKEND: hybrid-auto-engine
+      VPARSE_GRADIO_BACKEND_API_URL: http://vparse-api-hybrid:8000
     entrypoint:
       - python3
       - /app/docker/global/start-with-models.py
     command:
-      - mineru-gradio
+      - vparse-gradio
       - --server-name
       - 0.0.0.0
       - --server-port
       - "7860"
     volumes:
-      - mineru-hf-cache:/root/.cache/huggingface
-      - mineru-ms-cache:/root/.cache/modelscope
-      - mineru-config:/root/.mineru
+      - vparse-hf-cache:/root/.cache/huggingface
+      - vparse-ms-cache:/root/.cache/modelscope
+      - vparse-config:/root/.vparse
+      - vparse-config:/root/.mineru
 
 volumes:
-  mineru-hf-cache:
-  mineru-ms-cache:
-  mineru-config:
+  vparse-hf-cache:
+  vparse-ms-cache:
+  vparse-config:

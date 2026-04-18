@@ -1,8 +1,8 @@
-# MinerU Output Files Documentation
+# VParse Output Files Documentation
 
 ## Overview
 
-After executing the `mineru` command, in addition to the main markdown file output, multiple auxiliary files are generated for debugging, quality inspection, and further processing. These files include:
+After executing the `vparse` command, in addition to the main markdown file output, multiple auxiliary files are generated for debugging, quality inspection, and further processing. These files include:
 
 - **Visual debugging files**: Help users intuitively understand the document parsing process and results
 - **Structured data files**: Contain detailed parsing data for secondary development
@@ -177,7 +177,7 @@ inference_result: list[PageInferenceResults] = []
 |------------|------|-------------|
 | `pdf_info` | `list[dict]` | Array of parsing results for each page |
 | `_backend` | `string` | Parsing mode: `pipeline` or `vlm` |
-| `_version_name` | `string` | MinerU version number |
+| `_version_name` | `string` | VParse version number |
 
 ##### Page Information Structure (pdf_info)
 
@@ -695,7 +695,7 @@ Example: discarded blocks output
 
 ## Summary
 
-The above files constitute MinerU's complete output results. Users can choose appropriate files for subsequent processing based on their needs:
+The above files constitute VParse's complete output results. Users can choose appropriate files for subsequent processing based on their needs:
 
 - **Model outputs** (Use raw outputs):  
     * model.json

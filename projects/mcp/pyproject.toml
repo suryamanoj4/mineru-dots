@@ -1,9 +1,9 @@
 [project]
-name = "mineru-mcp"
+name = "vparse-mcp"
 version = "1.0.0"
-description = "MinerU MCP Server for PDF to Markdown conversion"
+description = "VParse MCP Server for PDF to Markdown conversion"
 authors = [
-    {name = "minerU",email = "OpenDataLab@pjlab.org.cn"}
+    {name = "VParse",email = "OpenDataLab@pjlab.org.cn"}
 ]
 readme = "README.md"
 license = {text = "MIT"}
@@ -24,10 +24,11 @@ dependencies = [
 ]
 
 [project.scripts]
-mineru-mcp = "mineru.cli:main"
+vparse-mcp = "vparse.cli:main"
+mineru-mcp = "vparse.cli:main"
 
 [tool.poetry]
-packages = [{include = "mineru", from = "src"}]
+packages = [{include = "vparse", from = "src"}]
 
 [[tool.poetry.source]]
 name = "aliyun"

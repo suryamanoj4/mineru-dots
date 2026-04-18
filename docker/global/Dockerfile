@@ -23,7 +23,7 @@ WORKDIR /app
 
 COPY . /app
 
-# Install this branch from local source instead of pulling MinerU from PyPI.
+# Install this branch from local source instead of pulling VParse from PyPI.
 RUN python3 -m pip install -U pip --break-system-packages && \
     python3 -m pip install '.[core,vllm]' --break-system-packages && \
     python3 -m pip cache purge

@@ -1,4 +1,4 @@
-# MinerU v2.0 Multi-GPU Server
+# VParse v2.0 Multi-GPU Server
 
 [简体中文](README_zh.md)
 
@@ -6,12 +6,12 @@ A streamlined multi-GPU server implementation.
 
 ## Quick Start
 
-### 1. install MinerU
+### 1. install VParse
 
 ```bash
 pip install --upgrade pip
 pip install uv
-uv pip install -U "mineru[core]"
+uv pip install -U "vparse[core]"
 uv pip install litserve aiohttp loguru
 ```
 
@@ -34,7 +34,7 @@ Now, pdf files under folder [demo](../../demo/) will be processed in parallel. A
 Example showing how to start the server with custom settings:
 ```python
 server = ls.LitServer(
-    MinerUAPI(output_dir='/tmp/mineru_output'),
+    VParseAPI(output_dir='/tmp/vparse_output'),
     accelerator='auto',  # You can specify 'cuda'
     devices='auto',  # "auto" uses all available GPUs
     workers_per_device=1,  # One worker instance per GPU
@@ -50,15 +50,15 @@ The client supports both synchronous and asynchronous processing:
 ```python
 import asyncio
 import aiohttp
-from client import mineru_parse_async
+from client import vparse_parse_async
 
 async def process_documents():
     async with aiohttp.ClientSession() as session:
         # Basic usage
-        result = await mineru_parse_async(session, 'document.pdf')
+        result = await vparse_parse_async(session, 'document.pdf')
         
         # With custom options
-        result = await mineru_parse_async(
+        result = await vparse_parse_async(
             session, 
             'document.pdf',
             backend='pipeline',
@@ -78,7 +78,7 @@ async def process_multiple_files():
     files = ['doc1.pdf', 'doc2.pdf', 'doc3.pdf']
     
     async with aiohttp.ClientSession() as session:
-        tasks = [mineru_parse_async(session, file) for file in files]
+        tasks = [vparse_parse_async(session, file) for file in files]
         results = await asyncio.gather(*tasks)
     
     return results

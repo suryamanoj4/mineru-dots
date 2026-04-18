@@ -1,5 +1,5 @@
 name: 🐛 Bug Report
-description: Create a bug report for MinerU | MinerU 的 Bug 反馈
+description: Create a bug report for VParse | VParse 的 Bug 反馈
 labels: bug
 
 # We omit `title: "..."` so that the field defaults to blank. If we set it to
@@ -9,28 +9,28 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thank you for submitting a MinerU 🐛 Bug Report! | 感谢您提交 MinerU 🐛 Bug 反馈！
+        Thank you for submitting a VParse 🐛 Bug Report! | 感谢您提交 VParse 🐛 Bug 反馈！
 
   - type: checkboxes
     attributes:
       label: 🔎 Search before asking | 提交之前请先搜索
       description: >
-        Please search the MinerU [Readme](https://github.com/opendatalab/MinerU), [Issues](https://github.com/opendatalab/MinerU/issues) and [Discussions](https://github.com/opendatalab/MinerU/discussions) to see if a similar bug report already exists.
+        Please search the VParse [Readme](https://github.com/opendatalab/VParse), [Issues](https://github.com/opendatalab/VParse/issues) and [Discussions](https://github.com/opendatalab/VParse/discussions) to see if a similar bug report already exists.
       options:
-        - label: I have searched the MinerU [Readme](https://github.com/opendatalab/MinerU) and found no similar bug report.
+        - label: I have searched the VParse [Readme](https://github.com/opendatalab/VParse) and found no similar bug report.
           required: true
-        - label: I have searched the MinerU [Issues](https://github.com/opendatalab/MinerU/issues) and found no similar bug report.
+        - label: I have searched the VParse [Issues](https://github.com/opendatalab/VParse/issues) and found no similar bug report.
           required: true
-        - label: I have searched the MinerU [Discussions](https://github.com/opendatalab/MinerU/discussions) and found no similar bug report.
+        - label: I have searched the VParse [Discussions](https://github.com/opendatalab/VParse/discussions) and found no similar bug report.
           required: true
 
   - type: checkboxes
     attributes:
       label: 🤖 Consult the online AI assistant for assistance | 在线 AI 助手咨询
       description: >
-        This [online AI assistant](https://deepwiki.com/opendatalab/MinerU) is specifically trained to help with MinerU and related topics! It's available 24/7 and ready to provide insights.
+        This [online AI assistant](https://deepwiki.com/opendatalab/VParse) is specifically trained to help with VParse and related topics! It's available 24/7 and ready to provide insights.
       options:
-        - label: I have consulted the [online AI assistant](https://deepwiki.com/opendatalab/MinerU) but was unable to obtain a solution to the issue.
+        - label: I have consulted the [online AI assistant](https://deepwiki.com/opendatalab/VParse) but was unable to obtain a solution to the issue.
           required: true
 
   - type: textarea
@@ -58,7 +58,7 @@ body:
         * 在反馈解析结果异常和运行时报错时，可复现的PDF文件是必不可少的，如文档过大或涉密，您可通过浏览器打印出出现问题的某一页或某几页再提交相应的示例文件。
         
         
-        For problems when building or installing MinerU: | 在构建或安装 MinerU 时遇到的问题:
+        For problems when building or installing VParse: | 在构建或安装 VParse 时遇到的问题:
         * Give the **exact** build/install commands that were run. | 提供**确切**的构建/安装命令。
         * Give the **complete** output from these commands. | 提供这些命令的**完整**输出。
   
@@ -118,7 +118,7 @@ body:
   - type: dropdown
     id: software_version
     attributes:
-      label: Software version | 软件版本 (mineru --version)
+      label: Software version | 软件版本 (vparse --version)
       #multiple: false
       options:
         -

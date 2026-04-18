@@ -23,13 +23,13 @@ RUN mkdir -p /app/downloads
 
 # Set environment variables
 ENV OUTPUT_DIR=/app/downloads
-# MINERU_API_KEY should be provided at runtime
-ENV MINERU_API_BASE=https://mineru.net
+# VPARSE_API_KEY should be provided at runtime
+ENV VPARSE_API_BASE=https://vparse.net
 ENV USE_LOCAL_API=false
-ENV LOCAL_MINERU_API_BASE=""
+ENV LOCAL_VPARSE_API_BASE=""
 
 # Expose the port that SSE will run on
 EXPOSE 8001
 
 # Set command to start the service with SSE transport
-CMD ["mineru-mcp", "--transport", "sse", "--output-dir", "/app/downloads"] 
+CMD ["vparse-mcp", "--transport", "sse", "--output-dir", "/app/downloads"] 
