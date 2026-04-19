@@ -104,7 +104,10 @@ def install_optional_dependency_stubs() -> None:
 
 install_optional_dependency_stubs()
 
+import vparse
+from vparse.data.data_reader_writer import multi_bucket_s3
 from vparse.data.data_reader_writer.multi_bucket_s3 import MultiBucketS3DataReader
+from vparse.data.data_reader_writer.multi_bucket_s3 import MultiBucketS3DataWriter
 from vparse.data.utils.exceptions import (
     CUDA_NOT_AVAILABLE,
     EmptyData,
@@ -139,43 +142,84 @@ def make_s3_config(bucket_name: str = "mock-bucket") -> S3Config:
 
 
 class ExceptionHierarchyTests(unittest.TestCase):
-    def test_public_exception_hierarchy_uses_vparse_aliases(self):
+    def test_public_exception_modules_and_exports_use_vparse_aliases(self):
         current_module = importlib.import_module("vparse.exceptions")
         legacy_module = importlib.import_module("mineru.exceptions")
+        current_data_module = importlib.import_module("vparse.data.utils.exceptions")
+        legacy_data_module = importlib.import_module("mineru.data.utils.exceptions")
 
         self.assertIs(legacy_module, current_module)
+        self.assertIs(legacy_data_module, current_data_module)
         self.assertIs(MinerUError, VParseError)
 
+        self.assertEqual(
+            current_module.__all__,
+            [
+                "VParseError",
+                "MinerUError",
+                "BackendError",
+                "ModelLoadError",
+                "ConfigurationError",
+                "InputError",
+                "ProcessingError",
+                "TimeoutError",
+            ],
+        )
+        self.assertEqual(
+            current_data_module.__all__,
+            [
+                "FileNotExisted",
+                "InvalidConfig",
+                "InvalidParams",
+                "EmptyData",
+                "CUDA_NOT_AVAILABLE",
+            ],
+        )
+        self.assertTrue(
+            {
+                "VParseError",
+                "MinerUError",
+                "BackendError",
+                "ModelLoadError",
+                "ConfigurationError",
+                "InputError",
+                "ProcessingError",
+                "TimeoutError",
+            }.issubset(set(vparse.__all__))
+        )
+
+    def test_public_exception_hierarchy_contract_with_mock_payloads(self):
         exception_cases = [
-            (VParseError("mock-vparse-error"), Exception, "mock-vparse-error"),
-            (BackendError("mock-backend-error"), VParseError, "mock-backend-error"),
-            (ModelLoadError("mock-model-load-error"), BackendError, "mock-model-load-error"),
-            (ConfigurationError("mock-config-error"), VParseError, "mock-config-error"),
-            (InputError("mock-input-error"), VParseError, "mock-input-error"),
-            (ProcessingError("mock-processing-error"), VParseError, "mock-processing-error"),
-            (TimeoutError("mock-timeout-error"), VParseError, "mock-timeout-error"),
-            (MinerUError("mock-legacy-error"), VParseError, "mock-legacy-error"),
+            (VParseError, Exception, "mock-vparse-error"),
+            (BackendError, VParseError, "mock-backend: unavailable"),
+            (ModelLoadError, BackendError, "mock-model://weights"),
+            (ConfigurationError, VParseError, "mock-config: invalid"),
+            (InputError, VParseError, "mock-input: invalid"),
+            (ProcessingError, VParseError, "mock-processing: failed"),
+            (TimeoutError, VParseError, "mock-timeout: 3s"),
+            (MinerUError, VParseError, "mock-legacy: alias"),
         ]
 
-        for exc, parent_type, message in exception_cases:
-            with self.subTest(exception_type=type(exc).__name__):
-                self.assertIsInstance(exc, parent_type)
-                self.assertEqual(str(exc), message)
+        for exception_type, parent_type, message in exception_cases:
+            with self.subTest(exception_type=exception_type.__name__):
+                self.assertTrue(issubclass(exception_type, parent_type))
+                self.assertEqual(str(exception_type(message)), message)
 
-    def test_legacy_exception_subclasses_render_messages_with_mock_data(self):
+    def test_data_exception_hierarchy_contract_with_mock_payloads(self):
         mock_missing_path = str(TEST_PDF_PATH.with_name("missing.pdf"))
         exception_cases = [
-            (FileNotExisted(mock_missing_path), InputError, f"File {mock_missing_path} does not exist."),
-            (InvalidConfig("missing default bucket"), ConfigurationError, "Invalid config: missing default bucket"),
-            (InvalidParams("unsupported bucket"), InputError, "Invalid params: unsupported bucket"),
-            (EmptyData("mock page payload"), ProcessingError, "Empty data: mock page payload"),
-            (CUDA_NOT_AVAILABLE("cuda:mock"), BackendError, "CUDA not available: cuda:mock"),
+            (FileNotExisted, InputError, mock_missing_path, f"File {mock_missing_path} does not exist."),
+            (InvalidConfig, ConfigurationError, "missing default bucket", "Invalid config: missing default bucket"),
+            (InvalidParams, InputError, "unsupported bucket", "Invalid params: unsupported bucket"),
+            (EmptyData, ProcessingError, "mock page payload", "Empty data: mock page payload"),
+            (CUDA_NOT_AVAILABLE, BackendError, "cuda:mock", "CUDA not available: cuda:mock"),
         ]
 
-        for exc, parent_type, message in exception_cases:
-            with self.subTest(exception_type=type(exc).__name__):
-                self.assertIsInstance(exc, parent_type)
-                self.assertEqual(str(exc), message)
+        for exception_type, parent_type, payload, expected_message in exception_cases:
+            with self.subTest(exception_type=exception_type.__name__):
+                exc = exception_type(payload)
+                self.assertTrue(issubclass(exception_type, parent_type))
+                self.assertEqual(str(exc), expected_message)
 
     def test_multi_bucket_reader_validation_raises_phase_two_input_exceptions(self):
         valid_config = make_s3_config()
@@ -201,6 +245,93 @@ class ExceptionHierarchyTests(unittest.TestCase):
         )
         with self.assertRaises(InvalidParams) as invalid_bucket_error:
             reader.read_at("s3://unknown-bucket/mock.pdf")
+        self.assertIn("bucket name: unknown-bucket not found", str(invalid_bucket_error.exception))
+
+    def test_multi_bucket_reader_uses_mocked_s3_reader_for_range_and_relative_paths(self):
+        valid_config = make_s3_config()
+
+        class FakeS3Reader:
+            init_args = []
+            calls = []
+
+            def __init__(self, bucket, access_key, secret_key, endpoint_url, addressing_style):
+                self.bucket = bucket
+                FakeS3Reader.init_args.append(
+                    (bucket, access_key, secret_key, endpoint_url, addressing_style)
+                )
+
+            def read_at(self, path, offset=0, limit=-1):
+                FakeS3Reader.calls.append((self.bucket, path, offset, limit))
+                return f"{self.bucket}:{path}:{offset}:{limit}".encode()
+
+        with mock.patch.object(multi_bucket_s3, "S3Reader", FakeS3Reader):
+            reader = MultiBucketS3DataReader(
+                default_prefix="mock-bucket/prefix",
+                s3_configs=[valid_config],
+            )
+
+            ranged_bytes = reader.read("s3://mock-bucket/incoming/mock.pdf?bytes=5,7")
+            relative_bytes = reader.read_at("nested/mock.pdf", offset=2, limit=4)
+
+        self.assertEqual(
+            ranged_bytes,
+            b"mock-bucket:incoming/mock.pdf:5:7",
+        )
+        self.assertEqual(
+            relative_bytes,
+            b"mock-bucket:prefix/nested/mock.pdf:2:4",
+        )
+        self.assertEqual(
+            FakeS3Reader.init_args,
+            [("mock-bucket", "mock-access-key", "mock-secret-key", "https://mock-s3.local", "path")],
+        )
+        self.assertEqual(
+            FakeS3Reader.calls,
+            [
+                ("mock-bucket", "incoming/mock.pdf", 5, 7),
+                ("mock-bucket", "prefix/nested/mock.pdf", 2, 4),
+            ],
+        )
+
+    def test_multi_bucket_writer_uses_mocked_s3_writer_and_raises_invalid_params(self):
+        valid_config = make_s3_config()
+
+        class FakeS3Writer:
+            init_args = []
+            calls = []
+
+            def __init__(self, bucket, access_key, secret_key, endpoint_url, addressing_style):
+                self.bucket = bucket
+                FakeS3Writer.init_args.append(
+                    (bucket, access_key, secret_key, endpoint_url, addressing_style)
+                )
+
+            def write(self, path, data):
+                FakeS3Writer.calls.append((self.bucket, path, data))
+
+        with mock.patch.object(multi_bucket_s3, "S3Writer", FakeS3Writer):
+            writer = MultiBucketS3DataWriter(
+                default_prefix="mock-bucket/prefix",
+                s3_configs=[valid_config],
+            )
+
+            writer.write("reports/mock.txt", b"mock-relative-payload")
+            writer.write("s3://mock-bucket/outgoing/mock.txt", b"mock-s3-payload")
+
+            with self.assertRaises(InvalidParams) as invalid_bucket_error:
+                writer.write("s3://unknown-bucket/mock.txt", b"mock-error-payload")
+
+        self.assertEqual(
+            FakeS3Writer.init_args,
+            [("mock-bucket", "mock-access-key", "mock-secret-key", "https://mock-s3.local", "path")],
+        )
+        self.assertEqual(
+            FakeS3Writer.calls,
+            [
+                ("mock-bucket", "prefix/reports/mock.txt", b"mock-relative-payload"),
+                ("mock-bucket", "outgoing/mock.txt", b"mock-s3-payload"),
+            ],
+        )
         self.assertIn("bucket name: unknown-bucket not found", str(invalid_bucket_error.exception))
 
     def test_load_images_from_pdf_raises_vparse_timeout_error_for_mock_timeout(self):
