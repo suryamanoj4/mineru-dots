@@ -82,8 +82,8 @@ def doc_analyze(
         ocr_engine=None,
 ):
     """
-    适当调大MIN_BATCH_INFERENCE_SIZE可以提高性能，更大的 MIN_BATCH_INFERENCE_SIZE会消耗更多内存，
-    可通过环境变量VPARSE_MIN_BATCH_INFERENCE_SIZE设置，默认值为384。
+    Increasing MIN_BATCH_INFERENCE_SIZE can improve performance, but larger MIN_BATCH_INFERENCE_SIZE will consume more memory.
+    Can be set via the environment variable VPARSE_MIN_BATCH_INFERENCE_SIZE, default value is 384.
     """
     min_batch_inference_size = int(os.environ.get('VPARSE_MIN_BATCH_INFERENCE_SIZE', 384))
 

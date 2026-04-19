@@ -1,4 +1,4 @@
-"""VParse File转Markdown服务的命令行界面。"""
+"""Command-line interface for VParse File to Markdown service."""
 
 import sys
 import argparse
@@ -8,8 +8,8 @@ from . import server
 
 
 def main():
-    """命令行界面的入口点。"""
-    parser = argparse.ArgumentParser(description="VParse File转Markdown转换服务")
+    """Entry point for the command-line interface."""
+    parser = argparse.ArgumentParser(description="VParse File to Markdown conversion service")
 
     parser.add_argument(
         "--output-dir", "-o", type=str, help="Directory to save converted files (default: ./downloads)"
@@ -44,15 +44,15 @@ def main():
     if args.transport == "stdio" and (args.host != "127.0.0.1" or args.port != 8001):
         print("Warning: --host and --port parameters are ignored in STDIO mode", file=sys.stderr)
 
-    # 验证API密钥 - 移动到这里，以便 --help 等参数可以无密钥运行
+    # Validate API key - moved here so --help etc. can run without key
     if not config.VPARSE_API_KEY:
         print(
-            "错误: 启动服务需要 VPARSE_API_KEY 环境变量。"
-            "\\n请检查是否已设置该环境变量，例如："
-            "\\n  export VPARSE_API_KEY='your_actual_api_key'"
-            "\\n或者，确保在项目根目录的 `.env` 文件中定义了该变量。"
-            "\\n\\n您可以使用 --help 查看可用的命令行选项。",
-            file=sys.stderr,  # 将错误消息输出到 stderr
+            "Error: VPARSE_API_KEY environment variable is required to start the service."
+            "\nPlease check if the environment variable is set, for example:"
+            "\n  export VPARSE_API_KEY='your_actual_api_key'"
+            "\nAlternatively, ensure the variable is defined in a .env file at the project root."
+            "\n\nYou can use --help to view available command-line options.",
+            file=sys.stderr,  # Output error message to stderr
         )
         sys.exit(1)
 
@@ -60,8 +60,8 @@ def main():
     if args.output_dir:
         server.set_output_dir(args.output_dir)
 
-    # 打印配置信息
-    print("VParse File转Markdown转换服务启动...")
+    # Print configuration information
+    print("VParse File to Markdown conversion service starting...")
     if args.transport in ["sse", "streamable-http"]:
         print(f"Server address: {args.host}:{args.port}")
     print("Press Ctrl+C to exit the service")

@@ -66,11 +66,11 @@ def load_images_from_pdf(
     Args:
         pdf_bytes (bytes): PDF file bytes
         dpi (int, optional): reset the dpi of dpi. Defaults to 200.
-        start_page_id (int, optional): 起始页码. Defaults to 0.
-        end_page_id (int | None, optional): 结束页码. Defaults to None.
-        image_type (ImageType, optional): 图片类型. Defaults to ImageType.PIL.
-        timeout (int | None, optional): 超时时间(秒)。如果为 None，则从环境变量 VPARSE_PDF_RENDER_TIMEOUT 读取，若未设置则默认为 300 秒。
-        threads (int): 进程数, 如果为 None，则从环境变量 VPARSE_PDF_RENDER_THREADS 读取，若未设置则默认为 4.
+        start_page_id (int, optional): Start page number. Defaults to 0.
+        end_page_id (int | None, optional): End page number. Defaults to None.
+        image_type (ImageType, optional): Image type. Defaults to ImageType.PIL.
+        timeout (int | None, optional): Timeout in seconds. If None, reads from VPARSE_PDF_RENDER_TIMEOUT; defaults to 300 seconds.
+        threads (int): Number of threads. If None, reads from VPARSE_PDF_RENDER_THREADS; defaults to 4.
 
     Raises:
         TimeoutError: Raised when conversion times out

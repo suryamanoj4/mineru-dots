@@ -1,6 +1,6 @@
 """
 VParse Heavy - API Server
-HeavyAPI服务器
+Heavy API Server
 
 Provides RESTful API for task submission, query, and management.
 """
@@ -24,7 +24,7 @@ from task_db import TaskDB
 # Initialize FastAPI application
 app = FastAPI(
     title="VParse Heavy API",
-    description="Heavy - 企业级多GPU文档解析服务",
+    description="Heavy - Enterprise-grade multi-GPU document parsing service",
     version="1.0.0"
 )
 
@@ -40,7 +40,7 @@ app.add_middleware(
 # Initialize database
 db = TaskDB()
 
-# 配置输出目录
+# Configure output directory
 OUTPUT_DIR = Path('/tmp/vparse_heavy_output')
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -234,20 +234,20 @@ async def root():
     return {
         "service": "VParse Heavy",
         "version": "1.0.0",
-        "description": "Heavy - 企业级多GPU文档解析服务",
+        "description": "Heavy - Enterprise-grade multi-GPU document parsing service",
         "docs": "/docs"
     }
 
 
 @app.post("/api/v1/tasks/submit")
 async def submit_task(
-    file: UploadFile = File(..., description="文档文件: PDF/图片(VParse解析) 或 Office/HTML/文本等(MarkItDown解析)"),
-    backend: str = Form('pipeline', description="处理后端: pipeline/vlm-transformers/vlm-vllm-engine"),
-    lang: str = Form('ch', description="语言: ch/en/korean/japan等"),
-    method: str = Form('auto', description="解析方法: auto/txt/ocr"),
-    formula_enable: bool = Form(True, description="是否启用公式识别"),
-    table_enable: bool = Form(True, description="是否启用表格识别"),
-    priority: int = Form(0, description="优先级，数字越大越优先"),
+    file: UploadFile = File(..., description="Document file: PDF/Images (VParse) or Office/HTML/Text (MarkItDown)"),
+    backend: str = Form('pipeline', description="Processing backend: pipeline/vlm-transformers/vlm-vllm-engine"),
+    lang: str = Form('ch', description="Language: ch/en/korean/japan etc."),
+    method: str = Form('auto', description="Parsing method: auto/txt/ocr"),
+    formula_enable: bool = Form(True, description="Whether to enable formula recognition"),
+    table_enable: bool = Form(True, description="Whether to enable table recognition"),
+    priority: int = Form(0, description="Priority, higher numbers mean higher priority"),
 ):
     """
     Submit document parsing task.
@@ -310,15 +310,15 @@ async def get_task_data(
     """
     Retrieve parsing data for a task on demand.
 
-    支持灵活获取 VParse 解析后的数据，包括：
-    - Markdown 内容
-    - Content List JSON（结构化内容列表）
-    - Middle JSON（中间处理结果）
-    - Model Output JSON（模型原始输出）
-    - 图片列表
-    - 其他辅助文件（layout PDF、span PDF、origin PDF）
+    Supports flexible retrieval of parsed data from VParse, including:
+    - Markdown content
+    - Content List JSON (Structured content list)
+    - Middle JSON (Intermediate results)
+    - Model Output JSON (Raw model output)
+    - Image list
+    - Other auxiliary files (layout PDF, span PDF, origin PDF)
 
-    通过 include_fields 参数按需选择需要返回的字段
+    Select fields to return via the include_fields parameter
     """
     # Get task information
     task = db.get_task(task_id)
@@ -360,7 +360,7 @@ async def get_task_data(
 
     logger.info(f"📦 Getting complete data for task {task_id}, fields: {fields}")
 
-    # 查找文件（递归搜索，VParse 输出结构：task_id/filename/auto/*.md）
+    # Find files (Recursive search, VParse output structure: task_id/filename/auto/*.md)
     try:
         # 1. Process Markdown file
         if 'md' in fields:
@@ -556,7 +556,7 @@ async def get_task_status(
         
         if result_dir.exists():
             logger.info(f"✅ Result directory exists")
-            # 递归查找 Markdown 文件（VParse 输出结构：task_id/filename/auto/*.md）
+            # Recursively search for Markdown files (VParse output structure: task_id/filename/auto/*.md)
             md_files = list(result_dir.rglob('*.md'))
             logger.info(f"📄 Found {len(md_files)} markdown files: {[f.relative_to(result_dir) for f in md_files]}")
             

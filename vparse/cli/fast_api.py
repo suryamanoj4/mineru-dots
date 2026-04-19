@@ -19,8 +19,8 @@ from loguru import logger
 from vparse.utils.compat import get_env_with_legacy
 
 log_level = get_env_with_legacy("VPARSE_LOG_LEVEL", "MINERU_LOG_LEVEL", "INFO").upper()
-logger.remove()  # 移除默认handler
-logger.add(sys.stderr, level=log_level)  # 添加新handler
+logger.remove()  # Remove default handler
+logger.add(sys.stderr, level=log_level)  # Add new handler
 
 from base64 import b64encode
 
@@ -65,7 +65,7 @@ def create_app():
         redoc_url="/redoc" if enable_docs else None,
     )
 
-    # 初始化并发控制器：从环境变量VPARSE_API_MAX_CONCURRENT_REQUESTS读取
+    # Initialize concurrency controller: read from environment variable VPARSE_API_MAX_CONCURRENT_REQUESTS
     global _request_semaphore
     try:
         max_concurrent_requests = int(
@@ -786,7 +786,7 @@ def main(ctx, host, port, reload, **kwargs):
         mcr = 0
     os.environ["VPARSE_API_MAX_CONCURRENT_REQUESTS"] = str(mcr)
 
-    """启动VParse FastAPI服务器的命令行入口"""
+    """CLI entry point to start the VParse FastAPI server"""
     print(f"Start VParse FastAPI Service: http://{host}:{port}")
     print(f"API documentation: http://{host}:{port}/docs")
 

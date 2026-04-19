@@ -1,4 +1,4 @@
-"""演示如何使用 VParse File转Markdown客户端的示例。"""
+"""Examples demonstrating how to use the VParse File to Markdown client."""
 
 import os
 import asyncio
@@ -57,11 +57,11 @@ async def main():
     """Run all examples."""
     print("Running File to Markdown conversion examples...")
 
-    # 检查是否设置了 API_KEY
+    # Check if API_KEY is set
     if not os.environ.get("VPARSE_API_KEY"):
-        print("警告: VPARSE_API_KEY 环境变量未设置。")
-        print("使用以下命令设置: export VPARSE_API_KEY=your_api_key")
-        print("跳过需要 API 访问的示例...")
+        print("Warning: VPARSE_API_KEY environment variable is not set.")
+        print("Use the following command to set it: export VPARSE_API_KEY=your_api_key")
+        print("Skipping examples that require API access...")
 
         # Only get API status
         await get_api_status_example()

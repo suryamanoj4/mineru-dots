@@ -10,8 +10,8 @@ from loguru import logger
 from vparse.utils.compat import get_env_with_legacy
 
 log_level = get_env_with_legacy("VPARSE_LOG_LEVEL", "MINERU_LOG_LEVEL", "INFO").upper()
-logger.remove()  # 移除默认handler
-logger.add(sys.stderr, level=log_level)  # 添加新handler
+logger.remove()  # Remove default handler
+logger.add(sys.stderr, level=log_level)  # Add new handler
 
 from vparse.utils.cli_parser import arg_parse
 from vparse.utils.config_reader import get_device

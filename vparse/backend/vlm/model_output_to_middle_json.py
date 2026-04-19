@@ -107,7 +107,7 @@ def result_to_middle_json(model_output_blocks_list, images_list, pdf_doc, image_
         page_info = blocks_to_page_info(page_blocks, image_dict, page, image_writer, index)
         middle_json["pdf_info"].append(page_info)
 
-    """表格跨页合并"""
+    """Table cross-page merge"""
     table_enable = get_table_enable(os.getenv('VPARSE_VLM_TABLE_ENABLE', 'True').lower() == 'true')
     if table_enable:
         cross_page_table_merge(middle_json["pdf_info"])

@@ -77,7 +77,7 @@ def has_pipeline_models(model_dir):
 
 
 def configure_model(model_dir, model_type):
-    """配置模型"""
+    """Configure models"""
     json_url = 'https://gcore.jsdelivr.net/gh/opendatalab/VParse@master/vparse.template.json'
     config_file = get_config_file_path(prefer_existing=True)
     os.makedirs(os.path.dirname(config_file), exist_ok=True)

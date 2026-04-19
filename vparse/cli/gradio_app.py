@@ -25,8 +25,8 @@ from vparse.utils.engine_utils import get_vlm_engine
 from vparse.utils.hash_utils import str_sha256
 
 log_level = get_env_with_legacy("VPARSE_LOG_LEVEL", "MINERU_LOG_LEVEL", "INFO").upper()
-logger.remove()  # 移除默认handler
-logger.add(sys.stderr, level=log_level)  # 添加新handler
+logger.remove()  # Remove default handler
+logger.add(sys.stderr, level=log_level)  # Add new handler
 
 async def parse_pdf(doc_path, output_dir, end_page_id, is_ocr, formula_enable, table_enable, language, backend, url):
     os.makedirs(output_dir, exist_ok=True)
@@ -440,7 +440,7 @@ async def to_markdown(
         cleanup_stream_session(str(final_update["session_root"]))
         yield final_md, final_txt, archive_zip_path, str(final_layout_pdf) if final_layout_pdf.exists() else last_layout_pdf, f"Pages: {final_update['total_pages']}/{final_update['total_pages']}"
         return
-    # 获取识别的md文件以及压缩包文件路径
+    # Get the recognized md file and compressed package file path
     if backend_api_url:
         parse_result = parse_pdf_via_api(
             file_path,
@@ -674,36 +674,36 @@ def main(ctx,
             "backend_info_default": "Select the backend engine for document parsing.",
         },
         zh={
-            "upload_file": "请上传 PDF 或图片",
-            "max_pages": "最大转换页数",
-            "backend": "解析后端",
-            "server_url": "服务器地址",
-            "server_url_info": "http-client 后端的 OpenAI 兼容服务器地址。",
-            "recognition_options": "**识别选项：**",
-            "table_enable": "启用表格识别",
-            "table_info": "禁用后，表格将显示为图片。",
-            "formula_label_vlm": "启用行间公式识别",
-            "formula_label_pipeline": "启用公式识别",
-            "formula_label_hybrid": "启用行内公式识别",
-            "formula_info_vlm": "禁用后，行间公式将显示为图片。",
-            "formula_info_pipeline": "禁用后，行间公式将显示为图片，行内公式将不会被检测或解析。",
-            "formula_info_hybrid": "禁用后，行内公式将不会被检测或解析。",
-            "ocr_language": "OCR 语言",
-            "ocr_language_info": "为扫描版 PDF 和图片选择 OCR 语言。",
-            "force_ocr": "强制启用 OCR",
-            "force_ocr_info": "仅在识别效果极差时启用，需选择正确的 OCR 语言。",
-            "convert": "转换",
-            "clear": "清除",
-            "pdf_preview": "PDF 预览",
-            "examples": "示例：",
-            "convert_result": "转换结果",
-            "md_rendering": "Markdown 渲染",
-            "md_text": "Markdown 文本",
-            "backend_info_vlm": "多模态大模型高精度解析，仅支持中英文文档。",
-            "backend_info_pipeline": "传统多模型管道解析，支持多语言，无幻觉。",
-            "backend_info_lite": "轻量化 Tesseract 直接后端，不使用完整的 VParse 流水线。",
-            "backend_info_hybrid": "高精度混合解析，支持多语言。",
-            "backend_info_default": "选择文档解析的后端引擎。",
+            "upload_file": "Please upload PDF or Image",
+            "max_pages": "Max conversion pages",
+            "backend": "Parsing backend",
+            "server_url": "Server URL",
+            "server_url_info": "OpenAI-compatible server URL for the http-client backend.",
+            "recognition_options": "**Recognition Options:**",
+            "table_enable": "Enable Table Recognition",
+            "table_info": "When disabled, tables will be displayed as images.",
+            "formula_label_vlm": "Enable block formula recognition",
+            "formula_label_pipeline": "Enable formula recognition",
+            "formula_label_hybrid": "Enable inline formula recognition",
+            "formula_info_vlm": "When disabled, block formulas will be displayed as images.",
+            "formula_info_pipeline": "When disabled, block formulas will be displayed as images, and inline formulas will not be detected or parsed.",
+            "formula_info_hybrid": "When disabled, inline formulas will not be detected or parsed.",
+            "ocr_language": "OCR Language",
+            "ocr_language_info": "Select OCR language for scanned PDFs and images.",
+            "force_ocr": "Force OCR",
+            "force_ocr_info": "Only enable when recognition is extremely poor; requires correct OCR language.",
+            "convert": "Convert",
+            "clear": "Clear",
+            "pdf_preview": "PDF Preview",
+            "examples": "Examples:",
+            "convert_result": "Conversion Result",
+            "md_rendering": "Markdown Rendering",
+            "md_text": "Markdown Text",
+            "backend_info_vlm": "Multimodal large model high-precision parsing, supports only Chinese and English documents.",
+            "backend_info_pipeline": "Traditional multi-model pipeline parsing, supports multiple languages, no hallucinations.",
+            "backend_info_lite": "Lightweight Tesseract backend, doesn't use the full VParse pipeline.",
+            "backend_info_hybrid": "High-precision hybrid parsing, supports multiple languages.",
+            "backend_info_default": "Select the backend engine for document parsing.",
         },
     )
 

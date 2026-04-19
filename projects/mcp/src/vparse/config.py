@@ -1,4 +1,4 @@
-"""VParse File转Markdown转换服务的配置工具。"""
+"""Configuration utilities for VParse File to Markdown conversion service."""
 
 import os
 import logging
@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# API 配置
+# API Configuration
 VPARSE_API_BASE = os.getenv("VPARSE_API_BASE", "https://vparse.net")
 VPARSE_API_KEY = os.getenv("VPARSE_API_KEY", "")
 
@@ -28,7 +28,7 @@ def setup_logging():
     Returns:
         logging.Logger: Configured logger.
     """
-    # 获取环境变量中的日志级别设置
+    # Get log level from environment variables
     log_level = os.getenv("VPARSE_LOG_LEVEL", "INFO").upper()
     debug_mode = os.getenv("VPARSE_DEBUG", "").lower() in ["true", "1", "yes"]
 

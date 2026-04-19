@@ -401,16 +401,16 @@ def get_batch_ratio(device):
     Get batch ratio based on VRAM size or environment variables
     """
     # 1. Try to get from environment variables first
-    """
-    c/s架构分离部署时，建议通过设置环境变量 VPARSE_HYBRID_BATCH_RATIO 来指定 batch ratio
-    建议的设置值如如下，以下配置值已考虑一定的冗余，单卡多终端部署时为了保证稳定性，可以额外保留一个client端的显存作为整体冗余
-    单个client端显存大小 | VPARSE_HYBRID_BATCH_RATIO
+    When c/s architecture is deployed separately, it is recommended to specify the batch ratio by setting the environment variable VPARSE_HYBRID_BATCH_RATIO
+    Recommended values are as follows. The following values have considered a certain amount of redundancy. When deploying on a single GPU with multiple terminals, to ensure stability, you can reserve an extra client-side VRAM as overall redundancy.
+    Single client-side VRAM size | VPARSE_HYBRID_BATCH_RATIO
+    Example:
     ------------------|------------------------
     <= 6   GB         | 8
     <= 4.5 GB         | 4
     <= 3   GB         | 2
     <= 2.5 GB         | 1
-    例如：
+    Example:
     export VPARSE_HYBRID_BATCH_RATIO=4
     """
     env_val = get_env_with_legacy("VPARSE_HYBRID_BATCH_RATIO", "MINERU_HYBRID_BATCH_RATIO")
@@ -447,7 +447,7 @@ def get_batch_ratio(device):
 def _should_enable_vlm_ocr(
     ocr_enable: bool, language: str, inline_formula_enable: bool
 ) -> bool:
-    """判断是否启用VLM OCR"""
+    """Determine whether to enable VLM OCR"""
     force_enable = get_env_with_legacy("VPARSE_FORCE_VLM_OCR_ENABLE", "MINERU_FORCE_VLM_OCR_ENABLE", "0").lower() in (
         "1",
         "true",

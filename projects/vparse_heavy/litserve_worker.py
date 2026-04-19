@@ -16,7 +16,7 @@ from pathlib import Path
 import litserve as ls
 from loguru import logger
 
-# 添加父目录到路径以导入 VParse
+# Add parent directory to path to import VParse
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from task_db import TaskDB
@@ -37,16 +37,16 @@ class VParseWorkerAPI(ls.LitAPI):
     """
     LitServe API Worker
     
-    Worker 主动循环拉取任务，利用 LitServe 的自动 GPU 负载均衡
-    支持两种解析方式：
-    - PDF/图片 -> VParse 解析（GPU 加速）
-    - 其他所有格式 -> MarkItDown 解析（快速处理）
+    Worker active loop pulling tasks, utilizing LitServe's auto GPU load balancing
+    Supports two parsing methods:
+    - PDF/Images -> VParse parsing (GPU accelerated)
+    - All other formats -> MarkItDown parsing (Fast processing)
     
     New mode: Each worker continuously polls tasks after startup, picking up the next one immediately after completion.
     """
     
-    # 支持的文件格式定义
-    # VParse 专用格式：PDF 和图片
+    # Define supported file formats
+    # VParse exclusive formats: PDF and Images
     PDF_IMAGE_FORMATS = {'.pdf', '.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.tif', '.webp'}
     # All other formats use MarkItDown
     
@@ -87,24 +87,24 @@ class VParseWorkerAPI(ls.LitAPI):
             # Extract device ID '0' from 'cuda:0'
             device_id = str(device).split(':')[-1]
             os.environ['CUDA_VISIBLE_DEVICES'] = device_id
-            # 设置为 cuda:0，因为对进程来说只能看到一张卡（逻辑ID变为0）
+            # Set to cuda:0, as each process only sees one card (logical ID becomes 0)
             os.environ['VPARSE_DEVICE_MODE'] = 'cuda:0'
             device_mode = os.environ['VPARSE_DEVICE_MODE']
             logger.info(f"🔒 CUDA_VISIBLE_DEVICES={device_id} (Physical GPU {device_id} → Logical GPU 0)")
         else:
-            # 配置 VParse 环境
+            # Configure VParse environment
             if os.getenv('VPARSE_DEVICE_MODE', None) is None:
                 os.environ['VPARSE_DEVICE_MODE'] = device if device != 'auto' else get_device()
             device_mode = os.environ['VPARSE_DEVICE_MODE']
         
-        # 配置显存
+        # Configure VRAM
         if os.getenv('VPARSE_VIRTUAL_VRAM_SIZE', None) is None:
             if device_mode.startswith("cuda") or device_mode.startswith("npu"):
                 try:
                     vram = get_vram(device_mode)
                     os.environ['VPARSE_VIRTUAL_VRAM_SIZE'] = str(vram)
                 except:
-                    os.environ['VPARSE_VIRTUAL_VRAM_SIZE'] = '8'  # 默认值
+                    os.environ['VPARSE_VIRTUAL_VRAM_SIZE'] = '8'  # Default value
             else:
                 os.environ['VPARSE_VIRTUAL_VRAM_SIZE'] = '1'
         
@@ -223,7 +223,7 @@ class VParseWorkerAPI(ls.LitAPI):
             file_type = self._get_file_type(file_path)
             
             if file_type == 'pdf_image':
-                # 使用 VParse 解析 PDF 和图片
+                # Use VParse to parse PDF and Images
                 self._parse_with_vparse(
                     file_path=Path(file_path),
                     file_name=file_name,
@@ -284,8 +284,8 @@ class VParseWorkerAPI(ls.LitAPI):
             file_path: File path
             
         Returns:
-            'pdf_image': PDF 或图片格式，使用 VParse 解析
-            'markitdown': 其他所有格式，使用 markitdown 解析
+            'pdf_image': PDF or Image format, parsed with VParse
+            'markitdown': All other formats, parsed with markitdown
         """
         suffix = Path(file_path).suffix.lower()
         
@@ -298,7 +298,7 @@ class VParseWorkerAPI(ls.LitAPI):
     def _parse_with_vparse(self, file_path: Path, file_name: str, task_id: str, 
                            backend: str, options: dict, output_path: Path):
         """
-        使用 VParse 解析 PDF 和图片格式
+        Parse PDF and Image formats using VParse
         
         Args:
             file_path: File path
@@ -314,7 +314,7 @@ class VParseWorkerAPI(ls.LitAPI):
             # Read file
             pdf_bytes = read_fn(file_path)
             
-            # 执行解析（VParse 的 ModelSingleton 会自动复用模型）
+            # Execute parsing (VParse's ModelSingleton will reuse models automatically)
             do_parse(
                 output_dir=str(output_path),
                 pdf_file_names=[Path(file_name).stem],
@@ -326,8 +326,8 @@ class VParseWorkerAPI(ls.LitAPI):
                 table_enable=options.get('table_enable', True),
             )
         finally:
-            # 使用 VParse 自带的内存清理函数
-            # 这个函数只清理推理产生的中间结果，不会卸载模型
+            # Use VParse's built-in memory cleanup function
+            # This function only cleans intermediate results from inference, it won't unload the model
             try:
                 clean_memory()
             except Exception as e:
@@ -458,7 +458,7 @@ def start_litserve_workers(
         logger.info(f"⏱️  Poll Interval: {poll_interval}s")
     logger.info("=" * 60)
     
-    # 创建 LitServe 服务器
+    # Create LitServe server
     api = VParseWorkerAPI(
         output_dir=output_dir,
         poll_interval=poll_interval,

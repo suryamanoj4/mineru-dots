@@ -1,8 +1,8 @@
-# VParse MCP-Server Docker 部署指南
+# VParse MCP-Server Docker Deployment Guide
 
 ## 1. Introduction
 
-本文档提供了使用 Docker 部署 VParse MCP-Server 的详细指南。通过 Docker 部署，你可以在任何支持 Docker 的环境中快速启动 VParse MCP 服务器，无需考虑复杂的环境配置和依赖管理。
+This document provides a detailed guide for deploying VParse MCP-Server using Docker. By deploying via Docker, you can quickly start the VParse MCP server in any environment that supports Docker, without worrying about complex environment configurations and dependency management.
 
 Key advantages of Docker deployment:
 
@@ -27,8 +27,8 @@ docker-compose --version
 
 Additionally, you will need:
 
-- 从 [VParse 官网](https://vparse.net) 获取的 API 密钥（如果需要使用远程 API）
-- 充足的硬盘空间，用于存储转换后的文件
+- An API key obtained from the [VParse Official Website](https://vparse.net) (if using the remote API)
+- Sufficient disk space to store converted files
 
 ## 3. Deploying with Docker Compose (Recommended)
 
@@ -53,13 +53,13 @@ Docker Compose provides the simplest deployment method, ideal for a quick start 
 
    ```
    VPARSE_API_BASE=https://vparse.net
-   VPARSE_API_KEY=你的API密钥
+   VPARSE_API_KEY=your_api_key_here
    OUTPUT_DIR=./downloads
    USE_LOCAL_API=false
    LOCAL_VPARSE_API_BASE=http://localhost:8080
    ```
 
-   如果你计划使用本地 API，请将 `USE_LOCAL_API` 设置为 `true`，并确保 `LOCAL_VPARSE_API_BASE` 指向你的本地 API 服务地址。
+   If you plan to use a local API, set `USE_LOCAL_API` to `true` and ensure `LOCAL_VPARSE_API_BASE` points to your local API service address.
 
 ### 3.2 Start the Service
 
@@ -112,7 +112,7 @@ Run the following in the project root:
 docker build -t vparse-mcp:latest .
 ```
 
-这将根据 Dockerfile 构建一个名为 `vparse-mcp` 的 Docker 镜像，标签为 `latest`。
+This will build a Docker image named `vparse-mcp` with the tag `latest` based on the Dockerfile.
 
 ### 4.2 Run the Container
 
@@ -127,7 +127,7 @@ Alternatively, specify environment variables directly:
 ```bash
 docker run -p 8001:8001 \
   -e VPARSE_API_BASE=https://vparse.net \
-  -e VPARSE_API_KEY=你的API密钥 \
+  -e VPARSE_API_KEY=your_api_key_here \
   -e OUTPUT_DIR=/app/downloads \
   -v $(pwd)/downloads:/app/downloads \
   vparse-mcp:latest
@@ -149,13 +149,13 @@ This mounts the `downloads` folder in your current working directory to `/app/do
 
 Supported environment variables in Docker are the same as in a standard environment:
 
-| 环境变量 | 说明 | 默认值 |
+| Environment Variable | Description | Default Value |
 | ------------------------- | -------------------------------------------------------------- | ------------------------- |
-| `VPARSE_API_BASE` | VParse 远程 API 的基础 URL | `https://vparse.net` |
-| `VPARSE_API_KEY` | VParse API 密钥，需要从官网申请 | - |
-| `OUTPUT_DIR` | 转换后文件的保存路径 | `/app/downloads` |
-| `USE_LOCAL_API` | 是否使用本地 API 进行解析（仅适用于 `local_parse_pdf` 工具） | `false` |
-| `LOCAL_VPARSE_API_BASE` | 本地 API 的基础 URL（当 `USE_LOCAL_API=true` 时有效） | `http://localhost:8080` |
+| `VPARSE_API_BASE` | Base URL for the VParse remote API | `https://vparse.net` |
+| `VPARSE_API_KEY` | VParse API key, required from the official website | - |
+| `OUTPUT_DIR` | Path to save converted files | `/app/downloads` |
+| `USE_LOCAL_API` | Whether to use a local API for parsing (only for `local_parse_pdf` tool) | `false` |
+| `LOCAL_VPARSE_API_BASE` | Base URL for the local API (effective when `USE_LOCAL_API=true`) | `http://localhost:8080` |
 
 In a Docker environment, you can:
 

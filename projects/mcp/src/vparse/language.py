@@ -1,4 +1,4 @@
-"""VParse支持的语言列表。"""
+"""List of languages supported by VParse."""
 
 from typing import Dict, List
 

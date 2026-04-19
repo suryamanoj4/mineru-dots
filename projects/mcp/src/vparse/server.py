@@ -1,4 +1,4 @@
-"""VParse File转Markdown转换的FastMCP服务器实现。"""
+"""FastMCP server implementation for VParse File to Markdown conversion."""
 
 import json
 import re
@@ -32,7 +32,7 @@ mcp = FastMCP(
     """,
 )
 
-# 全局客户端实例
+# Global client instance
 _client_instance: Optional[VParseClient] = None
 
 
@@ -81,10 +81,10 @@ def run_server(mode=None, port=8001, host="127.0.0.1"):
     # Ensure output directory exists
     config.ensure_output_dir(output_dir)
 
-    # 检查是否设置了 API 密钥
+    # Check if API key is set
     if not config.VPARSE_API_KEY:
-        config.logger.warning("警告: VPARSE_API_KEY 环境变量未设置。")
-        config.logger.warning("使用以下命令设置: export VPARSE_API_KEY=your_api_key")
+        config.logger.warning("Warning: VPARSE_API_KEY environment variable is not set.")
+        config.logger.warning("Use the following command to set it: export VPARSE_API_KEY=your_api_key")
 
     # Get MCP server instance
     mcp_server = mcp._mcp_server
@@ -127,7 +127,7 @@ def cleanup_resources():
 
 
 def get_client() -> VParseClient:
-    """获取 VParseClient 的单例实例。如果尚未初始化，则进行初始化。"""
+    """Get a singleton instance of VParseClient. Initialize if not already initialized."""
     global _client_instance
     if _client_instance is None:
         _client_instance = VParseClient()  # Initialization happens here
@@ -364,7 +364,7 @@ async def local_parse_file(
     try:
         # Determine whether to use local or remote API based on environment variables
         if config.USE_LOCAL_API:
-            config.logger.debug(f"使用本地API: {config.LOCAL_VPARSE_API_BASE}")
+            config.logger.debug(f"Using local API: {config.LOCAL_VPARSE_API_BASE}")
             return await _parse_file_local(
                 file_path=str(file_path),
                 parse_method=parse_method,
@@ -1010,7 +1010,7 @@ async def _parse_file_local(
     Returns:
         Dict[str, Any]: Dictionary containing the parsing result
     """
-    # API URL路径
+    # API URL path
     api_url = f"{config.LOCAL_VPARSE_API_BASE}/file_parse"
 
     # Use Path object to ensure correct file path

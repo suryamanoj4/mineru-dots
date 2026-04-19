@@ -1,6 +1,6 @@
 """
 VParse Heavy - Unified Startup Script
-Heavy统一启动脚本
+Heavy Unified Startup Script
 
 Start all services with one click: API Server + LitServe Workers + Task Scheduler
 """
@@ -15,7 +15,7 @@ import argparse
 
 
 class HeavyLauncher:
-    """Heavy服务启动器"""
+    """Heavy Service Launcher"""
     
     def __init__(
         self,
@@ -39,7 +39,7 @@ class HeavyLauncher:
         logger.info("=" * 70)
         logger.info("🚀 VParse Heavy - Starting All Services")
         logger.info("=" * 70)
-        logger.info("Heavy - 企业级多GPU文档解析服务")
+        logger.info("Heavy - Enterprise-grade Multi-GPU Document Parsing Service")
         logger.info("")
         
         try:
@@ -184,7 +184,7 @@ class HeavyLauncher:
 def main():
     """Main function"""
     parser = argparse.ArgumentParser(
-        description='VParse Heavy - 统一启动脚本',
+        description='VParse Heavy - Unified Startup Script',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Example:
@@ -206,7 +206,7 @@ Example:
     )
     
     parser.add_argument('--output-dir', type=str, default='/tmp/vparse_heavy_output',
-                       help='输出目录 (默认: /tmp/vparse_heavy_output)')
+                       help='Output directory (default: /tmp/vparse_heavy_output)')
     parser.add_argument('--api-port', type=int, default=8000,
                        help='API server port (default: 8000)')
     parser.add_argument('--worker-port', type=int, default=9000,
@@ -230,7 +230,7 @@ Example:
             logger.warning(f"Invalid devices format: {devices}, using 'auto'")
             devices = 'auto'
     
-    # 创建启动器
+    # Create launcher
     launcher = HeavyLauncher(
         output_dir=args.output_dir,
         api_port=args.api_port,

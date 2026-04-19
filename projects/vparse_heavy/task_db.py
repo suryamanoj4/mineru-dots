@@ -1,6 +1,6 @@
 """
 VParse Heavy - SQLite Task Database Manager
-Heavy任务数据库管理器
+Heavy Task Database Manager
 
 Responsible for persistent storage of tasks, status management, and atomic operations.
 """
@@ -409,7 +409,7 @@ class TaskDB:
 
 
 if __name__ == '__main__':
-    # 测试代码
+    # Test code
     db = TaskDB('test_heavy.db')
     
     # Create test task
@@ -430,6 +430,6 @@ if __name__ == '__main__':
     stats = db.get_queue_stats()
     print(f"Queue stats: {stats}")
     
-    # 清理测试数据库
+    # Clean up test database
     Path('test_heavy.db').unlink(missing_ok=True)
     print("Test completed!")

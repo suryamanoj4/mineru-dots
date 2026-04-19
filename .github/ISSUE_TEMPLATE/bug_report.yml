@@ -1,5 +1,5 @@
 name: 🐛 Bug Report
-description: Create a bug report for VParse | VParse 的 Bug 反馈
+description: Create a bug report for VParse
 labels: bug
 
 # We omit `title: "..."` so that the field defaults to blank. If we set it to
@@ -9,7 +9,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thank you for submitting a VParse 🐛 Bug Report! | 感谢您提交 VParse 🐛 Bug 反馈！
+        Thank you for submitting a VParse 🐛 Bug Report!
 
   - type: checkboxes
     attributes:
@@ -57,9 +57,9 @@ body:
         * When reporting parsing result anomalies and runtime errors, reproducible PDF files are essential. If the document is too large or confidential, you can print the problematic page(s) via the browser and submit the corresponding example file.
         
         
-        For problems when building or installing VParse: | 在构建或安装 VParse 时遇到的问题:
-        * Give the **exact** build/install commands that were run. | 提供**确切**的构建/安装命令。
-        * Give the **complete** output from these commands. | 提供这些命令的**完整**输出。
+        For problems when building or installing VParse:
+        * Give the **exact** build/install commands that were run.
+        * Give the **complete** output from these commands.
   
     validations:
       required: true
@@ -114,7 +114,7 @@ body:
   - type: dropdown
     id: software_version
     attributes:
-      label: Software version | 软件版本 (vparse --version)
+      label: Software version (vparse --version)
       #multiple: false
       options:
         -

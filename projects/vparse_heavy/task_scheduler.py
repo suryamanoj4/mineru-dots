@@ -1,6 +1,6 @@
 """
 VParse Heavy - Task Scheduler (Optional)
-Heavy任务调度器（可选）
+Heavy Task Scheduler (Optional)
 
 In worker auto-loop mode, the scheduler is primarily used for:
 1. Monitoring queue status (default: every 5 minutes).
@@ -182,7 +182,7 @@ class TaskScheduler:
         logger.info("⏹️  Task scheduler stopped")
     
     def start(self):
-        """启动调度器"""
+        """Start scheduler"""
         logger.info("🚀 Starting VParse Heavy Task Scheduler...")
         
         # Set up signal handling

@@ -1,7 +1,7 @@
 # VParse Heavy (Heavy)
 
-> Heavy - 企业级多GPU文档解析服务  
-> 结合 SQLite 任务队列 + LitServe GPU负载均衡的最佳方案
+> Heavy - Enterprise-grade Multi-GPU Document Parsing Service  
+> The optimal solution combining SQLite task queue + LitServe GPU load balancing
 
 ## 🌟 Core Features
 
@@ -17,31 +17,31 @@
 - ✅ **Priority Queue** - Prioritize critical tasks.
 - ✅ **Auto-Cleanup** - Regularly cleans up old result files while preserving database records.
 
-### 智能解析
-- ✅ **双解析器** - PDF/图片用 VParse(GPU加速), Office/HTML等用 MarkItDown(快速)
-- ✅ **内容获取** - API自动返回 Markdown 内容,支持图片上传到 MinIO
-- ✅ **RESTful API** - 支持任何编程语言接入
-- ✅ **实时查询** - 随时查看任务进度和状态
+### Intelligent Parsing
+- ✅ **Dual Parsers** - PDF/images use VParse (GPU accelerated), Office/HTML, etc., use MarkItDown (Fast).
+- ✅ **Content Retrieval** - API automatically returns Markdown content; supports image upload to MinIO.
+- ✅ **RESTful API** - Supports any programming language integration.
+- ✅ **Real-time Querying** - Check task progress and status at any time.
 
 ## 🏗️ System Architecture
 
 ```
-客户端请求 → FastAPI Server (立即返回 task_id)
+Client Request → FastAPI Server (Instant task_id return)
                     ↓
-              SQLite 任务队列 (并发安全)
+              SQLite Task Queue (Concurrency Safe)
                     ↓
-         LitServe Worker Pool (主动拉取 + GPU自动负载均衡)
+         LitServe Worker Pool (Active Polling + GPU Auto Load Balancing)
                     ↓
-              VParse / MarkItDown 解析
+              VParse / MarkItDown Parsing
                     ↓
-         Task Scheduler (可选监控组件)
+         Task Scheduler (Optional Monitoring Component)
 ```
 
-**架构特点**:
-- ✅ **Worker 主动模式**: Workers 持续循环拉取任务,无需调度器触发
-- ✅ **并发安全**: SQLite 使用原子操作防止任务重复处理
-- ✅ **自动负载均衡**: LitServe 自动分配任务到空闲 GPU
-- ✅ **智能解析**: PDF/图片用 VParse,其他格式用 MarkItDown
+**Architecture Characteristics**:
+- ✅ **Worker Active Mode**: Workers continuously loop to pull tasks, no scheduler trigger required.
+- ✅ **Concurrency Safe**: SQLite uses atomic operations to prevent duplicate task processing.
+- ✅ **Auto Load Balancing**: LitServe automatically assigns tasks to idle GPUs.
+- ✅ **Intelligent Parsing**: PDF/images use VParse, other formats use MarkItDown.
 
 ## 🚀 Quick Start
 
@@ -52,9 +52,9 @@ cd projects/vparse_heavy
 pip install -r requirements.txt
 ```
 
-> **支持的文件格式**:
-> - 📄 **PDF 和图片** (.pdf, .png, .jpg, .jpeg, .bmp, .tiff, .webp) - 使用 VParse 解析（GPU 加速）
-> - 📊 **其他所有格式** (Office、HTML、文本等) - 使用 MarkItDown 解析（快速处理）
+> **Supported File Formats**:
+> - 📄 **PDF and Images** (.pdf, .png, .jpg, .jpeg, .bmp, .tiff, .webp) - Parsed with VParse (GPU accelerated)
+> - 📊 **All Other Formats** (Office, HTML, Text, etc.) - Parsed with MarkItDown (Fast processing)
 >   - Office: .docx, .doc, .xlsx, .xls, .pptx, .ppt
 >   - Web: .html, .htm
 >   - Text: .txt, .md, .csv, .json, .xml, etc.
@@ -101,20 +101,21 @@ curl "http://localhost:8000/api/v1/tasks/{task_id}?upload_images=true"
 
 ```
 vparse_heavy/
-├── task_db.py              # 数据库管理 (并发安全,支持清理)
-├── api_server.py           # API 服务器 (自动返回内容)
-├── litserve_worker.py      # Worker Pool (主动拉取 + 双解析器)
-├── task_scheduler.py       # 任务调度器 (可选监控)
-├── start_all.py            # 启动脚本
-├── client_example.py       # 客户端示例
-└── requirements.txt        # 依赖配置
+├── task_db.py              # Database management (Concurrency safe, cleanup support)
+├── api_server.py           # API Server (Auto content return)
+├── litserve_worker.py      # Worker Pool (Active polling + Dual parsers)
+├── task_scheduler.py       # Task scheduler (Optional monitoring)
+├── start_all.py            # Startup script
+├── client_example.py       # Client example
+└── requirements.txt        # Dependency configuration
 ```
 
-**核心组件说明**:
-- `task_db.py`: 使用原子操作保证并发安全,支持旧任务清理
-- `api_server.py`: 查询接口自动返回Markdown内容,支持MinIO图片上传
-- `litserve_worker.py`: Worker主动循环拉取任务,支持VParse和MarkItDown双解析
-- `task_scheduler.py`: 可选组件,仅用于监控和健康检查(默认5分钟监控,15分钟健康检查)
+**Core Component Description**:
+- `task_db.py`: Uses atomic operations to ensure concurrency safety, supports old task cleanup.
+- `api_server.py`: Query interface automatically returns Markdown content, supports MinIO image upload.
+- `litserve_worker.py`: Worker active loop polling for tasks, supports VParse and MarkItDown dual parsing.
+- `task_scheduler.py`: Optional component, used only for monitoring and health checks (default 5-minute monitoring, 15-minute health check).
+
 
 ## 📚 Examples
 
@@ -245,17 +246,17 @@ Options:
 | vlm-transformers | 8GB+ | RTX 3060 or higher |
 | vlm-vllm-engine | 8GB+ | RTX 4070 or higher |
 
-选项:
-  --output-dir PATH                 输出目录 (默认: /tmp/vparse_heavy_output)
-  --api-port PORT                   API端口 (默认: 8000)
-  --worker-port PORT                Worker端口 (默认: 9000)
-  --accelerator TYPE                加速器类型: auto/cuda/cpu/mps (默认: auto)
-  --workers-per-device N            每个GPU的worker数 (默认: 1)
-  --devices DEVICES                 使用的GPU设备 (默认: auto，使用所有GPU)
-  --poll-interval SECONDS           Worker拉取任务间隔 (默认: 0.5秒)
-  --enable-scheduler                启用可选的任务调度器 (默认: 不启动)
-  --monitor-interval SECONDS        调度器监控间隔 (默认: 300秒=5分钟)
-  --cleanup-old-files-days N        清理N天前的结果文件 (默认: 7天, 0=禁用)
+Options:
+  --output-dir PATH                 Output directory (default: /tmp/vparse_heavy_output)
+  --api-port PORT                   API port (default: 8000)
+  --worker-port PORT                Worker port (default: 9000)
+  --accelerator TYPE                Accelerator type: auto/cuda/cpu/mps (default: auto)
+  --workers-per-device N            Workers per GPU (default: 1)
+  --devices DEVICES                 GPU devices to use (default: auto, uses all GPUs)
+  --poll-interval SECONDS           Worker task pull interval (default: 0.5s)
+  --enable-scheduler                Enable optional task scheduler (default: off)
+  --monitor-interval SECONDS        Scheduler monitor interval (default: 300s=5min)
+  --cleanup-old-files-days N        Cleanup result files older than N days (default: 7 days, 0=disable)
 ```
 
 > Full Docs: http://localhost:8000/docs
@@ -319,87 +320,87 @@ Issues and Pull Requests are welcome!
 
 ## 📄 License
 
-### 1. 提交任务
+### 1. Submit Task
 ```http
 POST /api/v1/tasks/submit
 
-参数:
-  file: 文件 (必需)
-  backend: pipeline | vlm-transformers | vlm-vllm-engine (默认: pipeline)
-  lang: ch | en | korean | japan | ... (默认: ch)
-  priority: 0-100 (数字越大越优先，默认: 0)
+Parameters:
+  file: File (Required)
+  backend: pipeline | vlm-transformers | vlm-vllm-engine (Default: pipeline)
+  lang: ch | en | korean | japan | ... (Default: ch)
+  priority: 0-100 (Higher number = higher priority, Default: 0)
 ```
 
-### 2. 查询任务
+### 2. Query Task
 ```http
 GET /api/v1/tasks/{task_id}?upload_images=false
 
-参数:
-  upload_images: 是否上传图片到 MinIO (默认: false)
+Parameters:
+  upload_images: Whether to upload images to MinIO (Default: false)
 
-返回:
+Returns:
   - status: pending | processing | completed | failed
-  - data: 任务完成后**自动返回** Markdown 内容
-    - markdown_file: 文件名
-    - content: 完整的 Markdown 内容
-    - images_uploaded: 是否已上传图片
-    - has_images: 是否包含图片
-  - message: 如果结果文件已清理会提示
+  - data: **Auto-returns** Markdown content upon task completion
+    - markdown_file: Filename
+    - content: Full Markdown content
+    - images_uploaded: Whether images were uploaded
+    - has_images: Whether it contains images
+  - message: Warning if result files have been cleaned up
   
-注意:
-  - v2.0 新特性: 完成的任务会自动返回内容,无需额外请求
-  - 如果结果文件已被清理(超过保留期),data 为 null 但任务记录仍可查询
+Note:
+  - v2.0 new feature: Completed tasks automatically return content, no extra request needed.
+  - If result files have been cleaned (beyond retention period), `data` will be null but the task record remains queryable.
 ```
 
-### 3. 队列统计
+### 3. Queue Statistics
 ```http
 GET /api/v1/queue/stats
 
-返回: 各状态任务数量统计
+Returns: Task count statistics for each status.
 ```
 
-### 4. 取消任务
+### 4. Cancel Task
 ```http
 DELETE /api/v1/tasks/{task_id}
 
-只能取消 pending 状态的任务
+Can only cancel tasks in pending status.
 ```
 
-### 5. 管理接口
+### 5. Management Interfaces
 
-**重置超时任务**
+**Reset Timed-out Tasks**
 ```http
 POST /api/v1/admin/reset-stale?timeout_minutes=60
 
-将超时的 processing 任务重置为 pending
+Resets timed-out processing tasks to pending.
 ```
 
-**清理旧任务**
+**Cleanup Old Tasks**
 ```http
 POST /api/v1/admin/cleanup?days=7
 
-仅用于手动触发清理(自动清理会每24小时执行一次)
+Manual trigger for old task cleanup (auto-cleanup runs every 24 hours).
 ```
 
-## 🔧 故障排查
+## 🔧 Troubleshooting
 
-### 问题1: Worker 无法启动
+### Problem 1: Worker Fails to Start
 
-**检查GPU**
+**Check GPU**
 ```bash
-nvidia-smi  # 应显示GPU信息
+nvidia-smi  # Should display GPU info
 ```
 
-**检查依赖**
+**Check Dependencies**
 ```bash
 pip list | grep -E "(vparse|litserve|torch)"
 ```
 
-### 问题2: 任务一直 pending
+### Problem 2: Task Stays Pending
 
-> ⚠️ **重要**: Worker 现在是主动拉取模式,不需要调度器触发!
+> ⚠️ **Important**: Workers are now in active polling mode and do not require scheduler triggers!
 
-**检查 Worker 是否运行**
+**Check if Worker is Running**
 ```bash
 # Windows
 tasklist | findstr python
@@ -408,42 +409,42 @@ tasklist | findstr python
 ps aux | grep litserve_worker
 ```
 
-**检查 Worker 健康状态**
+**Check Worker Health Status**
 ```bash
 curl -X POST http://localhost:9000/predict \
   -H "Content-Type: application/json" \
   -d '{"action":"health"}'
 ```
 
-**查看数据库状态**
+**Check Database Status**
 ```bash
 python -c "from task_db import TaskDB; db = TaskDB(); print(db.get_queue_stats())"
 ```
 
-### 问题3: 显存不足或多卡占用
+### Problem 3: Out of Memory or Multi-GPU Contention
 
-**减少worker数量**
+**Reduce Worker Count**
 ```bash
 python start_all.py --workers-per-device 1
 ```
 
-**设置显存限制**
+**Set VRAM limit**
 ```bash
 export VPARSE_VIRTUAL_VRAM_SIZE=6
 python start_all.py
 ```
 
-**指定特定GPU**
+**Specify Specific GPUs**
 ```bash
-# 只使用GPU 0
+# Only use GPU 0
 python start_all.py --devices 0
 ```
 
-> 💡 **提示**: 新版本已修复多卡显存占用问题,通过设置 `CUDA_VISIBLE_DEVICES` 确保每个进程只使用分配的GPU
+> 💡 **Tip**: The new version fixes multi-card VRAM contention issues. Each process only uses its assigned GPU by setting `CUDA_VISIBLE_DEVICES`.
 
-### 问题4: 端口被占用
+### Problem 4: Port Already in Use
 
-**查看占用**
+**Check Occupancy**
 ```bash
 # Windows
 netstat -ano | findstr :8000
@@ -452,122 +453,122 @@ netstat -ano | findstr :8000
 lsof -i :8000
 ```
 
-**使用其他端口**
+**Use Other Ports**
 ```bash
 python start_all.py --api-port 8080 --worker-port 9090
 ```
 
-### 问题5: 结果文件丢失
+### Problem 5: Result Files Missing
 
-**查询任务状态**
+**Query Task Status**
 ```bash
 curl http://localhost:8000/api/v1/tasks/{task_id}
 ```
 
-**说明**: 如果返回 `result files have been cleaned up`,说明结果文件已被清理(默认7天后)
+**Description**: If it returns `result files have been cleaned up`, the files were deleted (default after 7 days).
 
-**解决方案**:
+**Solution**:
 ```bash
-# 延长保留时间为30天
+# Extend retention to 30 days
 python start_all.py --cleanup-old-files-days 30
 
-# 或禁用自动清理
+# or disable auto-cleanup
 python start_all.py --cleanup-old-files-days 0
 ```
 
-### 问题6: 任务重复处理
+### Problem 6: Duplicate Task Processing
 
-**症状**: 同一个任务被多个 worker 处理
+**Symptom**: The same task is processed by multiple workers.
 
-**原因**: 这不应该发生,数据库使用了原子操作防止重复
+**Cause**: Should not happen; database uses atomic operations to prevent duplicates.
 
-**排查**:
+**Troubleshooting**:
 ```bash
-# 检查是否有多个 TaskDB 实例连接不同的数据库文件
-# 确保所有组件使用同一个 vparse_heavy.db
+# Check if multiple TaskDB instances are connecting to different database files
+# Ensure all components use the same vparse_heavy.db
 ```
 
-## 🛠️ 技术栈
+## 🛠️ Technology Stack
 
 - **Web**: FastAPI + Uvicorn
-- **解析器**: VParse (PDF/图片) + MarkItDown (Office/文本/HTML等)
-- **GPU 调度**: LitServe (自动负载均衡)
-- **存储**: SQLite (并发安全) + MinIO (可选)
-- **日志**: Loguru
-- **并发模型**: Worker主动拉取 + 原子操作
+- **Parser**: VParse (PDF/Images) + MarkItDown (Office/Text/HTML, etc.)
+- **GPU Scheduling**: LitServe (Auto load balancing)
+- **Storage**: SQLite (Concurrency safe) + MinIO (Optional)
+- **Logging**: Loguru
+- **Concurrency Model**: Worker active polling + Atomic operations
 
-## 🆕 版本更新说明
+## 🆕 Version Updates
 
-### v2.0 重大改进
+### v2.0 Major Improvements
 
-**1. Worker 主动拉取模式**
-- ✅ Workers 持续循环拉取任务,无需调度器触发
-- ✅ 默认 0.5 秒拉取间隔,响应速度极快
-- ✅ 空闲时自动休眠,不占用CPU资源
+**1. Worker Active Polling Mode**
+- ✅ Workers continuously loop to pull tasks, no scheduler trigger required.
+- ✅ Default 0.5s polling interval for extremely fast response.
+- ✅ Automatic sleep when idle, no CPU overhead.
 
-**2. 数据库并发安全增强**
-- ✅ 使用 `BEGIN IMMEDIATE` 和原子操作
-- ✅ 防止任务重复处理
-- ✅ 支持多 Worker 并发拉取
+**2. Enhanced Database Concurrency Safety**
+- ✅ Uses `BEGIN IMMEDIATE` and atomic operations.
+- ✅ Prevents duplicate task processing.
+- ✅ Supports concurrent polling by multiple workers.
 
-**3. 调度器变为可选**
-- ✅ 不再是必需组件,Workers 可独立运行
-- ✅ 仅用于系统监控和健康检查
-- ✅ 默认不启动,减少系统开销
+**3. Optional Scheduler**
+- ✅ No longer a required component; workers can run independently.
+- ✅ Used only for system monitoring and health checks.
+- ✅ Off by default, reducing system overhead.
 
-**4. 结果文件清理功能**
-- ✅ 自动清理旧结果文件(默认7天)
-- ✅ 保留数据库记录供查询
-- ✅ 可配置清理周期或禁用
+**4. Result File Cleanup Function**
+- ✅ Automatically cleans old result files (default 7 days).
+- ✅ Preserves database records for querying.
+- ✅ Configurable cleanup cycle or disablement.
 
-**5. API 自动返回内容**
-- ✅ 查询接口自动返回 Markdown 内容
-- ✅ 无需额外请求获取结果
-- ✅ 支持图片上传到 MinIO
+**5. API Auto-Return Content**
+- ✅ Query interface automatically returns Markdown content.
+- ✅ No extra request needed to retrieve results.
+- ✅ Supports image upload to MinIO.
 
-**6. 多GPU显存优化**
-- ✅ 修复多卡显存占用问题
-- ✅ 每个进程只使用分配的GPU
-- ✅ 通过 `CUDA_VISIBLE_DEVICES` 隔离
+**6. Multi-GPU VRAM Optimization**
+- ✅ Fixes multi-card VRAM occupancy issues.
+- ✅ Each process only uses its assigned GPU.
+- ✅ Isolation via `CUDA_VISIBLE_DEVICES`.
 
-### 迁移指南 (v1.x → v2.0)
+### Migration Guide (v1.x → v2.0)
 
-**无需修改代码**,只需注意:
-1. 调度器现在是可选的,不启动也能正常工作
-2. 结果文件默认7天后清理,如需保留请设置 `--cleanup-old-files-days 0`
-3. API 查询接口现在会返回 `data` 字段包含完整内容
+**No code changes required**, just note:
+1. Scheduler is now optional.
+2. Result files cleaned after 7 days by default; use `--cleanup-old-files-days 0` to disable.
+3. API query interface now returns `data` field with full content.
 
-### 性能提升
+### Performance Gains
 
-| 指标 | v1.x | v2.0 | 提升 |
+| Metric | v1.x | v2.0 | Gain |
 |-----|------|------|-----|
-| 任务响应延迟<sup>※</sup> | 5-10秒 (调度器轮询) | 0.5秒 (Worker主动拉取) | **10-20倍** |
-| 并发安全性 | 基础锁机制 | 原子操作 + 状态检查 | **可靠性提升** |
-| 多GPU效率 | 有时会出现显存冲突 | 完全隔离,无冲突 | **稳定性提升** |
-| 系统开销 | 调度器持续运行 | 可选监控(5分钟) | **资源节省** |
+| Task Response Latency<sup>※</sup> | 5-10s (Scheduler Polling) | 0.5s (Worker Active Polling) | **10-20x** |
+| Concurrency Safety | Basic Lock Mechanism | Atomic Ops + Status Checks | **Reliability Improvement** |
+| Multi-GPU Efficiency | Occasional VRAM Conflicts | Full Isolation, No Conflicts | **Stability Improvement** |
+| System Overhead | Continuous Scheduler Run | Optional Monitoring (5 min) | **Resource Saving** |
 
-※ 任务响应延迟指任务添加到被 Worker 开始处理的时间间隔。v1.x 主要受调度器轮询间隔影响，非测量端到端处理时间。实际端到端响应时间还包括任务类型和系统负载所有因子。
+※ Task response latency refers to the interval between task addition and when a Worker starts processing. v1.x was primarily limited by the scheduler polling interval, not end-to-end processing time. Actual end-to-end response time also includes task type and all system load factors.
 
-## 📝 核心依赖
+## 📝 Core Dependencies
 
 ```txt
-vparse[core]>=2.5.0      # VParse 核心
-fastapi>=0.115.0         # Web 框架
-litserve>=0.2.0          # GPU 负载均衡
-markitdown>=0.1.3        # Office 文档解析
-minio>=7.2.0             # MinIO 对象存储
+vparse[core]>=2.5.0      # VParse Core
+fastapi>=0.115.0         # Web Framework
+litserve>=0.2.0          # GPU Load Balancing
+markitdown>=0.1.3        # Office Document Parsing
+minio>=7.2.0             # MinIO Object Storage
 ```
 
-## 🤝 贡献
+## 🤝 Contribution
 
-欢迎提交 Issue 和 Pull Request！
+Issues and Pull Requests are welcome!
 
-## 📄 许可证
+## 📄 License
 
-遵循 VParse 主项目许可证
+Follows VParse main project license
 
 ---
 
-**Heavy (Heavy)** - 企业级多 GPU 文档解析服务 ⚡️
+**Heavy (Heavy)** - Enterprise-grade multi-GPU document parsing service ⚡️
 
-*北斗第一星，寓意核心调度能力*
+*Named after the first star of the Big Dipper, symbolizing core scheduling capability*

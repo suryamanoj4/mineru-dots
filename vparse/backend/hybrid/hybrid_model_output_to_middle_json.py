@@ -195,7 +195,7 @@ def result_to_middle_json(
                     span['content'] = ''
                     span['score'] = 0.0
 
-    """表格跨页合并"""
+    """Table cross-page merge"""
     table_enable = get_table_enable(os.getenv('VPARSE_VLM_TABLE_ENABLE', 'True').lower() == 'true')
     if table_enable:
         cross_page_table_merge(middle_json["pdf_info"])

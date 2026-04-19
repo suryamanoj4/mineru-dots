@@ -1,4 +1,4 @@
-"""VParse File转Markdown转换的API客户端。"""
+"""API client for VParse File to Markdown conversion."""
 
 import asyncio
 import os
@@ -26,16 +26,16 @@ def singleton_func(cls):
 @singleton_func
 class VParseClient:
     """
-    用于与 VParse API 交互以将 File 转换为 Markdown 的客户端。
+    Client for interacting with the VParse API to convert files to Markdown.
     """
 
     def __init__(self, api_base: Optional[str] = None, api_key: Optional[str] = None):
         """
-        初始化 VParse API 客户端。
+        Initialize the VParse API client.
 
         Args:
-            api_base: VParse API 的基础 URL (默认: 从环境变量获取)
-            api_key: 用于向 VParse 进行身份验证的 API 密钥 (默认: 从环境变量获取)
+            api_base: Base URL for VParse API (default: from environment)
+            api_key: API key for VParse authentication (default: from environment)
         """
         self.api_base = api_base or config.VPARSE_API_BASE
         self.api_key = api_key or config.VPARSE_API_KEY
@@ -43,15 +43,15 @@ class VParseClient:
         if not self.api_key:
             # Provide a user-friendly error message
             raise ValueError(
-                "错误: VParse API 密钥 (VPARSE_API_KEY) 未设置或为空。\n"
-                "请确保已设置 VPARSE_API_KEY 环境变量，例如:\n"
+                "Error: VParse API key (VPARSE_API_KEY) is not set or empty.\n"
+                "Please ensure the VPARSE_API_KEY environment variable is set, e.g.:\n"
                 "  export VPARSE_API_KEY='your_actual_api_key'\n"
-                "或者，在项目根目录的 `.env` 文件中定义该变量。"
+                "Alternatively, define it in a .env file at the project root."
             )
 
     async def _request(self, method: str, endpoint: str, **kwargs) -> Dict[str, Any]:
         """
-        向 VParse API 发出请求。
+        Make a request to the VParse API.
 
         Args:
             method: HTTP method (GET, POST, etc.)
