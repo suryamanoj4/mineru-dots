@@ -27,16 +27,16 @@ Rename all references from `mineru` to `vparse` while maintaining full backward 
 
 ### Acceptance criteria
 
-- [ ] Package directory renamed: `mineru/` → `vparse/`
-- [ ] All Python imports updated: `import mineru` → `import vparse`
-- [ ] CLI entry points renamed: `mineru` → `vparse`, `mineru-api` → `vparse-api`, etc.
-- [ ] Old CLI commands (`mineru`, `mineru-api`, etc.) still work as aliases
-- [ ] Config file location: check `~/.mineru.json` if `~/.vparse.json` doesn't exist
-- [ ] Environment variables: `MINERU_*` → `VPARSE_*` (old ones still work)
-- [ ] pyproject.toml updated with new package name and entry points
-- [ ] Exception classes renamed: `MinerUError` → `VParseError`
-- [ ] All documentation updated
-- [ ] `from mineru import ...` still works via backward-compatible imports
+- [x] Package directory renamed: `mineru/` → `vparse/`
+- [x] All Python imports updated: `import mineru` → `import vparse`
+- [x] CLI entry points renamed: `mineru` → `vparse`, `mineru-api` → `vparse-api`, etc.
+- [x] Old CLI commands (`mineru`, `mineru-api`, etc.) still work as aliases
+- [x] Config file location: check `~/.mineru.json` if `~/.vparse.json` doesn't exist
+- [x] Environment variables: `MINERU_*` → `VPARSE_*` (old ones still work)
+- [x] pyproject.toml updated with new package name and entry points
+- [x] Exception classes renamed: `MinerUError` → `VParseError`
+- [x] All documentation updated
+- [x] `from mineru import ...` still works via backward-compatible imports
 
 ---
 
@@ -50,12 +50,12 @@ Create the exception hierarchy and update `pyproject.toml` so VParse can be inst
 
 ### Acceptance criteria
 
-- [ ] `vparse/exceptions.py` created with full hierarchy (`VParseError` → `BackendError`, `ModelLoadError`, `ConfigurationError`, `InputError`, `ProcessingError`, `TimeoutError`)
-- [ ] `vparse/py.typed` marker file created
-- [ ] `pyproject.toml` updated with `[tool.setuptools.package-data]`, classifiers
-- [ ] Existing code in `vparse/data/utils/exceptions.py` updated to subclass from new `VParseError` (backward compatible)
-- [ ] `python -m build` succeeds in clean environment
-- [ ] No runtime behavior changes
+- [x] `vparse/exceptions.py` created with full hierarchy (`VParseError` → `BackendError`, `ModelLoadError`, `ConfigurationError`, `InputError`, `ProcessingError`, `TimeoutError`)
+- [x] `vparse/py.typed` marker file created
+- [x] `pyproject.toml` updated with `[tool.setuptools.package-data]`, classifiers
+- [x] Existing code in `vparse/data/utils/exceptions.py` updated to subclass from new `VParseError` (backward compatible)
+- [x] `python -m build` succeeds in clean environment
+- [x] No runtime behavior changes
 
 ---
 
