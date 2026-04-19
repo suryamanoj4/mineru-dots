@@ -1,3 +1,4 @@
+# Copyright (c) Opendatalab. All rights reserved.
 import os
 
 from loguru import logger
@@ -15,7 +16,7 @@ def enable_custom_logits_processors() -> bool:
 
     if torch.cuda.is_available():
         major, minor = torch.cuda.get_device_capability()
-        # 正确计算Compute Capability
+        # Correctly calculate Compute Capability
         compute_capability = f"{major}.{minor}"
     elif hasattr(torch, 'npu') and torch.npu.is_available():
         compute_capability = "8.0"
@@ -32,7 +33,7 @@ def enable_custom_logits_processors() -> bool:
         logger.info("CUDA not available, disabling custom_logits_processors")
         return False
 
-    # 安全地处理环境变量
+    # Safely handle environment variables
     vllm_use_v1_str = os.getenv('VLLM_USE_V1', "1")
     if vllm_use_v1_str.isdigit():
         vllm_use_v1 = int(vllm_use_v1_str)
@@ -110,9 +111,9 @@ def set_default_batch_size() -> int:
 
 
 def _get_device_config(device_type: str) -> dict | None:
-    """获取不同设备类型的配置参数"""
+    """Get configuration parameters for different device types."""
 
-    # 各设备类型的配置定义
+    # Configuration definitions for each device type
     DEVICE_CONFIGS = {
         # "musa": {
         #     "compilation_config_dict": {
@@ -148,37 +149,38 @@ def _get_device_config(device_type: str) -> dict | None:
 
 
 def _check_server_arg_exists(args: list, arg_name: str) -> bool:
-    """检查命令行参数列表中是否已存在指定参数"""
+    """Check if the specified argument already exists in the command line argument list."""
     return any(arg == f"--{arg_name}" or arg.startswith(f"--{arg_name}=") for arg in args)
 
 
 def _add_server_arg_if_missing(args: list, arg_name: str, value: str) -> None:
-    """如果参数不存在，则添加到命令行参数列表"""
+    """Add the argument to the command line argument list if it does not exist."""
     if not _check_server_arg_exists(args, arg_name):
         args.extend([f"--{arg_name}", value])
 
 
 def _add_server_flag_if_missing(args: list, flag_name: str) -> None:
-    """如果 flag 不存在，则添加到命令行参数列表"""
+    """Add the flag to the command line argument list if it does not exist."""
     if not _check_server_arg_exists(args, flag_name):
         args.append(f"--{flag_name}")
 
 
 def _add_engine_kwarg_if_missing(kwargs: dict, key: str, value) -> None:
-    """如果参数不存在，则添加到 kwargs 字典"""
+    """Add the parameter to the kwargs dictionary if it does not exist."""
     if key not in kwargs:
         kwargs[key] = value
 
 
 def mod_kwargs_by_device_type(kwargs_or_args: dict | list, vllm_mode: str) -> dict | list:
-    """根据设备类型修改 vllm 配置参数
+    """
+    Modify vLLM configuration parameters based on device type.
 
     Args:
-        kwargs_or_args: 配置参数，server 模式为 list，engine 模式为 dict
-        vllm_mode: vllm 运行模式 ("server", "sync_engine", "async_engine")
+        kwargs_or_args: Configuration parameters (list for server mode, dict for engine mode)
+        vllm_mode: vLLM running mode ("server", "sync_engine", "async_engine")
 
     Returns:
-        修改后的配置参数
+        Modified configuration parameters
     """
     device_type = get_env_with_legacy("VPARSE_VLLM_DEVICE", "MINERU_VLLM_DEVICE", "")
     config = _get_device_config(device_type)
@@ -195,7 +197,7 @@ def mod_kwargs_by_device_type(kwargs_or_args: dict | list, vllm_mode: str) -> di
 
 
 def _apply_server_config(args: list, config: dict) -> None:
-    """应用 server 模式的配置"""
+    """Apply server mode configuration."""
     import json
 
     for key, value in config.items():
@@ -205,7 +207,7 @@ def _apply_server_config(args: list, config: dict) -> None:
                 json.dumps(value, separators=(',', ':'))
             )
         else:
-            # 转换 key 格式: block_size -> block-size
+            # Convert key format: block_size -> block-size
             arg_name = key.replace("_", "-")
             if arg_name in {"enable-chunked-prefill", "enable-prefix-caching"} and value is False:
                 _add_server_flag_if_missing(args, f"no-{arg_name}")
@@ -214,7 +216,7 @@ def _apply_server_config(args: list, config: dict) -> None:
 
 
 def _apply_engine_config(kwargs: dict, config: dict, vllm_mode: str) -> None:
-    """应用 engine 模式的配置"""
+    """Apply engine mode configuration."""
     try:
         from vllm.config import CompilationConfig
     except ImportError:

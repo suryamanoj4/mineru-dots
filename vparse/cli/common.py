@@ -88,7 +88,7 @@ def convert_pdf_bytes_to_bytes_by_pypdfium2(pdf_bytes, start_page_id=0, end_page
     try:
         end_page_id = get_end_page_id(end_page_id, len(pdf))
 
-        # 逐页导入,失败则跳过
+        # Import page by page, skip if failed
         output_index = 0
         for page_index in range(start_page_id, end_page_id + 1):
             try:
@@ -99,11 +99,11 @@ def convert_pdf_bytes_to_bytes_by_pypdfium2(pdf_bytes, start_page_id=0, end_page
                 logger.warning(f"Failed to import page {page_index}: {page_error}, skipping this page.")
                 continue
 
-        # 将新PDF保存到内存缓冲区
+        # Save new PDF to memory buffer
         output_buffer = io.BytesIO()
         output_pdf.save(output_buffer)
 
-        # 获取字节数据
+        # Get byte data
         output_bytes = output_buffer.getvalue()
     except Exception as e:
         logger.warning(f"Error in converting PDF bytes: {e}, Using original PDF bytes.")
@@ -114,7 +114,7 @@ def convert_pdf_bytes_to_bytes_by_pypdfium2(pdf_bytes, start_page_id=0, end_page
 
 
 def _prepare_pdf_bytes(pdf_bytes_list, start_page_id, end_page_id):
-    """准备处理PDF字节数据"""
+    """Prepare PDF byte data for processing"""
     result = []
     for pdf_bytes in pdf_bytes_list:
         new_pdf_bytes = convert_pdf_bytes_to_bytes_by_pypdfium2(pdf_bytes, start_page_id, end_page_id)
@@ -143,7 +143,7 @@ def _process_output(
 ):
     f_draw_line_sort_bbox = False
     from vparse.backend.pipeline.pipeline_middle_json_mkcontent import union_make as pipeline_union_make
-    """处理输出文件"""
+    """Process output files"""
     if f_draw_layout_bbox:
         draw_layout_bbox(pdf_info, pdf_bytes, local_md_dir, f"{pdf_file_name}_layout.pdf")
 
@@ -217,7 +217,7 @@ def _process_pipeline(
         f_dump_content_list,
         f_make_md_mode,
 ):
-    """处理pipeline后端逻辑"""
+    """Handle pipeline backend logic"""
     from vparse.backend.pipeline.model_json_to_middle_json import result_to_middle_json as pipeline_result_to_middle_json
     from vparse.backend.pipeline.pipeline_analyze import doc_analyze as pipeline_doc_analyze
 
@@ -277,7 +277,7 @@ def _process_lite(
         f_dump_content_list,
         f_make_md_mode,
 ):
-    """处理lite后端逻辑"""
+    """Handle lite backend logic"""
     from vparse.backend.lite.lite_analyze import doc_analyze as lite_doc_analyze
 
     pipeline_subdir = get_pipeline_subdir(backend, parse_method)
@@ -317,7 +317,7 @@ async def _async_process_vlm(
         server_url=None,
         **kwargs,
 ):
-    """异步处理vlm后端逻辑"""
+    """Handle vlm backend logic asynchronously"""
 
     parse_method = "vlm"
     f_draw_span_bbox = False
@@ -358,7 +358,7 @@ def _process_vlm(
         server_url=None,
         **kwargs,
 ):
-    """同步处理vlm后端逻辑"""
+    """Handle vlm backend logic synchronously"""
 
     parse_method = "vlm"
     f_draw_span_bbox = False
@@ -404,7 +404,7 @@ def _process_hybrid(
         **kwargs,
 ):
     from vparse.backend.hybrid.hybrid_analyze import doc_analyze as hybrid_doc_analyze
-    """同步处理hybrid后端逻辑"""
+    """Handle hybrid backend logic synchronously"""
     if not backend.endswith("client"):
         server_url = None
 
@@ -457,7 +457,7 @@ async def _async_process_hybrid(
         **kwargs,
 ):
     from vparse.backend.hybrid.hybrid_analyze import aio_doc_analyze as aio_hybrid_doc_analyze
-    """异步处理hybrid后端逻辑"""
+    """Handle hybrid backend logic asynchronously"""
     if not backend.endswith("client"):
         server_url = None
 
@@ -512,10 +512,10 @@ def do_parse(
         end_page_id=None,
         **kwargs,
 ):
-    # 预处理PDF字节数据
+    # Preprocess PDF byte data
     pdf_bytes_list = _prepare_pdf_bytes(pdf_bytes_list, start_page_id, end_page_id)
 
-    if backend in ["pipeline", "pipeline-lite"]:
+    if backend == "pipeline":
         _process_pipeline(
             output_dir, pdf_file_names, pdf_bytes_list, p_lang_list,
             backend, parse_method, formula_enable, table_enable,
@@ -591,11 +591,11 @@ async def aio_do_parse(
         end_page_id=None,
         **kwargs,
 ):
-    # 预处理PDF字节数据
+    # Preprocess PDF byte data
     pdf_bytes_list = _prepare_pdf_bytes(pdf_bytes_list, start_page_id, end_page_id)
 
-    if backend in ["pipeline", "pipeline-lite"]:
-        # pipeline模式暂不支持异步，使用同步处理方式
+    if backend == "pipeline":
+        # pipeline mode does not support async yet; using synchronous processing
         _process_pipeline(
             output_dir, pdf_file_names, pdf_bytes_list, p_lang_list,
             backend, parse_method, formula_enable, table_enable,

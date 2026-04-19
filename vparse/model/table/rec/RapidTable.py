@@ -24,7 +24,7 @@ def escape_html(input_string):
 class CustomRapidTable(RapidTable):
     def __init__(self, cfg: RapidTableInput):
         import logging
-        # 通过环境变量控制日志级别
+        # Control log level through environment variables
         logging.disable(logging.INFO)
         super().__init__(cfg)
     def __call__(self, img_contents, ocr_results=None, batch_size=1):
@@ -52,7 +52,7 @@ class CustomRapidTable(RapidTable):
                 )
 
                 results.pred_htmls.extend(pred_htmls)
-                # 更新进度条
+                # Update progress bar
                 pbar.update(end_i - start_i)
 
         elapse = time.perf_counter() - s
@@ -80,7 +80,7 @@ class RapidTableModel():
 
         if not ocr_result:
             raw_ocr_result = self.ocr_engine.ocr(bgr_image)[0]
-            # 分离边界框、文本和置信度
+            # Separate bounding boxes, text, and confidence scores
             boxes = []
             texts = []
             scores = []
@@ -93,7 +93,7 @@ class RapidTableModel():
                     boxes.append(item[0])
                     texts.append(escape_html(item[1][0]))
                     scores.append(item[1][1])
-            # 按照 rapid_table 期望的格式构建 ocr_results
+            # Construct ocr_results in the format expected by rapid_table
             ocr_result = [(boxes, texts, scores)]
 
         if ocr_result:
@@ -118,7 +118,7 @@ class RapidTableModel():
         if not_none_table_res_list:
             img_contents = [table_res["table_img"] for table_res in not_none_table_res_list]
             ocr_results = []
-            # ocr_results需要按照rapid_table期望的格式构建
+            # ocr_results must be constructed in the format expected by rapid_table
             for table_res in not_none_table_res_list:
                 raw_ocr_result = table_res["ocr_result"]
                 boxes = []

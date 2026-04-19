@@ -32,7 +32,7 @@ def page_to_image(
 
 def image_to_bytes(
     image: Image.Image,
-    # image_format: str = "PNG",  # 也可以用 "JPEG"
+    # image_format: str = "PNG",  # Can also use "JPEG"
     image_format: str = "JPEG",
 ) -> bytes:
     with BytesIO() as image_buffer:
@@ -42,7 +42,7 @@ def image_to_bytes(
 
 def image_to_b64str(
     image: Image.Image,
-    # image_format: str = "PNG",  # 也可以用 "JPEG"
+    # image_format: str = "PNG",  # Can also use "JPEG"
     image_format: str = "JPEG",
 ) -> str:
     image_bytes = image_to_bytes(image, image_format)
@@ -92,7 +92,7 @@ def pdf_to_images_bytes(
     max_width_or_height: int = 3500,
     start_page_id: int = 0,
     end_page_id: int | None = None,
-    # image_format: str = "PNG",  # 也可以用 "JPEG"
+    # image_format: str = "PNG",  # Can also use "JPEG"
     image_format: str = "JPEG",
 ) -> list[bytes]:
     images = pdf_to_images(pdf, dpi, max_width_or_height, start_page_id, end_page_id)
@@ -105,7 +105,7 @@ def pdf_to_images_b64strs(
     max_width_or_height: int = 3500,
     start_page_id: int = 0,
     end_page_id: int | None = None,
-    # image_format: str = "PNG",  # 也可以用 "JPEG"
+    # image_format: str = "PNG",  # Can also use "JPEG"
     image_format: str = "JPEG",
 ) -> list[str]:
     images = pdf_to_images(pdf, dpi, max_width_or_height, start_page_id, end_page_id)

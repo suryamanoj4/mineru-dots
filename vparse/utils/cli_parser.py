@@ -2,18 +2,18 @@ import click
 
 
 def arg_parse(ctx: 'click.Context') -> dict:
-    # 解析额外参数
+    # Parse extra arguments
     extra_kwargs = {}
     i = 0
     while i < len(ctx.args):
         arg = ctx.args[i]
         if arg.startswith('--'):
-            param_name = arg[2:].replace('-', '_')  # 转换参数名格式
+            param_name = arg[2:].replace('-', '_')  # Convert argument name format
             i += 1
             if i < len(ctx.args) and not ctx.args[i].startswith('--'):
-                # 参数有值
+                # Argument has a value
                 try:
-                    # 尝试转换为适当的类型
+                    # Try converting to appropriate type
                     if ctx.args[i].lower() == 'true':
                         extra_kwargs[param_name] = True
                     elif ctx.args[i].lower() == 'false':
@@ -31,7 +31,7 @@ def arg_parse(ctx: 'click.Context') -> dict:
                 except:
                     extra_kwargs[param_name] = ctx.args[i]
             else:
-                # 布尔型标志参数
+                # Boolean flag parameter
                 extra_kwargs[param_name] = True
                 i -= 1
         i += 1

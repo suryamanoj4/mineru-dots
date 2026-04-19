@@ -46,7 +46,7 @@ def pdf_page_to_image(page: pdfium.PdfPage, dpi=200, image_type=ImageType.PIL) -
 def _load_images_from_pdf_worker(
     pdf_bytes, dpi, start_page_id, end_page_id, image_type
 ):
-    """用于进程池的包装函数"""
+    """Wrapper function for process pool"""
     return load_images_from_pdf_core(
         pdf_bytes, dpi, start_page_id, end_page_id, image_type
     )
@@ -61,23 +61,23 @@ def load_images_from_pdf(
     timeout=None,
     threads=None,
 ):
-    """带超时控制的 PDF 转图片函数,支持多进程加速
+    """PDF to image function with timeout control, supports multi-process acceleration
 
     Args:
-        pdf_bytes (bytes): PDF 文件的 bytes
+        pdf_bytes (bytes): PDF file bytes
         dpi (int, optional): reset the dpi of dpi. Defaults to 200.
-        start_page_id (int, optional): 起始页码. Defaults to 0.
-        end_page_id (int | None, optional): 结束页码. Defaults to None.
-        image_type (ImageType, optional): 图片类型. Defaults to ImageType.PIL.
-        timeout (int | None, optional): 超时时间(秒)。如果为 None，则从环境变量 VPARSE_PDF_RENDER_TIMEOUT 读取，若未设置则默认为 300 秒。
-        threads (int): 进程数, 如果为 None，则从环境变量 VPARSE_PDF_RENDER_THREADS 读取，若未设置则默认为 4.
+        start_page_id (int, optional): Start page number. Defaults to 0.
+        end_page_id (int | None, optional): End page number. Defaults to None.
+        image_type (ImageType, optional): Image type. Defaults to ImageType.PIL.
+        timeout (int | None, optional): Timeout in seconds. If None, reads from VPARSE_PDF_RENDER_TIMEOUT; defaults to 300 seconds.
+        threads (int): Number of threads. If None, reads from VPARSE_PDF_RENDER_THREADS; defaults to 4.
 
     Raises:
-        TimeoutError: 当转换超时时抛出
+        TimeoutError: Raised when conversion times out
     """
     pdf_doc = pdfium.PdfDocument(pdf_bytes)
     if is_windows_environment():
-        # Windows 环境下不使用多进程
+        # Do not use multi-processing in Windows environment
         return load_images_from_pdf_core(
             pdf_bytes,
             dpi,
@@ -93,20 +93,20 @@ def load_images_from_pdf(
 
         end_page_id = get_end_page_id(end_page_id, len(pdf_doc))
 
-        # 计算总页数
+        # Calculate total pages
         total_pages = end_page_id - start_page_id + 1
 
-        # 实际使用的进程数不超过总页数
+        # Actual number of processes used does not exceed total pages
         actual_threads = min(os.cpu_count() or 1, threads, total_pages)
 
-        # 根据实际进程数分组页面范围
+        # Group page ranges based on the actual number of processes
         pages_per_thread = max(1, total_pages // actual_threads)
         page_ranges = []
 
         for i in range(actual_threads):
             range_start = start_page_id + i * pages_per_thread
             if i == actual_threads - 1:
-                # 最后一个进程处理剩余所有页面
+                # The last process handles all remaining pages
                 range_end = end_page_id
             else:
                 range_end = start_page_id + (i + 1) * pages_per_thread - 1
@@ -117,7 +117,7 @@ def load_images_from_pdf(
 
         executor = ProcessPoolExecutor(max_workers=actual_threads)
         try:
-            # 提交所有任务
+            # Submit all tasks
             futures = []
             future_to_range = {}
             for range_start, range_end in page_ranges:
@@ -132,25 +132,25 @@ def load_images_from_pdf(
                 futures.append(future)
                 future_to_range[future] = range_start
 
-            # 使用 wait() 设置单一全局超时
+            # Use wait() to set a single global timeout
             done, not_done = wait(futures, timeout=timeout, return_when=ALL_COMPLETED)
 
-            # 检查是否有未完成的任务（超时情况）
+            # Check for unfinished tasks (timeout case)
             if not_done:
-                # 超时：强制终止所有子进程
+                # Timeout: Forcefully terminate all child processes
                 _terminate_executor_processes(executor)
                 pdf_doc.close()
                 raise TimeoutError(f"PDF to images conversion timeout after {timeout}s")
 
-            # 所有任务完成，收集结果
+            # All tasks completed, collect results
             all_results = []
             for future in futures:
                 range_start = future_to_range[future]
-                # 这里不需要 timeout，因为任务已完成
+                # Timeout is not needed here as tasks are completed
                 images_list = future.result()
                 all_results.append((range_start, images_list))
 
-            # 按起始页码排序并合并结果
+            # Sort by start page ID and merge results
             all_results.sort(key=lambda x: x[0])
             images_list = []
             for _, imgs in all_results:
@@ -159,7 +159,7 @@ def load_images_from_pdf(
             return images_list, pdf_doc
 
         except Exception as e:
-            # 发生任何异常时，确保清理子进程
+            # Ensure child processes are cleaned up on any exception
             _terminate_executor_processes(executor)
             pdf_doc.close()
             if isinstance(e, TimeoutError):
@@ -170,20 +170,20 @@ def load_images_from_pdf(
 
 
 def _terminate_executor_processes(executor):
-    """强制终止 ProcessPoolExecutor 中的所有子进程"""
+    """Forcefully terminate all child processes in ProcessPoolExecutor"""
     if hasattr(executor, '_processes'):
         for pid, process in executor._processes.items():
             if process.is_alive():
                 try:
-                    # 先发送 SIGTERM 允许优雅退出
+                    # Send SIGTERM first to allow graceful exit
                     os.kill(pid, signal.SIGTERM)
                 except (ProcessLookupError, OSError):
                     pass
 
-        # 给子进程一点时间响应 SIGTERM
+        # Give child processes some time to respond to SIGTERM
         time.sleep(0.1)
 
-        # 对仍然存活的进程发送 SIGKILL 强制终止
+        # Send SIGKILL to still living processes to force termination
         for pid, process in executor._processes.items():
             if process.is_alive():
                 try:
@@ -223,17 +223,17 @@ def cut_image(
     image_writer: FileBasedDataWriter,
     scale=2,
 ):
-    """从第page_num页的page中，根据bbox进行裁剪出一张jpg图片，返回图片路径 save_path：需要同时支持s3和本地,
-    图片存放在save_path下，文件名是:
-    {page_num}_{bbox[0]}_{bbox[1]}_{bbox[2]}_{bbox[3]}.jpg , bbox内数字取整。"""
+    """Crop a jpg image from page number page_num based on bbox, return the image path. save_path: should support both S3 and local.
+    Images are stored in save_path with the filename:
+    {page_num}_{bbox[0]}_{bbox[1]}_{bbox[2]}_{bbox[3]}.jpg, numbers in bbox are rounded to integers."""
 
-    # 拼接文件名
+    # Concatenate filename
     filename = f"{page_num}_{int(bbox[0])}_{int(bbox[1])}_{int(bbox[2])}_{int(bbox[3])}"
 
-    # 老版本返回不带bucket的路径
+    # Old version returns path without bucket
     img_path = f"{return_path}_{filename}" if return_path is not None else None
 
-    # 新版本生成平铺路径
+    # New version generates flattened path
     img_hash256_path = f"{str_sha256(img_path)}.jpg"
     # img_hash256_path = f'{img_path}.jpg'
 
@@ -243,6 +243,7 @@ def cut_image(
 
     image_writer.write(img_hash256_path, img_bytes)
     return img_hash256_path
+
 
 
 def get_crop_img(bbox: tuple, pil_img, scale=2):
@@ -274,25 +275,25 @@ def get_crop_np_img(bbox: tuple, input_img, scale=2):
 
 
 def images_bytes_to_pdf_bytes(image_bytes):
-    # 内存缓冲区
+    # Memory buffer
     pdf_buffer = BytesIO()
 
-    # 载入并转换所有图像为 RGB 模式
+    # Load and convert all images to RGB mode
     image = Image.open(BytesIO(image_bytes))
-    # 根据 EXIF 信息自动转正（处理手机拍摄的带 Orientation 标记的图片）
+    # Automatically correct orientation based on EXIF (handles photos with Orientation tags)
     image = ImageOps.exif_transpose(image) or image
-    # 只在必要时转换
+    # Convert only when necessary
     if image.mode != "RGB":
         image = image.convert("RGB")
 
-    # 第一张图保存为 PDF，其余追加
+    # Save the first image as PDF, append others
     image.save(
         pdf_buffer,
         format="PDF",
         # save_all=True
     )
 
-    # 获取 PDF bytes 并重置指针（可选）
+    # Get PDF bytes and reset pointer (optional)
     pdf_bytes = pdf_buffer.getvalue()
     pdf_buffer.close()
     return pdf_bytes

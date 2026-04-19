@@ -33,7 +33,7 @@ def page_model_info_to_page_info(page_model_info, image_dict, page, image_writer
     page_w, page_h = map(int, page.get_size())
     magic_model = MagicModel(page_model_info, scale)
 
-    """从magic_model对象中获取后面会用到的区块信息"""
+    # Retrieve block information from the magic_model object for later use
     discarded_blocks = magic_model.get_discarded()
     text_blocks = magic_model.get_text_blocks()
     title_blocks = magic_model.get_title_blocks()
@@ -42,7 +42,7 @@ def page_model_info_to_page_info(page_model_info, image_dict, page, image_writer
     img_groups = magic_model.get_imgs()
     table_groups = magic_model.get_tables()
 
-    """对image和table的区块分组"""
+    # Group image and table blocks
     img_body_blocks, img_caption_blocks, img_footnote_blocks, maybe_text_image_blocks = process_groups(
         img_groups, 'image_body', 'image_caption_list', 'image_footnote_list'
     )
@@ -51,16 +51,16 @@ def page_model_info_to_page_info(page_model_info, image_dict, page, image_writer
         table_groups, 'table_body', 'table_caption_list', 'table_footnote_list'
     )
 
-    """获取所有的spans信息"""
+    # Get information for all spans
     spans = magic_model.get_all_spans()
 
-    """某些图可能是文本块，通过简单的规则判断一下"""
+    # Some images may be text blocks; determine using simple rules
     if len(maybe_text_image_blocks) > 0:
         for block in maybe_text_image_blocks:
             should_add_to_text_blocks = False
 
             if ocr_enable:
-                # 找到与当前block重叠的text spans
+                # Find text spans overlapping with the current block
                 span_in_block_list = [
                     span for span in spans
                     if span['type'] == 'text' and
@@ -68,28 +68,28 @@ def page_model_info_to_page_info(page_model_info, image_dict, page, image_writer
                 ]
 
                 if len(span_in_block_list) > 0:
-                    # 计算spans总面积
+                    # Calculate total area of spans
                     spans_area = sum(
                         (span['bbox'][2] - span['bbox'][0]) * (span['bbox'][3] - span['bbox'][1])
                         for span in span_in_block_list
                     )
 
-                    # 计算block面积
+                    # Calculate block area
                     block_area = (block['bbox'][2] - block['bbox'][0]) * (block['bbox'][3] - block['bbox'][1])
 
-                    # 判断是否符合文本图条件
+                    # Determine if it meets text-image criteria
                     if block_area > 0 and spans_area / block_area > 0.25:
                         should_add_to_text_blocks = True
 
-            # 根据条件决定添加到哪个列表
+            # Add to appropriate list based on criteria
             if should_add_to_text_blocks:
-                block.pop('group_id', None)  # 移除group_id
+                block.pop('group_id', None)  # Remove group_id
                 text_blocks.append(block)
             else:
                 img_body_blocks.append(block)
 
 
-    """将所有区块的bbox整理到一起"""
+    # Consolidate bboxes for all blocks
     if formula_enabled:
         interline_equation_blocks = []
 
@@ -125,49 +125,49 @@ def page_model_info_to_page_info(page_model_info, image_dict, page, image_writer
             page_h,
         )
 
-    """在删除重复span之前，应该通过image_body和table_body的block过滤一下image和table的span"""
-    """顺便删除大水印并保留abandon的span"""
+    # Filter image and table spans using image_body and table_body blocks before removing duplicates
+    # Also remove large watermarks while preserving 'abandon' spans
     spans = remove_outside_spans(spans, all_bboxes, all_discarded_blocks)
 
-    """删除重叠spans中置信度较低的那些"""
+    # Remove lower-confidence spans among those that overlap
     spans, dropped_spans_by_confidence = remove_overlaps_low_confidence_spans(spans)
-    """删除重叠spans中较小的那些"""
+    # Remove smaller spans among those that overlap
     spans, dropped_spans_by_span_overlap = remove_overlaps_min_spans(spans)
 
-    """根据parse_mode，构造spans，主要是文本类的字符填充"""
+    # Construct spans based on parse_mode, primarily filling text-type characters
     if ocr_enable:
         pass
     else:
-        """使用新版本的混合ocr方案."""
+        # Use the new hybrid OCR scheme
         spans = txt_spans_extract(page, spans, page_pil_img, scale, all_bboxes, all_discarded_blocks)
 
-    """先处理不需要排版的discarded_blocks"""
+    # Process discarded_blocks (no layout required) first
     discarded_block_with_spans, spans = fill_spans_in_blocks(
         all_discarded_blocks, spans, 0.4
     )
     fix_discarded_blocks = fix_discarded_block(discarded_block_with_spans)
 
-    """如果当前页面没有有效的bbox则跳过"""
+    # Skip if the current page has no valid bboxes
     if len(all_bboxes) == 0 and len(fix_discarded_blocks) == 0:
         return None
 
-    """对image/table/interline_equation截图"""
+    # Take screenshots of image, table, and interline_equation
     for span in spans:
         if span['type'] in [ContentType.IMAGE, ContentType.TABLE, ContentType.INTERLINE_EQUATION]:
             span = cut_image_and_table(
                 span, page_pil_img, page_img_md5, page_index, image_writer, scale=scale
             )
 
-    """span填充进block"""
+    # Fill spans into blocks
     block_with_spans, spans = fill_spans_in_blocks(all_bboxes, spans, 0.5)
 
-    """对block进行fix操作"""
+    # Perform fix operations on blocks
     fix_blocks = fix_block_spans(block_with_spans)
 
-    """对block进行排序"""
+    # Sort blocks
     sorted_blocks = sort_blocks_by_bbox(fix_blocks, page_w, page_h, footnote_blocks)
 
-    """构造page_info"""
+    # Construct page_info
     page_info = make_page_info_dict(sorted_blocks, page_index, page_w, page_h, fix_discarded_blocks)
 
     return page_info
@@ -196,7 +196,7 @@ def result_to_middle_json(
             page_info = make_page_info_dict([], page_index, page_w, page_h, [])
         middle_json["pdf_info"].append(page_info)
 
-    """后置ocr处理"""
+    # Post-process OCR
     need_ocr_list = []
     img_crop_list = []
     text_block_list = []
@@ -237,17 +237,17 @@ def result_to_middle_json(
                 span['content'] = ''
                 span['score'] = 0.0
 
-    """分段"""
+    # Paragraph splitting
     para_split(middle_json["pdf_info"], ocr_engine=ocr_engine)
 
-    """表格跨页合并"""
+    # Merge tables across pages
     cross_page_table_merge(middle_json["pdf_info"])
 
-    """llm优化"""
+    # LLM optimization
     llm_aided_config = get_llm_aided_config()
 
     if llm_aided_config is not None:
-        """标题优化"""
+        # Heading optimization
         title_aided_config = llm_aided_config.get('title_aided', None)
         if title_aided_config is not None:
             if title_aided_config.get('enable', False):
@@ -255,7 +255,7 @@ def result_to_middle_json(
                 llm_aided_title(middle_json["pdf_info"], title_aided_config)
                 logger.info(f'llm aided title time: {round(time.time() - llm_aided_title_start_time, 2)}')
 
-    """清理内存"""
+    # Clean up memory
     pdf_doc.close()
     if os.getenv('VPARSE_DONOT_CLEAN_MEM') is None and len(model_list) >= 10:
         clean_memory(get_device())

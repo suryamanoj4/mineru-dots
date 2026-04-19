@@ -13,8 +13,8 @@ from ...utils.pdf_image_tools import load_images_from_pdf
 from ...utils.model_utils import get_vram, clean_memory
 
 
-os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'  # 让mps可以fallback
-os.environ['NO_ALBUMENTATIONS_UPDATE'] = '1'  # 禁止albumentations检查更新
+os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'  # Allow MPS fallback
+os.environ['NO_ALBUMENTATIONS_UPDATE'] = '1'  # Disable albumentations update check
 
 class ModelSingleton:
     _instance = None
@@ -51,7 +51,7 @@ def custom_model_init(
     ocr_engine=None,
 ):
     model_init_start = time.time()
-    # 从配置文件读取model-dir和device
+    # Read model-dir and device from configuration file
     device = get_device()
 
     formula_config = {"enable": formula_enable}
@@ -82,20 +82,20 @@ def doc_analyze(
         ocr_engine=None,
 ):
     """
-    适当调大MIN_BATCH_INFERENCE_SIZE可以提高性能，更大的 MIN_BATCH_INFERENCE_SIZE会消耗更多内存，
-    可通过环境变量VPARSE_MIN_BATCH_INFERENCE_SIZE设置，默认值为384。
+    Increasing MIN_BATCH_INFERENCE_SIZE can improve performance, but larger MIN_BATCH_INFERENCE_SIZE will consume more memory.
+    Can be set via the environment variable VPARSE_MIN_BATCH_INFERENCE_SIZE, default value is 384.
     """
     min_batch_inference_size = int(os.environ.get('VPARSE_MIN_BATCH_INFERENCE_SIZE', 384))
 
-    # 收集所有页面信息
-    all_pages_info = []  # 存储(dataset_index, page_index, img, ocr, lang, width, height)
+    # Collect all page information
+    all_pages_info = []  # Store (dataset_index, page_index, img, ocr, lang, width, height)
 
     all_image_lists = []
     all_pdf_docs = []
     ocr_enabled_list = []
     load_images_start = time.time()
     for pdf_idx, pdf_bytes in enumerate(pdf_bytes_list):
-        # 确定OCR设置
+        # Determine OCR settings
         _ocr_enable = False
         if parse_method == 'auto':
             if classify(pdf_bytes) == 'ocr':
@@ -106,7 +106,7 @@ def doc_analyze(
         ocr_enabled_list.append(_ocr_enable)
         _lang = lang_list[pdf_idx]
 
-        # 收集每个数据集中的页面
+        # Collect pages in each dataset
         images_list, pdf_doc = load_images_from_pdf(pdf_bytes, image_type=ImageType.PIL)
         all_image_lists.append(images_list)
         all_pdf_docs.append(pdf_doc)
@@ -119,7 +119,7 @@ def doc_analyze(
     load_images_time = round(time.time() - load_images_start, 2)
     logger.debug(f"load images cost: {load_images_time}, speed: {round(len(all_pages_info) / load_images_time, 3)} images/s")
 
-    # 准备批处理
+    # Prepare batch processing
     images_with_extra_info = [(info[2], info[3], info[4]) for info in all_pages_info]
     batch_size = min_batch_inference_size
     batch_images = [
@@ -127,7 +127,7 @@ def doc_analyze(
         for i in range(0, len(images_with_extra_info), batch_size)
     ]
 
-    # 执行批处理
+    # Execute batch processing
     results = []
     processed_images_count = 0
     infer_start = time.time()
@@ -147,7 +147,7 @@ def doc_analyze(
     infer_time = round(time.time() - infer_start, 2)
     logger.debug(f"infer finished, cost: {infer_time}, speed: {round(len(results) / infer_time, 3)} page/s")
 
-    # 构建返回结果
+    # Construct return results
     infer_results = []
 
     for _ in range(len(pdf_bytes_list)):
@@ -204,7 +204,7 @@ def batch_image_analyze(
             f'GPU Memory: {gpu_memory} GB, Batch Ratio: {batch_ratio}. '
     )
 
-    # 检测torch的版本号
+    # Detect torch version
     import torch
     from packaging import version
     device_type = get_env_with_legacy("VPARSE_LMDEPLOY_DEVICE", "MINERU_LMDEPLOY_DEVICE", "")

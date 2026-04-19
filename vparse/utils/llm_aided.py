@@ -37,40 +37,40 @@ def llm_aided_title(page_info_list, title_aided_config):
                 i += 1
     # logger.info(f"Title list: {title_dict}")
 
-    title_optimize_prompt = f"""输入的内容是一篇文档中所有标题组成的字典，请根据以下指南优化标题的结果，使结果符合正常文档的层次结构：
+    title_optimize_prompt = f"""The input content is a dictionary of all titles from a document. Please optimize the title results according to the following guidelines to ensure they conform to a normal document hierarchy:
 
-1. 字典中每个value均为一个list，包含以下元素：
-    - 标题文本
-    - 文本行高是标题所在块的平均行高
-    - 标题所在的页码
+1. Each value in the dictionary is a list containing the following elements:
+    - Title text
+    - Text line height (average line height of the block containing the title)
+    - Page number where the title is located
 
-2. 保留原始内容：
-    - 输入的字典中所有元素都是有效的，不能删除字典中的任何元素
-    - 请务必保证输出的字典中元素的数量和输入的数量一致
+2. Preserve original content:
+    - All elements in the input dictionary are valid; do not delete any elements.
+    - Ensure the number of elements in the output dictionary matches the input.
 
-3. 保持字典内key-value的对应关系不变
+3. Keep the key-value mapping within the dictionary unchanged.
 
-4. 优化层次结构：
-    - 根据标题内容的语义为每个标题元素添加适当的层次结构
-    - 行高较大的标题一般是更高级别的标题
-    - 标题从前至后的层级必须是连续的，不能跳过层级
-    - 标题层级最多为4级，不要添加过多的层级
-    - 优化后的标题只保留代表该标题的层级的整数，不要保留其他信息
+4. Optimize hierarchy:
+    - Assign appropriate hierarchy levels to each title element based on its semantic content.
+    - Titles with larger line heights are generally higher-level titles.
+    - Hierarchy levels must be continuous from beginning to end, with no skipped levels.
+    - Maximum of 4 hierarchy levels; avoid excessive nesting.
+    - Optimized output should only contain the integer representing the hierarchy level for each title, with no other information.
 
-5. 合理性检查与微调：
-    - 在完成初步分级后，仔细检查分级结果的合理性
-    - 根据上下文关系和逻辑顺序，对不合理的分级进行微调
-    - 确保最终的分级结果符合文档的实际结构和逻辑
+5. Consistency check and fine-tuning:
+    - After initial leveling, carefully review the results for consistency.
+    - Fine-tune any inconsistent levels based on context and logical order.
+    - Ensure the final hierarchy reflects the document's actual structure and logic.
 
 IMPORTANT: 
-请直接返回优化过的由标题层级组成的字典，格式为{{标题id:标题层级}}，如下：
+Return only the optimized dictionary of hierarchy levels in the format {{title_id: hierarchy_level}}, as shown below:
 {{
   0:1,
   1:2,
   2:2,
   3:3
 }}
-不需要对字典格式化，不需要返回任何其他信息。
+No formatting or additional information is required.
 
 Input title list:
 {title_dict}
@@ -78,7 +78,7 @@ Input title list:
 Corrected title list:
 """
     #5.
-    #- 字典中可能包含被误当成标题的正文，你可以通过将其层级标记为 0 来排除它们
+    #- The dictionary may contain body text misidentified as titles; you can exclude them by marking their level as 0.
 
     retry_count = 0
     max_retries = 3

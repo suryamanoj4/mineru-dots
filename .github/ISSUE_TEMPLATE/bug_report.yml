@@ -1,5 +1,5 @@
 name: 🐛 Bug Report
-description: Create a bug report for VParse | VParse 的 Bug 反馈
+description: Create a bug report for VParse
 labels: bug
 
 # We omit `title: "..."` so that the field defaults to blank. If we set it to
@@ -9,11 +9,11 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thank you for submitting a VParse 🐛 Bug Report! | 感谢您提交 VParse 🐛 Bug 反馈！
+        Thank you for submitting a VParse 🐛 Bug Report!
 
   - type: checkboxes
     attributes:
-      label: 🔎 Search before asking | 提交之前请先搜索
+      label: 🔎 Search before asking
       description: >
         Please search the VParse [Readme](https://github.com/opendatalab/VParse), [Issues](https://github.com/opendatalab/VParse/issues) and [Discussions](https://github.com/opendatalab/VParse/discussions) to see if a similar bug report already exists.
       options:
@@ -26,7 +26,7 @@ body:
 
   - type: checkboxes
     attributes:
-      label: 🤖 Consult the online AI assistant for assistance | 在线 AI 助手咨询
+      label: 🤖 Consult the online AI assistant for assistance
       description: >
         This [online AI assistant](https://deepwiki.com/opendatalab/VParse) is specifically trained to help with VParse and related topics! It's available 24/7 and ready to provide insights.
       options:
@@ -36,9 +36,9 @@ body:
   - type: textarea
     id: description
     attributes:
-      label: Description of the bug | 错误描述
+      label: Description of the bug
       description: |
-        Provide console output with error messages and/or screenshots of the bug. | 请提供详细报错信息或者截图
+        Provide console output with error messages and/or screenshots of the bug.
       placeholder: |
         💡 ProTip! Include as much information as possible (screenshots, logs, tracebacks etc.) to receive the most helpful response.
     validations:
@@ -47,20 +47,19 @@ body:
   - type: textarea
     id: reproduce
     attributes:
-      label: How to reproduce the bug | 如何复现
+      label: How to reproduce the bug
       
       # Should not word-wrap this description here.
       description: |
-        If you have questions about the parsing results or encounter errors during execution: | 如对解析结果有疑问或在运行中出现报错等异常:
-        * Provide a minimal reproducible example. | 请提供一个最小可复现的demo。 
-        * The demo should include the complete steps, code, and the PDF file to be parsed. | demo需要包含完整的操作步骤，代码，以及需要解析的PDF文件。
+        If you have questions about the parsing results or encounter errors during execution:
+        * Provide a minimal reproducible example. 
+        * The demo should include the complete steps, code, and the PDF file to be parsed.
         * When reporting parsing result anomalies and runtime errors, reproducible PDF files are essential. If the document is too large or confidential, you can print the problematic page(s) via the browser and submit the corresponding example file.
-        * 在反馈解析结果异常和运行时报错时，可复现的PDF文件是必不可少的，如文档过大或涉密，您可通过浏览器打印出出现问题的某一页或某几页再提交相应的示例文件。
         
         
-        For problems when building or installing VParse: | 在构建或安装 VParse 时遇到的问题:
-        * Give the **exact** build/install commands that were run. | 提供**确切**的构建/安装命令。
-        * Give the **complete** output from these commands. | 提供这些命令的**完整**输出。
+        For problems when building or installing VParse:
+        * Give the **exact** build/install commands that were run.
+        * Give the **complete** output from these commands.
   
     validations:
       required: true
@@ -74,7 +73,7 @@ body:
   - type: dropdown
     id: os_mode
     attributes:
-      label: Operating System Mode | 操作系统类型
+      label: Operating System Mode
       #multiple: true
       options:
         -
@@ -87,14 +86,11 @@ body:
   - type: textarea
     id: os_name_version
     attributes:
-      label: Operating System Version| 操作系统版本
+      label: Operating System Version
       #multiple: true
       description: |
-        * 如果您使用的是Linux系统，请提供Linux系统的**发行版名称**和**版本号**来帮助开发人员排查问题。 
         * If you are using a Linux system, please provide the Linux distribution and version number to help developers troubleshoot the issue.
-        * 如果您使用的是Windows或MacOS系统，请提供操作系统的**版本号**来帮助开发人员排查问题。
         * If you are using a Windows or MacOS system, please provide the version number of the operating system to help developers troubleshoot the issue.
-        * 例如：Ubuntu 22.04, CentOS 7.9, MacOS 15.1, Windows 11
         * For example: Ubuntu 22.04, CentOS 7.9, MacOS 15.1, Windows 11.
 
     validations:
@@ -103,7 +99,7 @@ body:
   - type: dropdown
     id: python_version
     attributes:
-      label: Python version | Python 版本
+      label: Python version
       #multiple: true
       # Need quotes around `3.10` otherwise it is treated as a number and shows as `3.1`.
       options:
@@ -118,7 +114,7 @@ body:
   - type: dropdown
     id: software_version
     attributes:
-      label: Software version | 软件版本 (vparse --version)
+      label: Software version (vparse --version)
       #multiple: false
       options:
         -
@@ -131,7 +127,7 @@ body:
   - type: dropdown
     id: backend_name
     attributes:
-      label: Backend name | 解析后端
+      label: Backend name
       #multiple: false
       options:
         -
@@ -143,7 +139,7 @@ body:
   - type: dropdown
     id: device_mode
     attributes:
-      label: Device mode | 设备模式
+      label: Device mode
       #multiple: true
       options:
         -

@@ -7,12 +7,12 @@ from vparse.utils.enum_class import ModelPath
 
 def auto_download_and_get_model_root_path(relative_path: str, repo_mode='pipeline') -> str:
     """
-    支持文件或目录的可靠下载。
-    - 如果输入文件: 返回本地文件绝对路径
-    - 如果输入目录: 返回本地缓存下与 relative_path 同结构的相对路径字符串
-    :param repo_mode: 指定仓库模式，'pipeline' 或 'vlm'
-    :param relative_path: 文件或目录相对路径
-    :return: 本地文件绝对路径或相对路径
+    Supports reliable download of files or directories.
+    - If input is a file: returns the absolute local file path
+    - If input is a directory: returns a relative path string with the same structure as relative_path in local cache
+    :param repo_mode: Specify repository mode, 'pipeline' or 'vlm'
+    :param relative_path: Relative path of file or directory
+    :return: Absolute local path or relative path
     """
     model_source = os.getenv('VPARSE_MODEL_SOURCE', "huggingface")
 
@@ -23,7 +23,7 @@ def auto_download_and_get_model_root_path(relative_path: str, repo_mode='pipelin
             raise ValueError(f"Local path for repo_mode '{repo_mode}' is not configured.")
         return root_path
 
-    # 建立仓库模式到路径的映射
+    # Establish mapping from repository mode to path
     repo_mapping = {
         'pipeline': {
             'huggingface': ModelPath.pipeline_root_hf,
@@ -40,7 +40,7 @@ def auto_download_and_get_model_root_path(relative_path: str, repo_mode='pipelin
     if repo_mode not in repo_mapping:
         raise ValueError(f"Unsupported repo_mode: {repo_mode}, must be 'pipeline' or 'vlm'")
 
-    # 如果没有指定model_source或值不是'modelscope'，则使用默认值
+    # Use default if model_source is not specified or not 'modelscope'
     repo = repo_mapping[repo_mode].get(model_source, repo_mapping[repo_mode]['default'])
 
 
@@ -49,7 +49,7 @@ def auto_download_and_get_model_root_path(relative_path: str, repo_mode='pipelin
     elif model_source == "modelscope":
         snapshot_download = ms_snapshot_download
     else:
-        raise ValueError(f"未知的仓库类型: {model_source}")
+        raise ValueError(f"Unknown repository type: {model_source}")
 
     cache_dir = None
 
@@ -57,7 +57,7 @@ def auto_download_and_get_model_root_path(relative_path: str, repo_mode='pipelin
         relative_path = relative_path.strip('/')
         cache_dir = snapshot_download(repo, allow_patterns=[relative_path, relative_path+"/*"])
     elif repo_mode == 'vlm':
-        # VLM 模式下，根据 relative_path 的不同处理方式
+        # Handle different relative_path in VLM mode
         if relative_path == "/":
             cache_dir = snapshot_download(repo)
         else:
@@ -72,4 +72,4 @@ def auto_download_and_get_model_root_path(relative_path: str, repo_mode='pipelin
 if __name__ == '__main__':
     path1 = "models/README.md"
     root = auto_download_and_get_model_root_path(path1)
-    print("本地文件绝对路径:", os.path.join(root, path1))
+    print("Absolute local file path:", os.path.join(root, path1))

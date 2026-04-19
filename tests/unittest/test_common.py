@@ -10,17 +10,13 @@ from vparse.cli import common
 from vparse.model.ocr.tesseract import TesseractOCRModel
 
 
-class PipelineLiteTests(unittest.TestCase):
+class VparseCommonTests(unittest.TestCase):
     def test_legacy_imports_alias_vparse_modules(self):
         self.assertIs(legacy_common, common)
         self.assertIs(LegacyTesseractOCRModel, TesseractOCRModel)
 
     def test_get_pipeline_subdir(self):
         self.assertEqual(common.get_pipeline_subdir("pipeline", "auto"), "auto")
-        self.assertEqual(
-            common.get_pipeline_subdir("pipeline-lite", "ocr"),
-            "pipeline_lite_ocr",
-        )
 
     def test_temporary_env_restores_previous_value(self):
         with mock.patch.dict(common.os.environ, {"MINERU_OCR_ENGINE": "paddle"}, clear=False):
@@ -46,53 +42,45 @@ class PipelineLiteTests(unittest.TestCase):
                 "paddle",
             )
 
-    def test_do_parse_routes_pipeline_lite_to_pipeline_handler(self):
+    def test_do_parse_routes_lite_to_lite_handler(self):
         captured = {}
 
         def fake_prepare(pdf_bytes_list, start_page_id, end_page_id):
             captured["prepare"] = (pdf_bytes_list, start_page_id, end_page_id)
             return pdf_bytes_list
 
-        def fake_process_pipeline(
+        def fake_process_lite(
             output_dir,
             pdf_file_names,
             pdf_bytes_list,
             p_lang_list,
             backend,
             parse_method,
-            formula_enable,
-            table_enable,
             *args,
             **kwargs,
         ):
             captured["backend"] = backend
             captured["parse_method"] = parse_method
-            captured["formula_enable"] = formula_enable
-            captured["table_enable"] = table_enable
             captured["output_dir"] = output_dir
             captured["pdf_file_names"] = pdf_file_names
             captured["pdf_bytes_list"] = pdf_bytes_list
             captured["p_lang_list"] = p_lang_list
 
         with mock.patch.object(common, "_prepare_pdf_bytes", side_effect=fake_prepare):
-            with mock.patch.object(common, "_process_pipeline", side_effect=fake_process_pipeline):
+            with mock.patch.object(common, "_process_lite", side_effect=fake_process_lite):
                 common.do_parse(
                     output_dir="./output",
                     pdf_file_names=["sample"],
                     pdf_bytes_list=[b"pdf-bytes"],
                     p_lang_list=["en"],
-                    backend="pipeline-lite",
+                    backend="lite",
                     parse_method="ocr",
-                    formula_enable=False,
-                    table_enable=False,
                     start_page_id=1,
                     end_page_id=2,
                 )
 
-        self.assertEqual(captured["backend"], "pipeline-lite")
+        self.assertEqual(captured["backend"], "lite")
         self.assertEqual(captured["parse_method"], "ocr")
-        self.assertFalse(captured["formula_enable"])
-        self.assertFalse(captured["table_enable"])
         self.assertEqual(captured["pdf_file_names"], ["sample"])
         self.assertEqual(captured["pdf_bytes_list"], [b"pdf-bytes"])
         self.assertEqual(captured["p_lang_list"], ["en"])

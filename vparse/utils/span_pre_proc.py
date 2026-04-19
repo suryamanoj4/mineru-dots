@@ -59,11 +59,11 @@ def remove_outside_spans(spans, all_bboxes, all_discarded_blocks):
 
 def remove_overlaps_low_confidence_spans(spans):
     dropped_spans = []
-    #  删除重叠spans中置信度低的的那些
+    # Remove low-confidence spans among overlapping ones
     for span1 in spans:
         for span2 in spans:
             if span1 != span2:
-                # span1 或 span2 任何一个都不应该在 dropped_spans 中
+                # Neither span1 nor span2 should be in dropped_spans
                 if span1 in dropped_spans or span2 in dropped_spans:
                     continue
                 else:
@@ -87,11 +87,11 @@ def remove_overlaps_low_confidence_spans(spans):
 
 def remove_overlaps_min_spans(spans):
     dropped_spans = []
-    #  删除重叠spans中较小的那些
+    # Remove smaller spans among overlapping ones
     for span1 in spans:
         for span2 in spans:
             if span1 != span2:
-                # span1 或 span2 任何一个都不应该在 dropped_spans 中
+                # Neither span1 nor span2 should be in dropped_spans
                 if span1 in dropped_spans or span2 in dropped_spans:
                     continue
                 else:
@@ -120,7 +120,7 @@ def __replace_unicode(text: str):
     return re.sub('|'.join(map(re.escape, ligatures.keys())), lambda m: ligatures[m.group()], text)
 
 
-"""pdf_text dict方案 char级别"""
+"""pdf_text dict solution, character level"""
 def txt_spans_extract(pdf_page, spans, pil_img, scale, all_bboxes, all_discarded_blocks):
 
     page_dict = get_page(pdf_page)
@@ -130,7 +130,7 @@ def txt_spans_extract(pdf_page, spans, pil_img, scale, all_bboxes, all_discarded
     for block in page_dict['blocks']:
         for line in block['lines']:
             rotation_degrees = math.degrees(line['rotation'])
-            # 旋转角度不为0, 90, 180, 270的行，直接跳过（rotation_degrees的值可能不为整数）
+            # Skip lines with rotation angles other than 0, 90, 180, 270 (rotation_degrees may not be an integer)
             if not any(abs(rotation_degrees - angle) < 0.1 for angle in [0, 90, 180, 270]):
                 continue
             page_all_lines.append(line)
@@ -138,7 +138,7 @@ def txt_spans_extract(pdf_page, spans, pil_img, scale, all_bboxes, all_discarded
                 for char in span['chars']:
                     page_all_chars.append(char)
 
-    # 计算所有sapn的高度的中位数
+    # Calculate the median height of all spans
     span_height_list = []
     for span in spans:
         if span['type'] in [ContentType.TEXT]:
@@ -153,7 +153,7 @@ def txt_spans_extract(pdf_page, spans, pil_img, scale, all_bboxes, all_discarded
 
     useful_spans = []
     unuseful_spans = []
-    # 纵向span的两个特征：1. 高度超过多个line 2. 高宽比超过某个值
+    # Two characteristics of vertical spans: 1. Height exceeds multiple lines 2. Aspect ratio exceeds a certain value
     vertical_spans = []
     for span in spans:
         if span['type'] in [ContentType.TEXT]:
@@ -169,7 +169,7 @@ def txt_spans_extract(pdf_page, spans, pil_img, scale, all_bboxes, all_discarded
                         unuseful_spans.append(span)
                     break
 
-    """垂直的span框直接用line进行填充"""
+    """Vertical span boxes are directly filled using lines"""
     if len(vertical_spans) > 0:
         for pdfium_line in page_all_lines:
             for span in vertical_spans:
@@ -182,7 +182,7 @@ def txt_spans_extract(pdf_page, spans, pil_img, scale, all_bboxes, all_discarded
             if len(span['content']) == 0:
                 spans.remove(span)
 
-    """水平的span框先用char填充，再用ocr填充空的span框"""
+    """Horizontal span boxes are first filled with characters, then OCR is used to fill empty ones"""
     new_spans = []
 
     for span in useful_spans + unuseful_spans:
@@ -192,14 +192,14 @@ def txt_spans_extract(pdf_page, spans, pil_img, scale, all_bboxes, all_discarded
 
     need_ocr_spans = fill_char_in_spans(new_spans, page_all_chars, median_span_height)
 
-    """对未填充的span进行ocr"""
+    """Perform OCR on unfilled spans"""
     if len(need_ocr_spans) > 0:
 
         for span in need_ocr_spans:
-            # 对span的bbox截图再ocr
+            # Crop the span's bbox image and perform OCR
             span_pil_img = get_crop_img(span['bbox'], pil_img, scale)
             span_img = cv2.cvtColor(np.array(span_pil_img), cv2.COLOR_RGB2BGR)
-            # 计算span的对比度，低于0.20的span不进行ocr
+            # Calculate span contrast; spans with contrast below 0.20 will not be OCRed
             if calculate_contrast(span_img, img_mode='bgr') <= 0.17:
                 spans.remove(span)
                 continue
@@ -212,7 +212,7 @@ def txt_spans_extract(pdf_page, spans, pil_img, scale, all_bboxes, all_discarded
 
 
 def fill_char_in_spans(spans, all_chars, median_span_height):
-    # 简单从上到下排一下序
+    # Simple sort from top to bottom
     spans = sorted(spans, key=lambda x: x['bbox'][1])
 
     grid_size = median_span_height
@@ -238,7 +238,7 @@ def fill_char_in_spans(spans, all_chars, median_span_height):
     need_ocr_spans = []
     for span in spans:
         chars_to_content(span)
-        # 有的span中虽然没有字但有一两个空的占位符，用宽高和content长度过滤
+        # Some spans may contain empty placeholders; filter using width, height, and content length
         if len(span['content']) * span['height'] < span['width'] * 0.5:
             # logger.info(f"maybe empty span: {len(span['content'])}, {span['height']}, {span['width']}")
             need_ocr_spans.append(span)
@@ -249,7 +249,7 @@ def fill_char_in_spans(spans, all_chars, median_span_height):
 LINE_STOP_FLAG = ('.', '!', '?', '。', '！', '？', ')', '）', '"', '”', ':', '：', ';', '；', ']', '】', '}', '}', '>', '》', '、', ',', '，', '-', '—', '–',)
 LINE_START_FLAG = ('(', '（', '"', '“', '【', '{', '《', '<', '「', '『', '【', '[',)
 
-Span_Height_Radio = 0.33  # 字符的中轴和span的中轴高度差不能超过1/3span高度
+Span_Height_Radio = 0.33  # Difference between character and span center axis heights must not exceed 1/3 of span height
 def calculate_char_in_span(char_bbox, span_bbox, char, span_height_radio=Span_Height_Radio):
     char_center_x = (char_bbox[0] + char_bbox[2]) / 2
     char_center_y = (char_bbox[1] + char_bbox[3]) / 2
@@ -259,12 +259,12 @@ def calculate_char_in_span(char_bbox, span_bbox, char, span_height_radio=Span_He
     if (
         span_bbox[0] < char_center_x < span_bbox[2]
         and span_bbox[1] < char_center_y < span_bbox[3]
-        and abs(char_center_y - span_center_y) < span_height * span_height_radio  # 字符的中轴和span的中轴高度差不能超过Span_Height_Radio
+        and abs(char_center_y - span_center_y) < span_height * span_height_radio  # Difference between character and span center axis heights must not exceed Span_Height_Radio
     ):
         return True
     else:
-        # 如果char是LINE_STOP_FLAG，就不用中心点判定，换一种方案（左边界在span区域内，高度判定和之前逻辑一致）
-        # 主要是给结尾符号一个进入span的机会，这个char还应该离span右边界较近
+        # If char is LINE_STOP_FLAG, use an alternative scheme (left boundary in span, height consistent with previous logic)
+        # Primarily gives punctuation a chance to enter the span, ensuring the char is near the span's right boundary
         if char in LINE_STOP_FLAG:
             if (
                 (span_bbox[2] - span_height) < char_bbox[0] < span_bbox[2]
@@ -286,11 +286,11 @@ def calculate_char_in_span(char_bbox, span_bbox, char, span_height_radio=Span_He
 
 
 def chars_to_content(span):
-    # 检查span中的char是否为空
+    # Check if characters in span are empty
     if len(span['chars']) == 0:
         pass
     else:
-        # 给chars按char_idx排序
+        # Sort chars by char_idx
         span['chars'] = sorted(span['chars'], key=lambda x: x['char_idx'])
 
         # Calculate the width of each character
@@ -301,7 +301,7 @@ def chars_to_content(span):
         content = ''
         for char in span['chars']:
 
-            # 如果下一个char的x0和上一个char的x1距离超过0.25个字符宽度，则需要在中间插入一个空格
+            # Insert a space if distance between current char's x1 and next char's x0 exceeds 0.25 character width
             char1 = char
             char2 = span['chars'][span['chars'].index(char) + 1] if span['chars'].index(char) + 1 < len(span['chars']) else None
             if char2 and char2['bbox'][0] - char1['bbox'][2] > median_width * 0.25 and char['char'] != ' ' and char2['char'] != ' ':
@@ -319,24 +319,24 @@ def chars_to_content(span):
 
 def calculate_contrast(img, img_mode) -> float:
     """
-    计算给定图像的对比度。
-    :param img: 图像，类型为numpy.ndarray
-    :Param img_mode = 图像的色彩通道，'rgb' 或 'bgr'
-    :return: 图像的对比度值
+    Calculate the contrast of a given image.
+    :param img: Image, type numpy.ndarray
+    :param img_mode: Image color mode, 'rgb' or 'bgr'
+    :return: Image contrast value
     """
     if img_mode == 'rgb':
-        # 将RGB图像转换为灰度图
+        # Convert RGB image to grayscale
         gray_img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     elif img_mode == 'bgr':
-        # 将BGR图像转换为灰度图
+        # Convert BGR image to grayscale
         gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     else:
         raise ValueError("Invalid image mode. Please provide 'rgb' or 'bgr'.")
 
-    # 计算均值和标准差
+    # Calculate mean and standard deviation
     mean_value = np.mean(gray_img)
     std_dev = np.std(gray_img)
-    # 对比度定义为标准差除以平均值（加上小常数避免除零错误）
+    # Contrast defined as standard deviation divided by mean (plus small constant to avoid division by zero)
     contrast = std_dev / (mean_value + 1e-6)
     # logger.debug(f"contrast: {contrast}")
     return round(contrast, 2)

@@ -1,8 +1,8 @@
 """
 VParse Heavy - Client Example
-Heavy客户端示例
+Heavy Client Example
 
-演示如何使用 Python 客户端提交任务和查询状态
+Demonstrates how to use the Python client to submit tasks and query status.
 """
 import asyncio
 import aiohttp
@@ -13,7 +13,7 @@ from typing import Dict
 
 
 class HeavyClient:
-    """Heavy客户端"""
+    """Heavy Client"""
     
     def __init__(self, api_url='http://localhost:8000'):
         self.api_url = api_url
@@ -31,20 +31,20 @@ class HeavyClient:
         priority: int = 0
     ) -> Dict:
         """
-        提交任务
+        Submit a task
         
         Args:
             session: aiohttp session
-            file_path: 文件路径
-            backend: 处理后端
-            lang: 语言
-            method: 解析方法
-            formula_enable: 是否启用公式识别
-            table_enable: 是否启用表格识别
-            priority: 优先级
+            file_path: File path
+            backend: Processing backend
+            lang: Language
+            method: Parsing method
+            formula_enable: Whether to enable formula recognition
+            table_enable: Whether to enable table recognition
+            priority: Priority
             
         Returns:
-            响应字典，包含 task_id
+            Response dictionary containing task_id
         """
         with open(file_path, 'rb') as f:
             data = aiohttp.FormData()
@@ -68,14 +68,14 @@ class HeavyClient:
     
     async def get_task_status(self, session: aiohttp.ClientSession, task_id: str) -> Dict:
         """
-        查询任务状态
+        Query task status
         
         Args:
             session: aiohttp session
-            task_id: 任务ID
+            task_id: Task ID
             
         Returns:
-            任务状态字典
+            Task status dictionary
         """
         async with session.get(f'{self.base_url}/tasks/{task_id}') as resp:
             if resp.status == 200:
@@ -91,16 +91,16 @@ class HeavyClient:
         poll_interval: int = 2
     ) -> Dict:
         """
-        等待任务完成
+        Wait for task completion
         
         Args:
             session: aiohttp session
-            task_id: 任务ID
-            timeout: 超时时间（秒）
-            poll_interval: 轮询间隔（秒）
+            task_id: Task ID
+            timeout: Timeout (seconds)
+            poll_interval: Polling interval (seconds)
             
         Returns:
-            最终任务状态
+            Final task status
         """
         start_time = time.time()
         
@@ -127,35 +127,35 @@ class HeavyClient:
                 logger.warning(f"⚠️  Task {task_id} was cancelled")
                 return status
             
-            # 检查超时
+            # Check timeout
             if time.time() - start_time > timeout:
                 logger.error(f"⏱️  Task {task_id} timeout after {timeout}s")
                 return {'success': False, 'error': 'timeout'}
             
-            # 等待后继续轮询
+            # Wait before polling again
             await asyncio.sleep(poll_interval)
     
     async def get_queue_stats(self, session: aiohttp.ClientSession) -> Dict:
-        """获取队列统计"""
+        """Get queue statistics"""
         async with session.get(f'{self.base_url}/queue/stats') as resp:
             return await resp.json()
     
     async def cancel_task(self, session: aiohttp.ClientSession, task_id: str) -> Dict:
-        """取消任务"""
+        """Cancel a task"""
         async with session.delete(f'{self.base_url}/tasks/{task_id}') as resp:
             return await resp.json()
 
 
 async def example_single_task():
-    """示例1：提交单个任务并等待完成"""
+    """Example 1: Submit a single task and wait for completion"""
     logger.info("=" * 60)
-    logger.info("示例1：提交单个任务")
+    logger.info("Example 1: Submitting a single task")
     logger.info("=" * 60)
     
     client = HeavyClient()
     
     async with aiohttp.ClientSession() as session:
-        # 提交任务
+        # Submit task
         result = await client.submit_task(
             session,
             file_path='../../demo/pdfs/demo1.pdf',
@@ -168,7 +168,7 @@ async def example_single_task():
         if result.get('success'):
             task_id = result['task_id']
             
-            # 等待完成
+            # Wait for completion
             logger.info(f"⏳ Waiting for task {task_id} to complete...")
             final_status = await client.wait_for_task(session, task_id)
             
@@ -176,14 +176,14 @@ async def example_single_task():
 
 
 async def example_batch_tasks():
-    """示例2：批量提交多个任务并并发等待"""
+    """Example 2: Batch submit multiple tasks and wait concurrently"""
     logger.info("=" * 60)
-    logger.info("示例2：批量提交多个任务")
+    logger.info("Example 2: Submitting multiple tasks")
     logger.info("=" * 60)
     
     client = HeavyClient()
     
-    # 准备任务列表
+    # Prepare file list
     files = [
         '../../demo/pdfs/demo1.pdf',
         '../../demo/pdfs/demo2.pdf',
@@ -191,7 +191,7 @@ async def example_batch_tasks():
     ]
     
     async with aiohttp.ClientSession() as session:
-        # 并发提交所有任务
+        # Submit all tasks concurrently
         logger.info(f"📤 Submitting {len(files)} tasks...")
         submit_tasks = [
             client.submit_task(session, file) 
@@ -199,11 +199,11 @@ async def example_batch_tasks():
         ]
         results = await asyncio.gather(*submit_tasks)
         
-        # 提取 task_ids
+        # Extract task_ids
         task_ids = [r['task_id'] for r in results if r.get('success')]
         logger.info(f"✅ Submitted {len(task_ids)} tasks successfully")
         
-        # 并发等待所有任务完成
+        # Wait concurrently for all tasks to complete
         logger.info(f"⏳ Waiting for all tasks to complete...")
         wait_tasks = [
             client.wait_for_task(session, task_id) 
@@ -211,7 +211,7 @@ async def example_batch_tasks():
         ]
         final_results = await asyncio.gather(*wait_tasks)
         
-        # 统计结果
+        # Statistics
         completed = sum(1 for r in final_results if r.get('status') == 'completed')
         failed = sum(1 for r in final_results if r.get('status') == 'failed')
         
@@ -223,15 +223,15 @@ async def example_batch_tasks():
 
 
 async def example_priority_tasks():
-    """示例3：使用优先级队列"""
+    """Example 3: Using priority queue"""
     logger.info("=" * 60)
-    logger.info("示例3：优先级队列")
+    logger.info("Example 3: Priority queue")
     logger.info("=" * 60)
     
     client = HeavyClient()
     
     async with aiohttp.ClientSession() as session:
-        # 提交低优先级任务
+        # Submit low-priority task
         low_priority = await client.submit_task(
             session,
             file_path='../../demo/pdfs/demo1.pdf',
@@ -239,7 +239,7 @@ async def example_priority_tasks():
         )
         logger.info(f"📝 Low priority task: {low_priority['task_id']}")
         
-        # 提交高优先级任务
+        # Submit high-priority task
         high_priority = await client.submit_task(
             session,
             file_path='../../demo/pdfs/demo2.pdf',
@@ -247,20 +247,20 @@ async def example_priority_tasks():
         )
         logger.info(f"🔥 High priority task: {high_priority['task_id']}")
         
-        # 高优先级任务会先被处理
-        logger.info("⏳ 高优先级任务将优先处理...")
+        # High-priority task will be processed first
+        logger.info("⏳ High-priority task will be processed first...")
 
 
 async def example_queue_monitoring():
-    """示例4：监控队列状态"""
+    """Example 4: Monitoring queue status"""
     logger.info("=" * 60)
-    logger.info("示例4：监控队列状态")
+    logger.info("Example 4: Monitoring queue status")
     logger.info("=" * 60)
     
     client = HeavyClient()
     
     async with aiohttp.ClientSession() as session:
-        # 获取队列统计
+        # Get queue statistics
         stats = await client.get_queue_stats(session)
         
         logger.info("📊 Queue Statistics:")
@@ -270,7 +270,7 @@ async def example_queue_monitoring():
 
 
 async def main():
-    """主函数"""
+    """Main function"""
     import sys
     
     if len(sys.argv) > 1:
@@ -303,16 +303,15 @@ async def main():
 
 if __name__ == '__main__':
     """
-    使用方法:
+    Usage:
     
-    # 运行所有示例
+    # Run all examples
     python client_example.py
     
-    # 运行特定示例
+    # Run specific example
     python client_example.py single
     python client_example.py batch
     python client_example.py priority
     python client_example.py monitor
     """
     asyncio.run(main())
-

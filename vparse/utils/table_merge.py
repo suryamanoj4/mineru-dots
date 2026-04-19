@@ -26,19 +26,19 @@ CONTINUATION_INLINE_MARKERS = [
 
 
 def calculate_table_total_columns(soup):
-    """计算表格的总列数，通过分析整个表格结构来处理rowspan和colspan
+    """Calculate total columns of the table, handling rowspan and colspan by analyzing the structure
 
     Args:
-        soup: BeautifulSoup解析的表格
+        soup: BeautifulSoup parsed table
 
     Returns:
-        int: 表格的总列数
+        int: Total number of columns
     """
     rows = soup.find_all("tr")
     if not rows:
         return 0
 
-    # 创建一个矩阵来跟踪每个位置的占用情况
+    # Create a matrix to track occupancy of each position
     max_cols = 0
     occupied = {}  # {row_idx: {col_idx: True}}
 
@@ -50,14 +50,14 @@ def calculate_table_total_columns(soup):
             occupied[row_idx] = {}
 
         for cell in cells:
-            # 找到下一个未被占用的列位置
+            # Find the next unoccupied column position
             while col_idx in occupied[row_idx]:
                 col_idx += 1
 
             colspan = int(cell.get("colspan", 1))
             rowspan = int(cell.get("rowspan", 1))
 
-            # 标记被这个单元格占用的所有位置
+            # Mark all positions occupied by this cell
             for r in range(row_idx, row_idx + rowspan):
                 if r not in occupied:
                     occupied[r] = {}
@@ -71,13 +71,13 @@ def calculate_table_total_columns(soup):
 
 
 def build_table_occupied_matrix(soup):
-    """构建表格的占用矩阵，返回每行的有效列数
+    """Build table occupancy matrix, returning effective columns per row
 
     Args:
-        soup: BeautifulSoup解析的表格
+        soup: BeautifulSoup parsed table
 
     Returns:
-        dict: {row_idx: effective_columns} 每行的有效列数（考虑rowspan占用）
+        dict: {row_idx: effective_columns} effective columns per row (considering rowspan)
     """
     rows = soup.find_all("tr")
     if not rows:
@@ -94,14 +94,14 @@ def build_table_occupied_matrix(soup):
             occupied[row_idx] = {}
 
         for cell in cells:
-            # 找到下一个未被占用的列位置
+            # Find the next unoccupied column position
             while col_idx in occupied[row_idx]:
                 col_idx += 1
 
             colspan = int(cell.get("colspan", 1))
             rowspan = int(cell.get("rowspan", 1))
 
-            # 标记被这个单元格占用的所有位置
+            # Mark all positions occupied by this cell
             for r in range(row_idx, row_idx + rowspan):
                 if r not in occupied:
                     occupied[r] = {}
@@ -110,7 +110,7 @@ def build_table_occupied_matrix(soup):
 
             col_idx += colspan
 
-        # 该行的有效列数为已占用的最大列索引+1
+        # Effective columns for this row is the max occupied column index + 1
         if occupied[row_idx]:
             row_effective_cols[row_idx] = max(occupied[row_idx].keys()) + 1
         else:
@@ -120,14 +120,14 @@ def build_table_occupied_matrix(soup):
 
 
 def calculate_row_effective_columns(soup, row_idx):
-    """计算指定行的有效列数（考虑rowspan占用）
+    """Calculate effective columns for a specific row (considering rowspan)
 
     Args:
-        soup: BeautifulSoup解析的表格
-        row_idx: 行索引
+        soup: BeautifulSoup parsed table
+        row_idx: Row index
 
     Returns:
-        int: 该行的有效列数
+        int: Effective columns for the row
     """
     row_effective_cols = build_table_occupied_matrix(soup)
     return row_effective_cols.get(row_idx, 0)
@@ -135,13 +135,13 @@ def calculate_row_effective_columns(soup, row_idx):
 
 def calculate_row_columns(row):
     """
-    计算表格行的实际列数，考虑colspan属性
+    Calculate actual columns of a table row, considering colspan
 
     Args:
-        row: BeautifulSoup的tr元素对象
+        row: BeautifulSoup tr element object
 
     Returns:
-        int: 行的实际列数
+        int: Actual columns of the row
     """
     cells = row.find_all(["td", "th"])
     column_count = 0
@@ -155,13 +155,13 @@ def calculate_row_columns(row):
 
 def calculate_visual_columns(row):
     """
-    计算表格行的视觉列数（实际td/th单元格数量，不考虑colspan）
+    Calculate visual columns of a table row (number of td/th cells, ignoring colspan)
 
     Args:
-        row: BeautifulSoup的tr元素对象
+        row: BeautifulSoup tr element object
 
     Returns:
-        int: 行的视觉列数（实际单元格数）
+        int: Visual columns of the row (actual cell count)
     """
     cells = row.find_all(["td", "th"])
     return len(cells)
@@ -169,20 +169,20 @@ def calculate_visual_columns(row):
 
 def detect_table_headers(soup1, soup2, max_header_rows=5):
     """
-    检测并比较两个表格的表头
+    Detect and compare headers of two tables
 
     Args:
-        soup1: 第一个表格的BeautifulSoup对象
-        soup2: 第二个表格的BeautifulSoup对象
-        max_header_rows: 最大可能的表头行数
+        soup1: BeautifulSoup object for the first table
+        soup2: BeautifulSoup object for the second table
+        max_header_rows: Maximum possible header rows
 
     Returns:
-        tuple: (表头行数, 表头是否一致, 表头文本列表)
+        tuple: (header row count, consistency, header text list)
     """
     rows1 = soup1.find_all("tr")
     rows2 = soup2.find_all("tr")
 
-    # 构建两个表格的有效列数矩阵
+    # Build effective column matrices for both tables
     effective_cols1 = build_table_occupied_matrix(soup1)
     effective_cols2 = build_table_occupied_matrix(soup2)
 
@@ -192,29 +192,29 @@ def detect_table_headers(soup1, soup2, max_header_rows=5):
     header_texts = []
 
     for i in range(min_rows):
-        # 提取当前行的所有单元格
+        # Extract all cells of the current row
         cells1 = rows1[i].find_all(["td", "th"])
         cells2 = rows2[i].find_all(["td", "th"])
 
-        # 检查两行的结构和内容是否一致
+        # Check if structure and content of both rows are consistent
         structure_match = True
 
-        # 首先检查单元格数量
+        # First check cell count
         if len(cells1) != len(cells2):
             structure_match = False
         else:
-            # 检查有效列数是否一致（考虑rowspan影响）
+            # Check if effective columns are consistent (considering rowspan)
             if effective_cols1.get(i, 0) != effective_cols2.get(i, 0):
                 structure_match = False
             else:
-                # 然后检查单元格的属性和内容
+                # Then check cell properties and content
                 for cell1, cell2 in zip(cells1, cells2):
                     colspan1 = int(cell1.get("colspan", 1))
                     rowspan1 = int(cell1.get("rowspan", 1))
                     colspan2 = int(cell2.get("colspan", 1))
                     rowspan2 = int(cell2.get("rowspan", 1))
 
-                    # 去除所有空白字符（包括空格、换行、制表符等）
+                    # Remove all whitespace (spaces, newlines, tabs, etc.)
                     text1 = ''.join(full_to_half(cell1.get_text()).split())
                     text2 = ''.join(full_to_half(cell2.get_text()).split())
 
@@ -225,12 +225,12 @@ def detect_table_headers(soup1, soup2, max_header_rows=5):
         if structure_match:
             header_rows += 1
             row_texts = [full_to_half(cell.get_text().strip()) for cell in cells1]
-            header_texts.append(row_texts)  # 添加表头文本
+            header_texts.append(row_texts)  # Add header text
         else:
-            headers_match = header_rows > 0  # 只有当至少匹配了一行时，才认为表头匹配
+            headers_match = header_rows > 0  # Header match requires at least one row to match
             break
 
-    # 如果严格匹配失败，尝试视觉一致性匹配（只比较文本内容）
+    # If strict match fails, try visual consistency match (only compare text content)
     if header_rows == 0:
         header_rows, headers_match, header_texts = _detect_table_headers_visual(soup1, soup2, rows1, rows2, max_header_rows)
 
@@ -239,19 +239,19 @@ def detect_table_headers(soup1, soup2, max_header_rows=5):
 
 def _detect_table_headers_visual(soup1, soup2, rows1, rows2, max_header_rows=5):
     """
-    基于视觉一致性检测表头（只比较文本内容，忽略colspan/rowspan差异）
+    Detect table headers based on visual consistency (compare text only, ignore colspan/rowspan differences)
 
     Args:
-        soup1: 第一个表格的BeautifulSoup对象
-        soup2: 第二个表格的BeautifulSoup对象
-        rows1: 第一个表格的行列表
-        rows2: 第二个表格的行列表
-        max_header_rows: 最大可能的表头行数
+        soup1: BeautifulSoup object for the first table
+        soup2: BeautifulSoup object for the second table
+        rows1: Row list of the first table
+        rows2: Row list of the second table
+        max_header_rows: Maximum possible header rows
 
     Returns:
-        tuple: (表头行数, 表头是否一致, 表头文本列表)
+        tuple: (header row count, consistency, header text list)
     """
-    # 构建两个表格的有效列数矩阵
+    # Build effective column matrices for both tables
     effective_cols1 = build_table_occupied_matrix(soup1)
     effective_cols2 = build_table_occupied_matrix(soup2)
 
@@ -264,11 +264,11 @@ def _detect_table_headers_visual(soup1, soup2, rows1, rows2, max_header_rows=5):
         cells1 = rows1[i].find_all(["td", "th"])
         cells2 = rows2[i].find_all(["td", "th"])
 
-        # 提取每行的文本内容列表（去除空白字符）
+        # Extract text content list for each row (removing whitespace)
         texts1 = [''.join(full_to_half(cell.get_text()).split()) for cell in cells1]
         texts2 = [''.join(full_to_half(cell.get_text()).split()) for cell in cells2]
 
-        # 检查视觉一致性：文本内容完全相同，且有效列数一致
+        # Check visual consistency: text content exactly the same, and effective columns consistent
         effective_cols_match = effective_cols1.get(i, 0) == effective_cols2.get(i, 0)
         if texts1 == texts2 and effective_cols_match:
             header_rows += 1
@@ -285,14 +285,14 @@ def _detect_table_headers_visual(soup1, soup2, rows1, rows2, max_header_rows=5):
 
 
 def can_merge_tables(current_table_block, previous_table_block):
-    """判断两个表格是否可以合并"""
-    # 检查表格是否有caption和footnote
-    # 计算previous_table_block中的footnote数量
+    """Determine if two tables can be merged"""
+    # Check if tables have captions and footnotes
+    # Count footnotes in previous_table_block
     footnote_count = sum(1 for block in previous_table_block["blocks"] if block["type"] == BlockType.TABLE_FOOTNOTE)
-    # 如果有TABLE_CAPTION类型的块,检查是否至少有一个以"(续)"结尾
+    # If there are TABLE_CAPTION blocks, check if at least one ends with a continuation marker
     caption_blocks = [block for block in current_table_block["blocks"] if block["type"] == BlockType.TABLE_CAPTION]
     if caption_blocks:
-        # 检查是否至少有一个caption包含续表标识
+        # Check if at least one caption contains a continuation marker
         has_continuation_marker = False
         for block in caption_blocks:
             caption_text = full_to_half(merge_para_with_text(block).strip()).lower()
@@ -303,18 +303,18 @@ def can_merge_tables(current_table_block, previous_table_block):
                 has_continuation_marker = True
                 break
 
-        # 如果所有caption都不包含续表标识，则不允许合并
+        # If no caption contains a continuation marker, merging is not allowed
         if not has_continuation_marker:
             return False, None, None, None, None
 
-        # 如果current_table_block的caption存在续标识,放宽footnote的限制允许previous_table_block有最多一条footnote
+        # If current_table_block caption has continuation marker, allow previous_table_block to have at most one footnote
         if footnote_count > 1:
             return False, None, None, None, None
     else:
         if footnote_count > 0:
             return False, None, None, None, None
 
-    # 获取两个表格的HTML内容
+    # Get HTML content of both tables
     current_html = ""
     previous_html = ""
 
@@ -329,7 +329,7 @@ def can_merge_tables(current_table_block, previous_table_block):
     if not current_html or not previous_html:
         return False, None, None, None, None
 
-    # 检查表格宽度差异
+    # Check table width difference
     x0_t1, y0_t1, x1_t1, y1_t1 = current_table_block["bbox"]
     x0_t2, y0_t2, x1_t2, y1_t2 = previous_table_block["bbox"]
     table1_width = x1_t1 - x0_t1
@@ -338,31 +338,31 @@ def can_merge_tables(current_table_block, previous_table_block):
     if abs(table1_width - table2_width) / min(table1_width, table2_width) >= 0.1:
         return False, None, None, None, None
 
-    # 解析HTML并检查表格结构
+    # Parse HTML and check table structure
     soup1 = BeautifulSoup(previous_html, "html.parser")
     soup2 = BeautifulSoup(current_html, "html.parser")
 
-    # 检查整体列数匹配
+    # Check overall column count match
     table_cols1 = calculate_table_total_columns(soup1)
     table_cols2 = calculate_table_total_columns(soup2)
     # logger.debug(f"Table columns - Previous: {table_cols1}, Current: {table_cols2}")
     tables_match = table_cols1 == table_cols2
 
-    # 检查首末行列数匹配
+    # Check first/last row column match
     rows_match = check_rows_match(soup1, soup2)
 
     return (tables_match or rows_match), soup1, soup2, current_html, previous_html
 
 
 def check_rows_match(soup1, soup2):
-    """检查表格行是否匹配"""
+    """Check if table rows match"""
     rows1 = soup1.find_all("tr")
     rows2 = soup2.find_all("tr")
 
     if not (rows1 and rows2):
         return False
 
-    # 获取第一个表的最后一行数据行索引
+    # Get last data row index of the first table
     last_row_idx = None
     last_row = None
     for idx in range(len(rows1) - 1, -1, -1):
@@ -371,39 +371,39 @@ def check_rows_match(soup1, soup2):
             last_row = rows1[idx]
             break
 
-    # 检测表头行数，以便获取第二个表的首个数据行
+    # Detect header row count to get the first data row of the second table
     header_count, _, _ = detect_table_headers(soup1, soup2)
 
-    # 获取第二个表的首个数据行
+    # Get first data row of the second table
     first_data_row_idx = None
     first_data_row = None
     if len(rows2) > header_count:
         first_data_row_idx = header_count
-        first_data_row = rows2[header_count]  # 第一个非表头行
+        first_data_row = rows2[header_count]  # First non-header row
 
     if not (last_row and first_data_row):
         return False
 
-    # 计算有效列数（考虑rowspan和colspan）
+    # Calculate effective columns (considering rowspan and colspan)
     last_row_effective_cols = calculate_row_effective_columns(soup1, last_row_idx)
     first_row_effective_cols = calculate_row_effective_columns(soup2, first_data_row_idx)
 
-    # 计算实际列数（仅考虑colspan）和视觉列数
+    # Calculate actual columns (considering colspan) and visual columns
     last_row_cols = calculate_row_columns(last_row)
     first_row_cols = calculate_row_columns(first_data_row)
     last_row_visual_cols = calculate_visual_columns(last_row)
     first_row_visual_cols = calculate_visual_columns(first_data_row)
 
-    # logger.debug(f"行列数 - 前表最后一行: {last_row_cols}(有效列数:{last_row_effective_cols}, 视觉列数:{last_row_visual_cols}), 当前表首行: {first_row_cols}(有效列数:{first_row_effective_cols}, 视觉列数:{first_row_visual_cols})")
+    # logger.debug(f"Row/Column count - Last row of previous table: {last_row_cols}(effective:{last_row_effective_cols}, visual:{last_row_visual_cols}), current first row: {first_row_cols}(effective:{first_row_effective_cols}, visual:{first_row_visual_cols})")
 
-    # 同时考虑有效列数匹配、实际列数匹配和视觉列数匹配
+    # Consider effective columns, actual columns, and visual columns together
     return (last_row_effective_cols == first_row_effective_cols or
             last_row_cols == first_row_cols or
             last_row_visual_cols == first_row_visual_cols)
 
 
 def check_row_columns_match(row1, row2):
-    # 逐个cell检测colspan属性是否一致
+    # Detect if colspan property is consistent cell by cell
     cells1 = row1.find_all(["td", "th"])
     cells2 = row2.find_all(["td", "th"])
     if len(cells1) != len(cells2):
@@ -419,22 +419,22 @@ def check_row_columns_match(row1, row2):
 def adjust_table_rows_colspan(soup, rows, start_idx, end_idx,
                               reference_structure, reference_visual_cols,
                               target_cols, current_cols, reference_row):
-    """调整表格行的colspan属性以匹配目标列数
+    """Adjust colspan of table rows to match target columns
 
     Args:
-        soup: BeautifulSoup解析的表格对象（用于计算有效列数）
-        rows: 表格行列表
-        start_idx: 起始行索引
-        end_idx: 结束行索引（不包含）
-        reference_structure: 参考行的colspan结构列表
-        reference_visual_cols: 参考行的视觉列数
-        target_cols: 目标总列数
-        current_cols: 当前总列数
-        reference_row: 参考行对象
+        soup: BeautifulSoup parsed table object (for effective column calculation)
+        rows: Table row list
+        start_idx: Start row index
+        end_idx: End row index (exclusive)
+        reference_structure: Reference row colspan structure list
+        reference_visual_cols: Visual columns of reference row
+        target_cols: Target total columns
+        current_cols: Current total columns
+        reference_row: Reference row object
     """
     reference_row_copy = deepcopy(reference_row)
 
-    # 构建有效列数矩阵
+    # Build effective columns matrix
     effective_cols_matrix = build_table_occupied_matrix(soup)
 
     for i in range(start_idx, end_idx):
@@ -443,24 +443,24 @@ def adjust_table_rows_colspan(soup, rows, start_idx, end_idx,
         if not cells:
             continue
 
-        # 使用有效列数（考虑rowspan）判断是否需要调整
+        # Determine if adjustment is needed based on effective columns (considering rowspan)
         current_row_effective_cols = effective_cols_matrix.get(i, 0)
         current_row_cols = calculate_row_columns(row)
 
-        # 如果有效列数或实际列数已经达到目标，则跳过
+        # Skip if effective or actual columns have reached the target
         if current_row_effective_cols >= target_cols or current_row_cols >= target_cols:
             continue
 
-        # 检查是否与参考行结构匹配
+        # Check if it matches the reference row structure
         if calculate_visual_columns(row) == reference_visual_cols and check_row_columns_match(row, reference_row_copy):
-            # 尝试应用参考结构
+            # Try to apply reference structure
             if len(cells) <= len(reference_structure):
                 for j, cell in enumerate(cells):
                     if j < len(reference_structure) and reference_structure[j] > 1:
                         cell["colspan"] = str(reference_structure[j])
         else:
-            # 扩展最后一个单元格以填补列数差异
-            # 使用有效列数来计算差异
+            # Extend the last cell to fill the column count gap
+            # Use effective columns to calculate difference
             cols_diff = target_cols - current_row_effective_cols
             if cols_diff > 0:
                 last_cell = cells[-1]
@@ -469,32 +469,32 @@ def adjust_table_rows_colspan(soup, rows, start_idx, end_idx,
 
 
 def perform_table_merge(soup1, soup2, previous_table_block, wait_merge_table_footnotes):
-    """执行表格合并操作"""
-    # 检测表头有几行，并确认表头内容是否一致
+    """Perform table merge operation"""
+    # Detect header row count and verify header consistency
     header_count, headers_match, header_texts = detect_table_headers(soup1, soup2)
-    # logger.debug(f"检测到表头行数: {header_count}, 表头匹配: {headers_match}")
-    # logger.debug(f"表头内容: {header_texts}")
+    # logger.debug(f"Detected header rows: {header_count}, header match: {headers_match}")
+    # logger.debug(f"Header content: {header_texts}")
 
-    # 找到第一个表格的tbody，如果没有则查找table元素
+    # Find tbody of the first table, fallback to table element
     tbody1 = soup1.find("tbody") or soup1.find("table")
 
-    # 获取表1和表2的所有行
+    # Get all rows from table 1 and table 2
     rows1 = soup1.find_all("tr")
     rows2 = soup2.find_all("tr")
 
 
     if rows1 and rows2 and header_count < len(rows2):
-        # 获取表1最后一行和表2第一个非表头行
+        # Get last row of table 1 and first data row of table 2
         last_row1 = rows1[-1]
         first_data_row2 = rows2[header_count]
 
-        # 计算表格总列数
+        # Calculate total table columns
         table_cols1 = calculate_table_total_columns(soup1)
         table_cols2 = calculate_table_total_columns(soup2)
         if table_cols1 >= table_cols2:
             reference_structure = [int(cell.get("colspan", 1)) for cell in last_row1.find_all(["td", "th"])]
             reference_visual_cols = calculate_visual_columns(last_row1)
-            # 以表1的最后一行为参考，调整表2的行
+            # Adjust table 2 rows using table 1 last row as reference
             adjust_table_rows_colspan(
                 soup2, rows2, header_count, len(rows2),
                 reference_structure, reference_visual_cols,
@@ -504,28 +504,28 @@ def perform_table_merge(soup1, soup2, previous_table_block, wait_merge_table_foo
         else:  # table_cols2 > table_cols1
             reference_structure = [int(cell.get("colspan", 1)) for cell in first_data_row2.find_all(["td", "th"])]
             reference_visual_cols = calculate_visual_columns(first_data_row2)
-            # 以表2的第一个数据行为参考，调整表1的行
+            # Adjust table 1 rows using table 2 first data row as reference
             adjust_table_rows_colspan(
                 soup1, rows1, 0, len(rows1),
                 reference_structure, reference_visual_cols,
                 table_cols2, table_cols1, last_row1
             )
 
-    # 将第二个表格的行添加到第一个表格中
+    # Append table 2 rows to table 1
     if tbody1:
         tbody2 = soup2.find("tbody") or soup2.find("table")
         if tbody2:
-            # 将第二个表格的行添加到第一个表格中（跳过表头行）
+            # Append table 2 rows (skipping header) to table 1
             for row in rows2[header_count:]:
                 row.extract()
                 tbody1.append(row)
 
-    # 清空previous_table_block的footnote
+    # Clear footnotes of previous_table_block
     previous_table_block["blocks"] = [
         block for block in previous_table_block["blocks"]
         if block["type"] != BlockType.TABLE_FOOTNOTE
     ]
-    # 添加待合并表格的footnote到前一个表格中
+    # Add footnotes of pending merge table to the previous table
     for table_footnote in wait_merge_table_footnotes:
         temp_table_footnote = table_footnote.copy()
         temp_table_footnote[SplitFlag.CROSS_PAGE] = True
@@ -535,35 +535,35 @@ def perform_table_merge(soup1, soup2, previous_table_block, wait_merge_table_foo
 
 
 def merge_table(page_info_list):
-    """合并跨页表格"""
-    # 倒序遍历每一页
+    """Merge cross-page tables"""
+    # Iterate through pages in reverse order
     for page_idx in range(len(page_info_list) - 1, -1, -1):
-        # 跳过第一页，因为它没有前一页
+        # Skip the first page as it has no predecessor
         if page_idx == 0:
             continue
 
         page_info = page_info_list[page_idx]
         previous_page_info = page_info_list[page_idx - 1]
 
-        # 检查当前页是否有表格块
+        # Check if current page has a table block
         if not (page_info["para_blocks"] and page_info["para_blocks"][0]["type"] == BlockType.TABLE):
             continue
 
         current_table_block = page_info["para_blocks"][0]
 
-        # 检查上一页是否有表格块
+        # Check if previous page has a table block
         if not (previous_page_info["para_blocks"] and previous_page_info["para_blocks"][-1]["type"] == BlockType.TABLE):
             continue
 
         previous_table_block = previous_page_info["para_blocks"][-1]
 
-        # 收集待合并表格的footnote
+        # Collect footnotes of the table pending merge
         wait_merge_table_footnotes = [
             block for block in current_table_block["blocks"]
             if block["type"] == BlockType.TABLE_FOOTNOTE
         ]
 
-        # 检查两个表格是否可以合并
+        # Check if two tables can be merged
         can_merge, soup1, soup2, current_html, previous_html = can_merge_tables(
             current_table_block, previous_table_block
         )
@@ -571,18 +571,19 @@ def merge_table(page_info_list):
         if not can_merge:
             continue
 
-        # 执行表格合并
+        # Perform table merge
         merged_html = perform_table_merge(
             soup1, soup2, previous_table_block, wait_merge_table_footnotes
         )
 
-        # 更新previous_table_block的html
+        # Update HTML of previous_table_block
         for block in previous_table_block["blocks"]:
             if (block["type"] == BlockType.TABLE_BODY and block["lines"] and block["lines"][0]["spans"]):
                 block["lines"][0]["spans"][0]["html"] = merged_html
                 break
 
-        # 删除当前页的table
+        # Delete current page table
         for block in current_table_block["blocks"]:
             block['lines'] = []
             block[SplitFlag.LINES_DELETED] = True
+

@@ -1,141 +1,141 @@
-# VParse MCP-Server Docker 部署指南
+# VParse MCP-Server Docker Deployment Guide
 
-## 1. 简介
+## 1. Introduction
 
-本文档提供了使用 Docker 部署 VParse MCP-Server 的详细指南。通过 Docker 部署，你可以在任何支持 Docker 的环境中快速启动 VParse MCP 服务器，无需考虑复杂的环境配置和依赖管理。
+This document provides a detailed guide for deploying VParse MCP-Server using Docker. By deploying via Docker, you can quickly start the VParse MCP server in any environment that supports Docker, without worrying about complex environment configurations and dependency management.
 
-Docker 部署的主要优势：
+Key advantages of Docker deployment:
 
-- **一致的运行环境**：确保在任何平台上都有相同的运行环境
-- **简化部署流程**：一键启动，无需手动安装依赖
-- **易于扩展和迁移**：便于在不同环境间迁移和扩展服务
-- **资源隔离**：避免与宿主机其他服务产生冲突
+- **Consistent Environment**: Ensures identical runtime environments across all platforms.
+- **Simplified Deployment**: One-click startup without manual dependency installation.
+- **Easy Scaling and Migration**: Facilitates service migration and scaling across different environments.
+- **Resource Isolation**: Prevents conflicts with other services on the host machine.
 
-## 2. 先决条件
+## 2. Prerequisites
 
-在开始之前，请确保你的系统已安装以下软件：
+Before starting, ensure your system has the following software installed:
 
-- [Docker](https://www.docker.com/get-started) (19.03 或更高版本)
-- [Docker Compose](https://docs.docker.com/compose/install/) (1.27.0 或更高版本)
+- [Docker](https://www.docker.com/get-started) (19.03 or higher)
+- [Docker Compose](https://docs.docker.com/compose/install/) (1.27.0 or higher)
 
-你可以通过以下命令检查它们是否已正确安装：
+You can check if they are correctly installed using:
 
 ```bash
 docker --version
 docker-compose --version
 ```
 
-同时，你需要：
+Additionally, you will need:
 
-- 从 [VParse 官网](https://vparse.net) 获取的 API 密钥（如果需要使用远程 API）
-- 充足的硬盘空间，用于存储转换后的文件
+- An API key obtained from the [VParse Official Website](https://vparse.net) (if using the remote API)
+- Sufficient disk space to store converted files
 
-## 3. 使用 Docker Compose 部署（推荐）
+## 3. Deploying with Docker Compose (Recommended)
 
-Docker Compose 提供了最简单的部署方式，特别适合快速开始使用或开发环境。
+Docker Compose provides the simplest deployment method, ideal for a quick start or development environments.
 
-### 3.1 准备配置文件
+### 3.1 Prepare Configuration
 
-1. 克隆仓库（如果尚未克隆）：
+1. Clone the repository (if not already done):
 
    ```bash
    git clone <repository-url>
    cd vparse-mcp
    ```
 
-2. 创建环境变量文件：
+2. Create an environment variable file:
 
    ```bash
    cp .env.example .env
    ```
 
-3. 编辑 `.env` 文件，设置必要的环境变量：
+3. Edit the `.env` file and set the necessary environment variables:
 
    ```
    VPARSE_API_BASE=https://vparse.net
-   VPARSE_API_KEY=你的API密钥
+   VPARSE_API_KEY=your_api_key_here
    OUTPUT_DIR=./downloads
    USE_LOCAL_API=false
    LOCAL_VPARSE_API_BASE=http://localhost:8080
    ```
 
-   如果你计划使用本地 API，请将 `USE_LOCAL_API` 设置为 `true`，并确保 `LOCAL_VPARSE_API_BASE` 指向你的本地 API 服务地址。
+   If you plan to use a local API, set `USE_LOCAL_API` to `true` and ensure `LOCAL_VPARSE_API_BASE` points to your local API service address.
 
-### 3.2 启动服务
+### 3.2 Start the Service
 
-在项目根目录下运行：
+Run the following in the project root:
 
 ```bash
 docker-compose up -d
 ```
 
-这将会：
-- 构建 Docker 镜像（如果尚未构建）
-- 创建并启动容器
-- 在后台运行服务 (`-d` 参数)
+This will:
+- Build the Docker image (if not already built).
+- Create and start the container.
+- Run the service in the background (`-d` flag).
 
-服务将在 `http://localhost:8001` 上启动。你可以通过 MCP 客户端连接此地址。
+The service will start at `http://localhost:8001`. You can connect to this address via an MCP client.
 
-### 3.3 查看日志
+### 3.3 View Logs
 
-要查看服务日志，运行：
+To view service logs, run:
 
 ```bash
 docker-compose logs -f
 ```
 
-按 `Ctrl+C` 退出日志查看。
+Press `Ctrl+C` to exit log viewing.
 
-### 3.4 停止服务
+### 3.4 Stop the Service
 
-要停止服务，运行：
+To stop the service, run:
 
 ```bash
 docker-compose down
 ```
 
-如果你想同时删除构建的镜像，可以使用：
+If you also want to remove the built images, use:
 
 ```bash
 docker-compose down --rmi local
 ```
 
-## 4. 手动构建和运行 Docker 镜像
+## 4. Manual Build and Run
 
-如果你需要更多的控制或自定义，你可以手动构建和运行 Docker 镜像。
+If you need more control or customization, you can build and run the Docker image manually.
 
-### 4.1 构建镜像
+### 4.1 Build the Image
 
-在项目根目录下运行：
+Run the following in the project root:
 
 ```bash
 docker build -t vparse-mcp:latest .
 ```
 
-这将根据 Dockerfile 构建一个名为 `vparse-mcp` 的 Docker 镜像，标签为 `latest`。
+This will build a Docker image named `vparse-mcp` with the tag `latest` based on the Dockerfile.
 
-### 4.2 运行容器
+### 4.2 Run the Container
 
-使用环境变量文件运行容器：
+Run the container using an environment variable file:
 
 ```bash
 docker run -p 8001:8001 --env-file .env vparse-mcp:latest
 ```
 
-或者直接指定环境变量：
+Alternatively, specify environment variables directly:
 
 ```bash
 docker run -p 8001:8001 \
   -e VPARSE_API_BASE=https://vparse.net \
-  -e VPARSE_API_KEY=你的API密钥 \
+  -e VPARSE_API_KEY=your_api_key_here \
   -e OUTPUT_DIR=/app/downloads \
   -v $(pwd)/downloads:/app/downloads \
   vparse-mcp:latest
 ```
 
-### 4.3 挂载卷
+### 4.3 Mount Volumes
 
-为了持久化存储转换后的文件，你应该挂载宿主机目录到容器的输出目录：
+For persistent storage of converted files, mount a host directory to the container's output directory:
 
 ```bash
 docker run -p 8001:8001 --env-file .env \
@@ -143,22 +143,22 @@ docker run -p 8001:8001 --env-file .env \
   vparse-mcp:latest
 ```
 
-这将挂载当前工作目录下的 `downloads` 文件夹到容器内的 `/app/downloads` 目录。
+This mounts the `downloads` folder in your current working directory to `/app/downloads` inside the container.
 
-## 5. 环境变量配置
+## 5. Environment Configuration
 
-Docker 环境中支持的环境变量与标准环境相同：
+Supported environment variables in Docker are the same as in a standard environment:
 
-| 环境变量 | 说明 | 默认值 |
+| Environment Variable | Description | Default Value |
 | ------------------------- | -------------------------------------------------------------- | ------------------------- |
-| `VPARSE_API_BASE` | VParse 远程 API 的基础 URL | `https://vparse.net` |
-| `VPARSE_API_KEY` | VParse API 密钥，需要从官网申请 | - |
-| `OUTPUT_DIR` | 转换后文件的保存路径 | `/app/downloads` |
-| `USE_LOCAL_API` | 是否使用本地 API 进行解析（仅适用于 `local_parse_pdf` 工具） | `false` |
-| `LOCAL_VPARSE_API_BASE` | 本地 API 的基础 URL（当 `USE_LOCAL_API=true` 时有效） | `http://localhost:8080` |
+| `VPARSE_API_BASE` | Base URL for the VParse remote API | `https://vparse.net` |
+| `VPARSE_API_KEY` | VParse API key, required from the official website | - |
+| `OUTPUT_DIR` | Path to save converted files | `/app/downloads` |
+| `USE_LOCAL_API` | Whether to use a local API for parsing (only for `local_parse_pdf` tool) | `false` |
+| `LOCAL_VPARSE_API_BASE` | Base URL for the local API (effective when `USE_LOCAL_API=true`) | `http://localhost:8080` |
 
-在 Docker 环境中，你可以：
+In a Docker environment, you can:
 
-- 通过 `--env-file` 指定环境变量文件
-- 通过 `-e` 参数直接指定环境变量
-- 在 `docker-compose.yml` 文件中的 `environment` 部分配置环境变量
+- Specify an environment file via `--env-file`.
+- Pass variables directly using the `-e` flag.
+- Configure variables in the `environment` section of `docker-compose.yml`.

@@ -7,7 +7,7 @@ VERTICAL_SPAN_HEIGHT_TO_WIDTH_RATIO_THRESHOLD = 2
 VERTICAL_SPAN_IN_BLOCK_THRESHOLD = 0.8
 
 def fill_spans_in_blocks(blocks, spans, radio):
-    """将allspans中的span按位置关系，放入blocks中."""
+    """Place spans from allspans into blocks based on positional relationships."""
     block_with_spans = []
     for block in blocks:
         block_type = block[7]
@@ -33,7 +33,7 @@ def fill_spans_in_blocks(blocks, spans, radio):
         block_dict['spans'] = block_spans
         block_with_spans.append(block_dict)
 
-        # 从spans删除已经放入block_spans中的span
+        # Remove spans already placed in block_spans from the spans list
         if len(block_spans) > 0:
             for span in block_spans:
                 spans.remove(span)
@@ -71,12 +71,12 @@ def fix_discarded_block(discarded_block_with_spans):
 
 
 def fix_text_block(block):
-    # 文本block中的公式span都应该转换成行内type
+    # Interline equations in text blocks should be converted to inline type
     for span in block['spans']:
         if span['type'] == ContentType.INTERLINE_EQUATION:
             span['type'] = ContentType.INLINE_EQUATION
 
-    # 假设block中的span超过80%的数量高度是宽度的两倍以上，则认为是纵向文本块
+    # If over 80% of spans in a block have a height-to-width ratio > 2, it is considered a vertical text block
     vertical_span_count = sum(
         1 for span in block['spans']
         if (span['bbox'][3] - span['bbox'][1]) / (span['bbox'][2] - span['bbox'][0]) > VERTICAL_SPAN_HEIGHT_TO_WIDTH_RATIO_THRESHOLD
@@ -88,7 +88,7 @@ def fix_text_block(block):
         vertical_ratio = vertical_span_count / total_span_count
 
     if vertical_ratio > VERTICAL_SPAN_IN_BLOCK_THRESHOLD:
-        # 如果是纵向文本块，则按纵向lines处理
+        # If it is a vertical text block, process as vertical lines
         block_lines = merge_spans_to_vertical_line(block['spans'])
         sort_block_lines = vertical_line_sort_spans_from_top_to_bottom(block_lines)
     else:
@@ -104,14 +104,14 @@ def merge_spans_to_line(spans, threshold=0.6):
     if len(spans) == 0:
         return []
     else:
-        # 按照y0坐标排序
+        # Sort by y0 coordinate
         spans.sort(key=lambda span: span['bbox'][1])
 
         lines = []
         current_line = [spans[0]]
         for span in spans[1:]:
-            # 如果当前的span类型为"interline_equation" 或者 当前行中已经有"interline_equation"
-            # image和table类型，同上
+            # If the current span is "interline_equation" or the current line already contains one
+            # Same for image and table types
             if span['type'] in [
                     ContentType.INTERLINE_EQUATION, ContentType.IMAGE,
                     ContentType.TABLE
@@ -119,20 +119,20 @@ def merge_spans_to_line(spans, threshold=0.6):
                     ContentType.INTERLINE_EQUATION, ContentType.IMAGE,
                     ContentType.TABLE
             ] for s in current_line):
-                # 则开始新行
+                # Start a new line
                 lines.append(current_line)
                 current_line = [span]
                 continue
 
-            # 如果当前的span与当前行的最后一个span在y轴上重叠，则添加到当前行
+            # If current span overlaps with the last span in the current line on the y-axis, add it to the line
             if _is_overlaps_y_exceeds_threshold(span['bbox'], current_line[-1]['bbox'], threshold):
                 current_line.append(span)
             else:
-                # 否则，开始新行
+                # Otherwise, start a new line
                 lines.append(current_line)
                 current_line = [span]
 
-        # 添加最后一行
+        # Add the last line
         if current_line:
             lines.append(current_line)
 
@@ -140,18 +140,18 @@ def merge_spans_to_line(spans, threshold=0.6):
 
 
 def merge_spans_to_vertical_line(spans, threshold=0.6):
-    """将纵向文本的spans合并成纵向lines（从右向左阅读）"""
+    """Merge vertical text spans into vertical lines (reading right to left)"""
     if len(spans) == 0:
         return []
     else:
-        # 按照x2坐标从大到小排序（从右向左）
+        # Sort by x2 coordinate in descending order (right to left)
         spans.sort(key=lambda span: span['bbox'][2], reverse=True)
 
         vertical_lines = []
         current_line = [spans[0]]
 
         for span in spans[1:]:
-            # 特殊类型元素单独成列
+            # Special type elements form their own columns
             if span['type'] in [
                 ContentType.INTERLINE_EQUATION, ContentType.IMAGE,
                 ContentType.TABLE
@@ -163,25 +163,25 @@ def merge_spans_to_vertical_line(spans, threshold=0.6):
                 current_line = [span]
                 continue
 
-            # 如果当前的span与当前行的最后一个span在y轴上重叠，则添加到当前行
+            # If current span overlaps with the last span in the current line on the x-axis, add it to the line
             if _is_overlaps_x_exceeds_threshold(span['bbox'], current_line[-1]['bbox'], threshold):
                 current_line.append(span)
             else:
                 vertical_lines.append(current_line)
                 current_line = [span]
 
-        # 添加最后一列
+        # Add the last column
         if current_line:
             vertical_lines.append(current_line)
 
         return vertical_lines
 
 
-# 将每一个line中的span从左到右排序
+# Sort spans in each line from left to right
 def line_sort_spans_by_left_to_right(lines):
     line_objects = []
     for line in lines:
-        #  按照x0坐标排序
+        # Sort by x0 coordinate
         line.sort(key=lambda span: span['bbox'][0])
         line_bbox = [
             min(span['bbox'][0] for span in line),  # x0
@@ -199,10 +199,10 @@ def line_sort_spans_by_left_to_right(lines):
 def vertical_line_sort_spans_from_top_to_bottom(vertical_lines):
     line_objects = []
     for line in vertical_lines:
-        # 按照y0坐标排序（从上到下）
+        # Sort by y0 coordinate (top to bottom)
         line.sort(key=lambda span: span['bbox'][1])
 
-        # 计算整个列的边界框
+        # Calculate the bounding box of the entire column
         line_bbox = [
             min(span['bbox'][0] for span in line),  # x0
             min(span['bbox'][1] for span in line),  # y0
@@ -210,7 +210,7 @@ def vertical_line_sort_spans_from_top_to_bottom(vertical_lines):
             max(span['bbox'][3] for span in line),  # y1
         ]
 
-        # 组装结果
+        # Assemble results
         line_objects.append({
             'bbox': line_bbox,
             'spans': line,

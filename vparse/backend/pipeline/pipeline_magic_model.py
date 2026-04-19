@@ -4,19 +4,19 @@ from vparse.utils.magic_model_utils import tie_up_category_by_distance_v3, reduc
 
 
 class MagicModel:
-    """每个函数没有得到元素的时候返回空list."""
+    """Return an empty list if a function retrieves no elements."""
     def __init__(self, page_model_info: dict, scale: float):
         self.__page_model_info = page_model_info
         self.__scale = scale
-        """为所有模型数据添加bbox信息(缩放，poly->bbox)"""
+        # Add bbox info to all model data (scaling, poly -> bbox)
         self.__fix_axis()
-        """删除置信度特别低的模型数据(<0.05),提高质量"""
+        # Remove extremely low-confidence model data (<0.05) to improve quality
         self.__fix_by_remove_low_confidence()
-        """删除高iou(>0.9)数据中置信度较低的那个"""
+        # Among overlapping data with high IoU (>0.9), remove the one with lower confidence
         self.__fix_by_remove_high_iou_and_low_confidence()
-        """将部分tbale_footnote修正为image_footnote"""
+        # Correct some table_footnote entries to image_footnote
         self.__fix_footnote()
-        """处理重叠的image_body和table_body"""
+        # Handle overlapping image_body and table_body
         self.__fix_by_remove_overlap_image_table_body()
 
     def __fix_by_remove_overlap_image_table_body(self):
@@ -38,7 +38,7 @@ class MagicModel:
                         block1['bbox'], block2['bbox'], 0.8
                     )
                     if overlap_box is not None:
-                        # 判断哪个区块的面积更小，移除较小的区块
+                        # Determine which block is smaller and remove it.
                         area1 = (block1['bbox'][2] - block1['bbox'][0]) * (block1['bbox'][3] - block1['bbox'][1])
                         area2 = (block2['bbox'][2] - block2['bbox'][0]) * (block2['bbox'][3] - block2['bbox'][1])
 
@@ -50,7 +50,7 @@ class MagicModel:
                             large_block = block1
 
                         if block_to_remove not in need_remove_list:
-                            # 扩展大区块的边界框
+                            # Expand the bounding box of the larger block.
                             x1, y1, x2, y2 = large_block['bbox']
                             sx1, sy1, sx2, sy2 = block_to_remove['bbox']
                             x1 = min(x1, sx1)
@@ -60,12 +60,12 @@ class MagicModel:
                             large_block['bbox'] = [x1, y1, x2, y2]
                             need_remove_list.append(block_to_remove)
 
-        # 处理图像-图像重叠
+        # Handle image-image overlaps
         add_need_remove_block(image_blocks)
-        # 处理表格-表格重叠
+        # Handle table-table overlaps
         add_need_remove_block(table_blocks)
 
-        # 从布局中移除标记的区块
+        # Remove marked blocks from the layout
         for need_remove in need_remove_list:
             if need_remove in layout_dets:
                 layout_dets.remove(need_remove)
@@ -83,7 +83,7 @@ class MagicModel:
                 int(y1 / self.__scale),
             ]
             layout_det['bbox'] = bbox
-            # 删除高度或者宽度小于等于0的spans
+            # Delete spans with height or width <= 0
             if bbox[2] - bbox[0] <= 0 or bbox[3] - bbox[1] <= 0:
                 need_remove_list.append(layout_det)
         for need_remove in need_remove_list:
@@ -210,7 +210,7 @@ class MagicModel:
         return bbox_distance(bbox1, bbox2)
 
     def __tie_up_category_by_distance_v3(self, subject_category_id, object_category_id):
-        # 定义获取主体和客体对象的函数
+        # Define functions to retrieve subject and object entities
         def get_subjects():
             return reduct_overlap(
                 list(
@@ -237,7 +237,7 @@ class MagicModel:
                 )
             )
 
-        # 调用通用方法
+        # Call the general association method
         return tie_up_category_by_distance_v3(
             get_subjects,
             get_objects
@@ -281,7 +281,7 @@ class MagicModel:
             ret.append(record)
         return ret
 
-    def get_equations(self) -> tuple[list, list, list]:  # 有坐标，也有字
+    def get_equations(self) -> tuple[list, list, list]:  # Has both coordinates and text
         inline_equations = self.__get_blocks_by_type(
             CategoryId.InlineEquation, ['latex']
         )
@@ -293,15 +293,15 @@ class MagicModel:
         )
         return inline_equations, interline_equations, interline_equations_blocks
 
-    def get_discarded(self) -> list:  # 自研模型，只有坐标
+    def get_discarded(self) -> list:  # In-house model; coordinates only
         blocks = self.__get_blocks_by_type(CategoryId.Abandon)
         return blocks
 
-    def get_text_blocks(self) -> list:  # 自研模型搞的，只有坐标，没有字
+    def get_text_blocks(self) -> list:  # In-house model; coordinates only, no text
         blocks = self.__get_blocks_by_type(CategoryId.Text)
         return blocks
 
-    def get_title_blocks(self) -> list:  # 自研模型，只有坐标，没字
+    def get_title_blocks(self) -> list:  # In-house model; coordinates only, no text
         blocks = self.__get_blocks_by_type(CategoryId.Title)
         return blocks
 
@@ -323,7 +323,7 @@ class MagicModel:
             CategoryId.InterlineEquation_YOLO,
             CategoryId.OcrText,
         ]
-        """当成span拼接的"""
+        # Used for span concatenation
         for layout_det in layout_dets:
             category_id = layout_det['category_id']
             if category_id in allow_category_id_list:
@@ -331,7 +331,7 @@ class MagicModel:
                 if category_id == CategoryId.ImageBody:
                     span['type'] = ContentType.IMAGE
                 elif category_id == CategoryId.TableBody:
-                    # 获取table模型结果
+                    # Retrieve table model results
                     latex = layout_det.get('latex', None)
                     html = layout_det.get('html', None)
                     if latex:

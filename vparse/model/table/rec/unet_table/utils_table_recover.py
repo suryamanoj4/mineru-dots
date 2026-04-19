@@ -13,25 +13,25 @@ def calculate_iou(
     """
     b1_x1, b1_y1, b1_x2, b1_y2 = box1[0], box1[1], box1[2], box1[3]
     b2_x1, b2_y1, b2_x2, b2_y2 = box2[0], box2[1], box2[2], box2[3]
-    # 不相交直接退出检测
+    # Exit detection if no intersection
     if b1_x2 < b2_x1 or b1_x1 > b2_x2 or b1_y2 < b2_y1 or b1_y1 > b2_y2:
         return 0.0
-    # 计算交集
+    # Calculate intersection
     inter_x1 = max(b1_x1, b2_x1)
     inter_y1 = max(b1_y1, b2_y1)
     inter_x2 = min(b1_x2, b2_x2)
     inter_y2 = min(b1_y2, b2_y2)
     i_area = max(0, inter_x2 - inter_x1) * max(0, inter_y2 - inter_y1)
 
-    # 计算并集
+    # Calculate union
     b1_area = (b1_x2 - b1_x1) * (b1_y2 - b1_y1)
     b2_area = (b2_x2 - b2_x1) * (b2_y2 - b2_y1)
     u_area = b1_area + b2_area - i_area
 
-    # 避免除零错误，如果区域小到乘积为0,认为是错误识别，直接去掉
+    # Avoid division by zero; if the area is zero, assume incorrect recognition and skip.
     if u_area == 0:
         return 1
-        # 检查完全包含
+    # Check for full containment
     iou = i_area / u_area
     return iou
 
@@ -47,29 +47,29 @@ def is_box_contained(
     """
     b1_x1, b1_y1, b1_x2, b1_y2 = box1[0], box1[1], box1[2], box1[3]
     b2_x1, b2_y1, b2_x2, b2_y2 = box2[0], box2[1], box2[2], box2[3]
-    # 不相交直接退出检测
+    # Exit detection if no intersection
     if b1_x2 < b2_x1 or b1_x1 > b2_x2 or b1_y2 < b2_y1 or b1_y1 > b2_y2:
         return None
-    # 计算box2的总面积
+    # Calculate total area of box2
     b2_area = (b2_x2 - b2_x1) * (b2_y2 - b2_y1)
     b1_area = (b1_x2 - b1_x1) * (b1_y2 - b1_y1)
 
-    # 计算box1和box2的交集
+    # Calculate intersection of box1 and box2
     intersect_x1 = max(b1_x1, b2_x1)
     intersect_y1 = max(b1_y1, b2_y1)
     intersect_x2 = min(b1_x2, b2_x2)
     intersect_y2 = min(b1_y2, b2_y2)
 
-    # 计算交集的面积
+    # Calculate intersection area
     intersect_area = max(0, intersect_x2 - intersect_x1) * max(
         0, intersect_y2 - intersect_y1
     )
 
-    # 计算外面的面积
+    # Calculate outside area
     b1_outside_area = b1_area - intersect_area
     b2_outside_area = b2_area - intersect_area
 
-    # 计算外面的面积占box2总面积的比例
+    # Calculate ratio of outside area to total area
     ratio_b1 = b1_outside_area / b1_area if b1_area > 0 else 0
     ratio_b2 = b2_outside_area / b2_area if b2_area > 0 else 0
 
@@ -77,7 +77,7 @@ def is_box_contained(
         return 1
     if ratio_b2 < threshold:
         return 2
-    # 判断比例是否大于阈值
+    # Check if ratio exceeds threshold
     return None
 
 
@@ -95,7 +95,7 @@ def is_single_axis_contained(
     b1_x1, b1_y1, b1_x2, b1_y2 = box1[0], box1[1], box1[2], box1[3]
     b2_x1, b2_y1, b2_x2, b2_y2 = box2[0], box2[1], box2[2], box2[3]
 
-    # 计算轴重叠大小
+    # Calculate axial overlap size
     if axis == "x":
         b1_area = b1_x2 - b1_x1
         b2_area = b2_x2 - b2_x1
@@ -104,7 +104,7 @@ def is_single_axis_contained(
         b1_area = b1_y2 - b1_y1
         b2_area = b2_y2 - b2_y1
         i_area = min(b1_y2, b2_y2) - max(b1_y1, b2_y1)
-        # 计算外面的面积
+    # Calculate outside area
     b1_outside_area = b1_area - i_area
     b2_outside_area = b2_area - i_area
 
@@ -136,7 +136,7 @@ def sorted_ocr_boxes(
     indices = list(indices)
     _boxes = [dt_boxes[i] for i in indices]
     threahold = 20
-    # 避免输出和输入格式不对应，与函数功能不符合
+    # Ensure output format matches input to maintain function integrity.
     if isinstance(dt_boxes, np.ndarray):
         _boxes = np.array(_boxes)
     for i in range(num_boxes - 1):
@@ -163,7 +163,7 @@ def box_4_1_poly_to_box_4_2(poly_box: Union[list, np.ndarray]) -> List[List[floa
 
 def box_4_2_poly_to_box_4_1(poly_box: Union[list, np.ndarray]) -> List[Any]:
     """
-    将poly_box转换为box_4_1
+    Convert poly_box to box_4_1 format.
     :param poly_box:
     :return:
     """
@@ -241,21 +241,21 @@ def gather_ocr_list_by_row(ocr_list: List[Any], threhold: float = 0.2) -> List[A
 def plot_html_table(
     logi_points: Union[Union[np.ndarray, List]], cell_box_map: Dict[int, List[str]]
 ) -> str:
-    # 初始化最大行数和列数
+    # Initialize maximum row and column counts
     max_row = 0
     max_col = 0
-    # 计算最大行数和列数
+    # Calculate maximum row and column counts
     for point in logi_points:
-        max_row = max(max_row, point[1] + 1)  # 加1是因为结束下标是包含在内的
-        max_col = max(max_col, point[3] + 1)  # 加1是因为结束下标是包含在内的
+        max_row = max(max_row, point[1] + 1)  # Add 1 because the end index is inclusive
+        max_col = max(max_col, point[3] + 1)  # Add 1 because the end index is inclusive
 
-    # 创建一个二维数组来存储 sorted_logi_points 中的元素
+    # Create a 2D array to store elements of sorted_logi_points
     grid = [[None] * max_col for _ in range(max_row)]
 
     valid_start_row = (1 << 16) - 1
     valid_start_col = (1 << 16) - 1
     valid_end_col = 0
-    # 将 sorted_logi_points 中的元素填充到 grid 中
+    # Populate the grid with elements from sorted_logi_points
     for i, logic_point in enumerate(logi_points):
         row_start, row_end, col_start, col_end = (
             logic_point[0],
@@ -272,15 +272,15 @@ def plot_html_table(
             for col in range(col_start, col_end + 1):
                 grid[row][col] = (i, row_start, row_end, col_start, col_end)
 
-    # 创建表格
+    # Create table
     table_html = "<html><body><table>"
 
-    # 遍历每行
+    # Iterate through each row
     for row in range(max_row):
         if row < valid_start_row:
             continue
         temp = "<tr>"
-        # 遍历每一列
+        # Iterate through each column
         for col in range(max_col):
             if col < valid_start_col or col > valid_end_col:
                 continue
@@ -294,7 +294,7 @@ def plot_html_table(
                     ocr_rec_text = cell_box_map.get(i)
                     # text = "<br>".join(ocr_rec_text)
                     text = "".join(ocr_rec_text)
-                    # 如果是起始单元格
+                    # If it is the starting cell
                     row_span = row_end - row_start + 1
                     col_span = col_end - col_start + 1
                     cell_content = (

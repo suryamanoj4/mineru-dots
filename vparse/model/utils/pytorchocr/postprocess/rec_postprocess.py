@@ -79,7 +79,7 @@ class BaseRecLabelDecode(object):
             word_list: list of the grouped words
             word_col_list: list of decoding positions corresponding to each character in the grouped word
             state_list: list of marker to identify the type of grouping words, including two types of grouping words:
-                        - 'cn': continuous chinese characters (e.g., 你好啊)
+                        - 'cn': continuous chinese characters (e.g., hello)
                         - 'en&num': continuous english characters (e.g., hello), number (e.g., 123, 1.123), or mixed of them connected by '-' (e.g., VGG-16)
                         The remaining characters in text are treated as separators between groups (e.g., space, '(', ')', etc.).
         """
@@ -161,7 +161,7 @@ class BaseRecLabelDecode(object):
             if text_prob is not None and probs is not None and len(probs) > 0:
                 mean_conf = np.mean(probs)
             else:
-                # 如果没有提供概率或最终结果为空，则默认置信度为1.0
+                # Default confidence to 1.0 if no probability provided or result is empty
                 mean_conf = 1.0
             result_list.append((text, mean_conf))
         return result_list

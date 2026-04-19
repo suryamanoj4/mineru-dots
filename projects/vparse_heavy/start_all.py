@@ -1,8 +1,8 @@
 """
 VParse Heavy - Unified Startup Script
-Heavy统一启动脚本
+Heavy Unified Startup Script
 
-一键启动所有服务：API Server + LitServe Workers + Task Scheduler
+Start all services with one click: API Server + LitServe Workers + Task Scheduler
 """
 import subprocess
 import signal
@@ -15,7 +15,7 @@ import argparse
 
 
 class HeavyLauncher:
-    """Heavy服务启动器"""
+    """Heavy Service Launcher"""
     
     def __init__(
         self,
@@ -35,15 +35,15 @@ class HeavyLauncher:
         self.processes = []
     
     def start_services(self):
-        """启动所有服务"""
+        """Start all services"""
         logger.info("=" * 70)
         logger.info("🚀 VParse Heavy - Starting All Services")
         logger.info("=" * 70)
-        logger.info("Heavy - 企业级多GPU文档解析服务")
+        logger.info("Heavy - Enterprise-grade Multi-GPU Document Parsing Service")
         logger.info("")
         
         try:
-            # 1. 启动 API Server
+            # 1. Start API Server
             logger.info("📡 [1/3] Starting API Server...")
             env = os.environ.copy()
             env['API_PORT'] = str(self.api_port)
@@ -63,7 +63,7 @@ class HeavyLauncher:
             logger.info(f"   📖 API Docs: http://localhost:{self.api_port}/docs")
             logger.info("")
             
-            # 2. 启动 LitServe Worker Pool
+            # 2. Start LitServe Worker Pool
             logger.info("⚙️  [2/3] Starting LitServe Worker Pool...")
             worker_cmd = [
                 sys.executable, 'litserve_worker.py',
@@ -90,7 +90,7 @@ class HeavyLauncher:
             logger.info(f"   👷 Workers per Device: {self.workers_per_device}")
             logger.info("")
             
-            # 3. 启动 Task Scheduler
+            # 3. Start Task Scheduler
             logger.info("🔄 [3/3] Starting Task Scheduler...")
             scheduler_cmd = [
                 sys.executable, 'task_scheduler.py',
@@ -112,7 +112,7 @@ class HeavyLauncher:
             logger.info(f"   ✅ Task Scheduler started (PID: {scheduler_proc.pid})")
             logger.info("")
             
-            # 启动成功
+            # Startup successful
             logger.info("=" * 70)
             logger.info("✅ All Services Started Successfully!")
             logger.info("=" * 70)
@@ -138,18 +138,18 @@ class HeavyLauncher:
             return False
     
     def stop_services(self, signum=None, frame=None):
-        """停止所有服务"""
+        """Stop all services"""
         logger.info("")
         logger.info("=" * 70)
         logger.info("⏹️  Stopping All Services...")
         logger.info("=" * 70)
         
         for name, proc in self.processes:
-            if proc.poll() is None:  # 进程仍在运行
+            if proc.poll() is None:  # Process is still running
                 logger.info(f"   Stopping {name} (PID: {proc.pid})...")
                 proc.terminate()
         
-        # 等待所有进程结束
+        # Wait for all processes to terminate
         for name, proc in self.processes:
             try:
                 proc.wait(timeout=10)
@@ -165,12 +165,12 @@ class HeavyLauncher:
         sys.exit(0)
     
     def wait(self):
-        """等待所有服务"""
+        """Wait for all services"""
         try:
             while True:
                 time.sleep(1)
                 
-                # 检查进程状态
+                # Check process status
                 for name, proc in self.processes:
                     if proc.poll() is not None:
                         logger.error(f"❌ {name} unexpectedly stopped!")
@@ -182,46 +182,46 @@ class HeavyLauncher:
 
 
 def main():
-    """主函数"""
+    """Main function"""
     parser = argparse.ArgumentParser(
-        description='VParse Heavy - 统一启动脚本',
+        description='VParse Heavy - Unified Startup Script',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-示例:
-  # 使用默认配置启动（自动检测GPU）
+Example:
+  # Start with default config (auto-detect GPU)
   python start_all.py
   
-  # 使用CPU模式
+  # Use CPU mode
   python start_all.py --accelerator cpu
   
-  # 指定输出目录和端口
+  # Specify output directory and port
   python start_all.py --output-dir /data/output --api-port 8080
   
-  # 每个GPU启动2个worker
+  # Start 2 workers per GPU
   python start_all.py --accelerator cuda --workers-per-device 2
   
-  # 只使用指定的GPU
+  # Use specific GPUs only
   python start_all.py --accelerator cuda --devices 0,1
         """
     )
     
     parser.add_argument('--output-dir', type=str, default='/tmp/vparse_heavy_output',
-                       help='输出目录 (默认: /tmp/vparse_heavy_output)')
+                       help='Output directory (default: /tmp/vparse_heavy_output)')
     parser.add_argument('--api-port', type=int, default=8000,
-                       help='API服务器端口 (默认: 8000)')
+                       help='API server port (default: 8000)')
     parser.add_argument('--worker-port', type=int, default=9000,
-                       help='Worker服务器端口 (默认: 9000)')
+                       help='Worker server port (default: 9000)')
     parser.add_argument('--accelerator', type=str, default='auto',
                        choices=['auto', 'cuda', 'cpu', 'mps'],
-                       help='加速器类型 (默认: auto，自动检测)')
+                       help='Accelerator type (default: auto, auto-detected)')
     parser.add_argument('--workers-per-device', type=int, default=1,
-                       help='每个GPU的worker数量 (默认: 1)')
+                       help='Number of workers per GPU (default: 1)')
     parser.add_argument('--devices', type=str, default='auto',
-                       help='使用的GPU设备，逗号分隔 (默认: auto，使用所有GPU)')
+                       help='GPU devices to use, comma-separated (default: auto, use all GPUs)')
     
     args = parser.parse_args()
     
-    # 处理 devices 参数
+    # Process devices parameter
     devices = args.devices
     if devices != 'auto':
         try:
@@ -230,7 +230,7 @@ def main():
             logger.warning(f"Invalid devices format: {devices}, using 'auto'")
             devices = 'auto'
     
-    # 创建启动器
+    # Create launcher
     launcher = HeavyLauncher(
         output_dir=args.output_dir,
         api_port=args.api_port,
@@ -240,11 +240,11 @@ def main():
         accelerator=args.accelerator
     )
     
-    # 设置信号处理
+    # Set up signal handling
     signal.signal(signal.SIGINT, launcher.stop_services)
     signal.signal(signal.SIGTERM, launcher.stop_services)
     
-    # 启动服务
+    # Start services
     if launcher.start_services():
         launcher.wait()
     else:

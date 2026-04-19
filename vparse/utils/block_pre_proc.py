@@ -15,7 +15,7 @@ def process_groups(groups, body_key, caption_key, footnote_key):
     maybe_text_image_blocks = []
     for i, group in enumerate(groups):
         if body_key == 'image_body' and len(group[caption_key]) == 0 and len(group[footnote_key]) == 0:
-            # 如果没有caption和footnote，则不需要将group_id添加到image_body中
+            # If no caption or footnote exists, group_id doesn't need to be added to image_body
             group[body_key]['group_id'] = i
             maybe_text_image_blocks.append(group[body_key])
             continue
@@ -57,41 +57,41 @@ def prepare_block_bboxes(
     add_bboxes(title_blocks, BlockType.TITLE, all_bboxes)
     add_bboxes(interline_equation_blocks, BlockType.INTERLINE_EQUATION, all_bboxes)
 
-    """block嵌套问题解决"""
-    """文本框与标题框重叠，优先信任文本框"""
+    """Resolve block nesting issues"""
+    """Trust text blocks over overlapping title blocks"""
     all_bboxes = fix_text_overlap_title_blocks(all_bboxes)
-    """任何框体与舍弃框重叠，优先信任舍弃框"""
+    """Trust discard blocks over any overlapping blocks"""
     all_bboxes = remove_need_drop_blocks(all_bboxes, discarded_blocks)
 
-    # interline_equation 与title或text框冲突的情况，分两种情况处理
-    """interline_equation框与文本类型框iou比较接近1的时候，信任行间公式框"""
+    # Handle interline_equation conflicts with title or text blocks in two cases:
+    """Trust interline_equation blocks when their IoU with text blocks is close to 1"""
     all_bboxes = fix_interline_equation_overlap_text_blocks_with_hi_iou(all_bboxes)
-    """interline_equation框被包含在文本类型框内，且interline_equation比文本区块小很多时信任文本框，这时需要舍弃公式框"""
-    # 通过后续大框套小框逻辑删除
+    """Trust text blocks when they contain an interline_equation block that is significantly smaller"""
+    # Deleted by subsequent large-contains-small logic
 
     """discarded_blocks"""
     all_discarded_blocks = []
     add_bboxes(discarded_blocks, BlockType.DISCARDED, all_discarded_blocks)
 
-    """footnote识别：宽度超过1/3页面宽度的，高度超过10的，处于页面下半30%区域的"""
+    """Footnote recognition: width > 1/3 page width, height > 10, located in the bottom 30% of the page"""
     footnote_blocks = []
     for discarded in discarded_blocks:
         x0, y0, x1, y1 = discarded['bbox']
         if (x1 - x0) > (page_w / 3) and (y1 - y0) > 10 and y0 > (page_h * 0.7):
             footnote_blocks.append([x0, y0, x1, y1])
 
-    """移除在footnote下面的任何框"""
+    """Remove any blocks below the footnote"""
     need_remove_blocks = find_blocks_under_footnote(all_bboxes, footnote_blocks)
     if len(need_remove_blocks) > 0:
         for block in need_remove_blocks:
             all_bboxes.remove(block)
             all_discarded_blocks.append(block)
 
-    """经过以上处理后，还存在大框套小框的情况，则删除小框"""
+    """Delete small blocks if nested within large blocks after previous steps"""
     all_bboxes = remove_overlaps_min_blocks(all_bboxes)
     all_discarded_blocks = remove_overlaps_min_blocks(all_discarded_blocks)
 
-    """粗排序后返回"""
+    """Return after rough sorting"""
     all_bboxes.sort(key=lambda x: x[0]+x[1])
     return all_bboxes, all_discarded_blocks, footnote_blocks
 
@@ -113,7 +113,7 @@ def add_bboxes(blocks, block_type, bboxes):
 
 
 def fix_text_overlap_title_blocks(all_bboxes):
-    # 先提取所有text和title block
+    # Extract all text and title blocks first
     text_blocks = []
     for block in all_bboxes:
         if block[7] == BlockType.TEXT:
@@ -162,7 +162,7 @@ def remove_need_drop_blocks(all_bboxes, discarded_blocks):
 
 
 def fix_interline_equation_overlap_text_blocks_with_hi_iou(all_bboxes):
-    # 先提取所有text和interline block
+    # Extract all text and interline blocks first
     text_blocks = []
     for block in all_bboxes:
         if block[7] == BlockType.TEXT:
@@ -195,7 +195,7 @@ def find_blocks_under_footnote(all_bboxes, footnote_blocks):
         block_x0, block_y0, block_x1, block_y1 = block[:4]
         for footnote_bbox in footnote_blocks:
             footnote_x0, footnote_y0, footnote_x1, footnote_y1 = footnote_bbox
-            # 如果footnote的纵向投影覆盖了block的纵向投影的80%且block的y0大于等于footnote的y1
+            # If footnote's vertical projection covers 80% of the block's and the block is below the footnote (y0 >= y1)
             if (
                 block_y0 >= footnote_y1
                 and calculate_vertical_projection_overlap_ratio(
@@ -208,10 +208,9 @@ def find_blocks_under_footnote(all_bboxes, footnote_blocks):
                     break
     return need_remove_blocks
 
-
 def remove_overlaps_min_blocks(all_bboxes):
-    #  重叠block，小的不能直接删除，需要和大的那个合并成一个更大的。
-    #  删除重叠blocks中较小的那些
+    # Overlapping blocks: smaller ones cannot be directly deleted, they need to be merged with larger ones into a bigger block.
+    # Remove smaller ones among overlapping blocks
     need_remove = []
     for i in range(len(all_bboxes)):
         for j in range(i + 1, len(all_bboxes)):
@@ -223,8 +222,9 @@ def remove_overlaps_min_blocks(all_bboxes):
                 block1_bbox, block2_bbox, 0.8
             )
             if overlap_box is not None:
-                # 判断哪个区块的面积更小，移除较小的区块
+                # Determine which block has a smaller area and remove it
                 area1 = (block1[2] - block1[0]) * (block1[3] - block1[1])
+...
                 area2 = (block2[2] - block2[0]) * (block2[3] - block2[1])
 
                 if area1 <= area2:

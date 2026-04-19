@@ -14,22 +14,22 @@ from vparse.utils.models_download_utils import auto_download_and_get_model_root_
 
 def sort_blocks_by_bbox(blocks, page_w, page_h, footnote_blocks):
 
-    """获取所有line并计算正文line的高度"""
+    """Get all lines and calculate the height of body lines"""
     line_height = get_line_height(blocks)
 
-    """获取所有line并对line排序"""
+    """Get all lines and sort them"""
     sorted_bboxes = sort_lines_by_model(blocks, page_w, page_h, line_height, footnote_blocks)
 
-    """根据line的中位数算block的序列关系"""
+    """Calculate block sequence relationships based on line median"""
     blocks = cal_block_index(blocks, sorted_bboxes)
 
-    """将image和table的block还原回group形式参与后续流程"""
+    """Restore image and table blocks to group form for subsequent processing"""
     blocks = revert_group_blocks(blocks)
 
-    """重排block"""
+    """Resort blocks"""
     sorted_blocks = sorted(blocks, key=lambda b: b['index'])
 
-    """block内重排(img和table的block内多个caption或footnote的排序)"""
+    """Resort within blocks (e.g., sorting multiple captions or footnotes in image/table blocks)"""
     for block in sorted_blocks:
         if block['type'] in [BlockType.IMAGE, BlockType.TABLE]:
             block['blocks'] = sorted(block['blocks'], key=lambda b: b['index'])
@@ -87,10 +87,10 @@ def sort_lines_by_model(fix_blocks, page_w, page_h, line_height, footnote_blocks
         footnote_block = {'bbox': block[:4]}
         add_lines_to_block(footnote_block)
 
-    if len(page_line_list) > 200:  # layoutreader最高支持512line
+    if len(page_line_list) > 200:  # layoutreader supports up to 512 lines
         return None
 
-    # 使用layoutreader排序
+    # Sort using layoutreader
     x_scale = 1000.0 / page_w
     y_scale = 1000.0 / page_h
     boxes = []
@@ -135,36 +135,36 @@ def sort_lines_by_model(fix_blocks, page_w, page_h, line_height, footnote_blocks
 
 
 def insert_lines_into_block(block_bbox, line_height, page_w, page_h):
-    # block_bbox是一个元组(x0, y0, x1, y1)，其中(x0, y0)是左下角坐标，(x1, y1)是右上角坐标
+    # block_bbox is a tuple (x0, y0, x1, y1), where (x0, y0) is bottom-left and (x1, y1) is top-right
     x0, y0, x1, y1 = block_bbox
 
     block_height = y1 - y0
     block_weight = x1 - x0
 
-    # 如果block高度小于n行正文，则直接返回block的bbox
+    # If block height is less than n body lines, return the block's bbox directly
     if line_height * 2 < block_height:
         if (
             block_height > page_h * 0.25 and page_w * 0.5 > block_weight > page_w * 0.25
-        ):  # 可能是双列结构，可以切细点
+        ):  # Possible two-column structure; can be sliced finer
             lines = int(block_height / line_height)
         else:
-            # 如果block的宽度超过0.4页面宽度，则将block分成3行(是一种复杂布局，图不能切的太细)
+            # If the block width exceeds 0.4 page width, split it into 3 lines (complex layout, don't slice images too thin)
             if block_weight > page_w * 0.4:
                 lines = 3
-            elif block_weight > page_w * 0.25:  # （可能是三列结构，也切细点）
+            elif block_weight > page_w * 0.25:  # (Possible three-column structure, also slice finer)
                 lines = int(block_height / line_height)
-            else:  # 判断长宽比
-                if block_height / block_weight > 1.2:  # 细长的不分
+            else:  # Check aspect ratio
+                if block_height / block_weight > 1.2:  # Don't split thin/tall blocks
                     return [[x0, y0, x1, y1]]
-                else:  # 不细长的还是分成两行
+                else:  # Split others into two lines
                     lines = 2
 
         line_height = (y1 - y0) / lines
 
-        # 确定从哪个y位置开始绘制线条
+        # Determine start y position
         current_y = y0
 
-        # 用于存储线条的位置信息[(x0, y), ...]
+        # Store line position info [(x0, y), ...]
         lines_positions = []
 
         for i in range(lines):
@@ -208,7 +208,7 @@ def model_init(model_name: str):
                 bf_16_support = True  
 
     if model_name == 'layoutreader':
-        # 检测modelscope的缓存目录是否存在
+        # Check if the modelscope cache directory exists
         layoutreader_model_dir = os.path.join(auto_download_and_get_model_root_path(ModelPath.layout_reader), ModelPath.layout_reader)
         if os.path.exists(layoutreader_model_dir):
             model = LayoutLMv3ForTokenClassification.from_pretrained(
@@ -262,7 +262,7 @@ def do_predict(boxes: List[List[int]], model) -> List[int]:
 def cal_block_index(fix_blocks, sorted_bboxes):
 
     if sorted_bboxes is not None:
-        # 使用layoutreader排序
+        # Sort using layoutreader
         for block in fix_blocks:
             line_index_list = []
             if len(block['lines']) == 0:
@@ -274,21 +274,21 @@ def cal_block_index(fix_blocks, sorted_bboxes):
                 median_value = statistics.median(line_index_list)
                 block['index'] = median_value
 
-            # 删除图表body block中的虚拟line信息, 并用real_lines信息回填
+            # Remove virtual line info from chart/table body blocks and backfill with real_lines
             if block['type'] in [BlockType.IMAGE_BODY, BlockType.TABLE_BODY, BlockType.TITLE, BlockType.INTERLINE_EQUATION]:
                 if 'real_lines' in block:
                     block['virtual_lines'] = copy.deepcopy(block['lines'])
                     block['lines'] = copy.deepcopy(block['real_lines'])
                     del block['real_lines']
     else:
-        # 使用xycut排序
+        # Sort using xycut
         block_bboxes = []
         for block in fix_blocks:
-            # 如果block['bbox']任意值小于0，将其置为0
+            # If any value in block['bbox'] is less than 0, set to 0
             block['bbox'] = [max(0, x) for x in block['bbox']]
             block_bboxes.append(block['bbox'])
 
-            # 删除图表body block中的虚拟line信息, 并用real_lines信息回填
+            # Remove virtual line info from chart/table body blocks and backfill with real_lines
             if block['type'] in [BlockType.IMAGE_BODY, BlockType.TABLE_BODY, BlockType.TITLE, BlockType.INTERLINE_EQUATION]:
                 if 'real_lines' in block:
                     block['virtual_lines'] = copy.deepcopy(block['lines'])
@@ -308,7 +308,7 @@ def cal_block_index(fix_blocks, sorted_bboxes):
         for i, block in enumerate(fix_blocks):
             block['index'] = sorted_boxes.index(block['bbox'])
 
-        # 生成line index
+        # Generate line indices
         sorted_blocks = sorted(fix_blocks, key=lambda b: b['index'])
         line_inedx = 1
         for block in sorted_blocks:

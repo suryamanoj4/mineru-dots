@@ -145,7 +145,7 @@ def _process_output(
         model_output=None,
         is_pipeline=True
 ):
-    """处理输出文件"""
+    """Process output files"""
     if f_draw_layout_bbox:
         draw_layout_bbox(pdf_info, pdf_bytes, local_md_dir, f"{pdf_file_name}_layout.pdf")
 
@@ -264,7 +264,7 @@ if __name__ == '__main__':
         if guess_suffix_by_path(doc_path) in pdf_suffixes + image_suffixes:
             doc_path_list.append(doc_path)
 
-    """如果您由于网络问题无法下载模型，可以设置环境变量VPARSE_MODEL_SOURCE为modelscope使用免代理仓库下载模型"""
+    """If you cannot download the model due to network issues, you can set the environment variable VPARSE_MODEL_SOURCE to modelscope to use the proxy-free repository for model downloads."""
     # os.environ['VPARSE_MODEL_SOURCE'] = "modelscope"
 
     """Use hybrid mode and local computing power to parse documents"""

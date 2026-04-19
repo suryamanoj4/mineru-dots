@@ -30,7 +30,7 @@ if llm_aided_config:
 
 
 def blocks_to_page_info(page_blocks, image_dict, page, image_writer, page_index) -> dict:
-    """将blocks转换为页面信息"""
+    """Convert blocks to page information."""
 
     scale = image_dict["scale"]
     # page_pil_img = image_dict["img_pil"]
@@ -48,7 +48,7 @@ def blocks_to_page_info(page_blocks, image_dict, page, image_writer, page_index)
     phonetic_blocks = magic_model.get_phonetic_blocks()
     list_blocks = magic_model.get_list_blocks()
 
-    # 如果有标题优化需求，则对title_blocks截图det
+    # If title optimization is required, perform OCR detection on title_block crops.
     if heading_level_import_success:
         atom_model_manager = AtomModelSingleton()
         ocr_model = atom_model_manager.get_atom_model(
@@ -60,14 +60,14 @@ def blocks_to_page_info(page_blocks, image_dict, page, image_writer, page_index)
         for title_block in title_blocks:
             title_pil_img = get_crop_img(title_block['bbox'], page_pil_img, scale)
             title_np_img = np.array(title_pil_img)
-            # 给title_pil_img添加上下左右各50像素白边padding
+            # Add 50px white padding to title_np_img (top, bottom, left, right).
             title_np_img = cv2.copyMakeBorder(
                 title_np_img, 50, 50, 50, 50, cv2.BORDER_CONSTANT, value=[255, 255, 255]
             )
             title_img = cv2.cvtColor(title_np_img, cv2.COLOR_RGB2BGR)
             ocr_det_res = ocr_model.ocr(title_img, rec=False)[0]
             if len(ocr_det_res) > 0:
-                # 计算所有res的平均高度
+                # Calculate the average height of all detection results.
                 avg_height = np.mean([box[2][1] - box[0][1] for box in ocr_det_res])
                 title_block['line_avg_height'] = round(avg_height/scale)
 
@@ -75,7 +75,7 @@ def blocks_to_page_info(page_blocks, image_dict, page, image_writer, page_index)
     interline_equation_blocks = magic_model.get_interline_equation_blocks()
 
     all_spans = magic_model.get_all_spans()
-    # 对image/table/interline_equation的span截图
+    # Crop screenshots for image, table, and interline_equation spans.
     for span in all_spans:
         if span["type"] in [ContentType.IMAGE, ContentType.TABLE, ContentType.INTERLINE_EQUATION]:
             span = cut_image_and_table(span, page_pil_img, page_img_md5, page_index, image_writer, scale=scale)
@@ -92,7 +92,7 @@ def blocks_to_page_info(page_blocks, image_dict, page, image_writer, page_index)
         *interline_equation_blocks,
         *list_blocks,
     ])
-    # 对page_blocks根据index的值进行排序
+    # Sort page_blocks based on their index.
     page_blocks.sort(key=lambda x: x["index"])
 
     page_info = {"para_blocks": page_blocks, "discarded_blocks": discarded_blocks, "page_size": [width, height], "page_idx": page_index}
@@ -107,17 +107,17 @@ def result_to_middle_json(model_output_blocks_list, images_list, pdf_doc, image_
         page_info = blocks_to_page_info(page_blocks, image_dict, page, image_writer, index)
         middle_json["pdf_info"].append(page_info)
 
-    """表格跨页合并"""
+    """Table cross-page merge"""
     table_enable = get_table_enable(os.getenv('VPARSE_VLM_TABLE_ENABLE', 'True').lower() == 'true')
     if table_enable:
         cross_page_table_merge(middle_json["pdf_info"])
 
-    """llm优化标题分级"""
+    """Optimize heading hierarchy using LLM."""
     if heading_level_import_success:
         llm_aided_title_start_time = time.time()
         llm_aided_title(middle_json["pdf_info"], title_aided_config)
         logger.info(f'llm aided title time: {round(time.time() - llm_aided_title_start_time, 2)}')
 
-    # 关闭pdf文档
+    # Close PDF document.
     pdf_doc.close()
     return middle_json

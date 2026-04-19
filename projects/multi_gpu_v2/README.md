@@ -1,7 +1,5 @@
 # VParse v2.0 Multi-GPU Server
 
-[简体中文](README_zh.md)
-
 A streamlined multi-GPU server implementation.
 
 ## Quick Start
