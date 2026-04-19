@@ -11,13 +11,6 @@ readme = "README.md"
 requires-python = ">=3.10,<3.14"
 keywords = ["magic-pdf", "vparse", "VParse", "convert", "pdf", "markdown"]
 classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: GNU Affero General Public License v3",
-    "Operating System :: OS Independent",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "Topic :: Text Processing :: Markup :: Markdown",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -153,7 +146,7 @@ include = ["vparse*", "mineru*"]
 namespaces = false
 
 [tool.setuptools.package-data]
-"vparse" = ["resources/**", "py.typed"]
+"vparse" = ["resources/**"]
 "vparse.model.utils.pytorchocr.utils" = ["resources/**"]
 
 [tool.setuptools]
