@@ -5,3 +5,8 @@ Keep package import side effects minimal so legacy import paths such as
 """
 
 __all__: list[str] = []
+
+import sys
+_module = sys.modules[__name__]
+sys.modules.setdefault("vparse.cli", _module)
+sys.modules.setdefault("mineru.cli", _module)

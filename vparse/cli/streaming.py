@@ -325,3 +325,8 @@ def stream_parse(
         )
     cleanup_stream_session(session_root)
     return session_root
+
+import sys
+_module = sys.modules[__name__]
+sys.modules.setdefault("vparse.cli.streaming", _module)
+sys.modules.setdefault("mineru.cli.streaming", _module)

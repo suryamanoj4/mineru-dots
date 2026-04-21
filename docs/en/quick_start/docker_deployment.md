@@ -55,7 +55,7 @@ cd /path/to/VParse
 - Start only one profile at a time because the `gpu` and `hybrid` profiles both rely on local GPU-backed inference.
 - The Compose services build from the local checkout, so your branch changes are included in the image.
 - Models are never downloaded during `docker build`; the API container prepares the required models on first startup instead.
-- Model caches and the generated `mineru.json` are persisted in Docker volumes, so the first download is reused across container restarts and recreations.
+- Model caches and the generated `.vparse.json` are persisted in Docker volumes, so the first download is reused across container restarts and recreations.
 - If you run commands from the repository root, keep passing `-f docker/compose.yaml` to follow-up commands such as `ps`, `logs`, `down`, and `restart`. Alternatively, `cd docker` first and then run `docker compose ...`.
 
 ---

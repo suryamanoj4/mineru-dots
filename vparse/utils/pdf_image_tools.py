@@ -10,6 +10,7 @@ from loguru import logger
 from PIL import Image, ImageOps
 
 from vparse.data.data_reader_writer import FileBasedDataWriter
+from vparse.exceptions import TimeoutError
 from vparse.utils.check_sys_env import is_windows_environment
 from vparse.utils.os_env_config import get_load_images_timeout, get_load_images_threads
 from vparse.utils.pdf_reader import image_to_b64str, image_to_bytes, page_to_image

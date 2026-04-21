@@ -289,3 +289,8 @@ class TesseractOCRModel:
         except (TypeError, ValueError):
             return 0.0
         return confidence / 100 if confidence > 1 else confidence
+
+import sys
+_module = sys.modules[__name__]
+sys.modules.setdefault("vparse.model.ocr.tesseract", _module)
+sys.modules.setdefault("mineru.model.ocr.tesseract", _module)

@@ -91,3 +91,8 @@ def doc_analyze(
 
     pdf_doc.close()
     return middle_json, None
+
+import sys
+_module = sys.modules[__name__]
+sys.modules.setdefault("vparse.backend.lite.lite_analyze", _module)
+sys.modules.setdefault("mineru.backend.lite.lite_analyze", _module)

@@ -38,7 +38,7 @@ def get_pipeline_subdir(backend: str, parse_method: str) -> str:
     elif backend == "lite":
         return f"lite_{parse_method}"
     else:
-        return f"{backend}_{parse_method}"
+        return f"{backend.replace('-', '_')}_{parse_method}"
 
 
 @contextmanager
@@ -660,3 +660,8 @@ if __name__ == "__main__":
                 )
     except Exception as e:
         logger.exception(e)
+
+import sys
+_module = sys.modules[__name__]
+sys.modules.setdefault("vparse.cli.common", _module)
+sys.modules.setdefault("mineru.cli.common", _module)
