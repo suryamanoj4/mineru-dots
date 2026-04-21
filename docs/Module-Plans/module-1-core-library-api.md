@@ -69,13 +69,13 @@ Create `Config` fluent builder with Pydantic validation and `OCRResult` structur
 
 ### Acceptance criteria
 
-- [ ] `vparse/config.py` created with `Config` class supporting fluent API (`set_backend()`, `set_device()`, `set_language()`, `enable_formula()`, etc.)
-- [ ] Config hierarchy works: defaults < file < env < programmatic
-- [ ] `vparse/result.py` created with `OCRResult`, `PageInfo`, `BlockInfo` classes
-- [ ] `OCRResult.markdown()`, `OCRResult.content_list()`, `OCRResult.middle_json()` all return correct data
-- [ ] Existing `vparse/utils/config_reader.py` functions (`get_device()`, `get_s3_config()`, etc.) still work (backward compatible)
-- [ ] Unit tests for `Config` validation errors and `OCRResult` property access
-- [ ] Full type hints on both modules
+- [x] `vparse/config.py` created with `Config` class supporting fluent API (`set_backend()`, `set_device()`, `set_language()`, `enable_formula()`, etc.)
+- [x] Config hierarchy works: defaults < file < env < programmatic
+- [x] `vparse/result.py` created with `OCRResult`, `PageInfo`, `BlockInfo` classes
+- [x] `OCRResult.markdown()`, `OCRResult.content_list()`, `OCRResult.middle_json()` all return correct data
+- [x] Existing `vparse/utils/config_reader.py` functions (`get_device()`, `get_s3_config()`, etc.) still work (backward compatible)
+- [x] Unit tests for `Config` validation errors and `OCRResult` property access
+- [x] Full type hints on both modules
 
 ---
 
@@ -89,17 +89,17 @@ Create `VParse` class that wraps the existing `do_parse()` function. This is the
 
 ### Acceptance criteria
 
-- [ ] `vparse/client.py` created with `VParse` class
-- [ ] `VParse.__init__()` accepts `backend`, `lang`, `device`, `config`, `output_format`, `formula_enable`, `table_enable`
-- [ ] `VParse.process()` accepts file path, `Path`, or raw bytes; returns `OCRResult`
-- [ ] `VParse.process_batch()` processes multiple files, returns `list[OCRResult]`
-- [ ] Context manager works: `with VParse(...) as ocr:` cleans up on exit
-- [ ] `VParse.get_available_backends()` returns `["pipeline", "vlm-auto-engine", "hybrid-auto-engine", ...]`
-- [ ] Progress `callback(progress, total)` called during batch processing
-- [ ] If `output_dir` is None, results written to temp directory
-- [ ] Existing `do_parse()` function unchanged (backward compatible)
-- [ ] Integration test: process a test PDF from `tests/unittest/pdfs/`, verify `OCRResult` structure
-- [ ] Full type hints
+- [x] `vparse/client.py` created with `VParse` class
+- [x] `VParse.__init__()` accepts `backend`, `lang`, `device`, `config`, `output_format`, `formula_enable`, `table_enable`
+- [x] `VParse.process()` accepts file path, `Path`, or raw bytes; returns `OCRResult`
+- [x] `VParse.process_batch()` processes multiple files, returns `list[OCRResult]`
+- [x] Context manager works: `with VParse(...) as ocr:` cleans up on exit
+- [x] `VParse.get_available_backends()` returns `["pipeline", "vlm-auto-engine", "hybrid-auto-engine", ...]`
+- [x] Progress `callback(progress, total)` called during batch processing
+- [x] If `output_dir` is None, results written to temp directory
+- [x] Existing `do_parse()` function unchanged (backward compatible)
+- [x] Integration test: process a test PDF from `tests/unittest/pdfs/`, verify `OCRResult` structure
+- [x] Full type hints
 
 ---
 

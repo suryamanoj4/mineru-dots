@@ -1,5 +1,6 @@
 """Top-level package for VParse with MinerU compatibility aliases."""
 
+from .client import VParse
 from .config import Config
 from .exceptions import (
     BackendError,
@@ -19,6 +20,7 @@ alias_legacy_env_vars()
 
 __all__ = [
     "__version__",
+    "VParse",
     "Config",
     "OCRResult",
     "PageInfo",

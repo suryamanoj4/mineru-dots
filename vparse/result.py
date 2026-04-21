@@ -1,7 +1,9 @@
 # Copyright (c) Opendatalab. All rights reserved.
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
+
 from pydantic import BaseModel, Field
+
 from vparse.utils.enum_class import MakeMode
 
 
@@ -30,21 +32,35 @@ class OCRResult:
     Wraps the raw 'middle_json' dictionary and provides clean accessors.
     """
 
-    def __init__(self, middle_json: List[Dict[str, Any]], output_dir: Optional[Path] = None):
+    def __init__(
+        self,
+        middle_json: Dict[str, Any] | List[Dict[str, Any]],
+        output_dir: Optional[Path] = None,
+        default_markdown_mode: str = MakeMode.MM_MD,
+    ):
         """
         Initialize with raw middle_json and optional output directory.
         
-        Note: middle_json in VParse is typically a list of dicts, where each dict 
-        represents a page's information.
+        ``middle_json`` may be either the original backend dictionary or the
+        extracted ``pdf_info`` page list for backward compatibility.
         """
         self._raw = middle_json
         self._output_dir = output_dir
+        self._default_markdown_mode = default_markdown_mode
+
+    @property
+    def pdf_info(self) -> List[Dict[str, Any]]:
+        """Get the normalized page list from the wrapped middle_json payload."""
+        if isinstance(self._raw, dict):
+            pdf_info = self._raw.get("pdf_info", [])
+            return pdf_info if isinstance(pdf_info, list) else []
+        return self._raw
 
     @property
     def pages(self) -> List[PageInfo]:
         """Get a list of structured PageInfo objects."""
         pages = []
-        for i, raw_page in enumerate(self._raw):
+        for i, raw_page in enumerate(self.pdf_info):
             blocks = []
             # Extract blocks from 'para_blocks' (standard) or other possible keys
             raw_blocks = raw_page.get("para_blocks", [])
@@ -77,30 +93,57 @@ class OCRResult:
     @property
     def num_pages(self) -> int:
         """Get the total number of pages."""
-        return len(self._raw)
+        return len(self.pdf_info)
 
     @property
     def output_dir(self) -> Optional[Path]:
         """Get the path to the directory containing output files (images, etc.)."""
         return self._output_dir
 
-    def markdown(self, mode: str = MakeMode.MM_MD) -> str:
+    def _get_backend(self) -> str:
+        if isinstance(self._raw, dict):
+            backend = self._raw.get("_backend")
+            if isinstance(backend, str) and backend:
+                return backend
+        return "pipeline"
+
+    def _get_image_dir(self) -> str:
+        if self._output_dir is None:
+            return ""
+        return (self._output_dir / "images").name
+
+    def _render(self, make_mode: str) -> str | List[Dict[str, Any]]:
+        image_dir = self._get_image_dir()
+
+        try:
+            from vparse.backend.engine.output import union_make as engine_union_make
+        except Exception:
+            engine_union_make = None
+
+        if engine_union_make is not None:
+            return engine_union_make(self.pdf_info, make_mode, image_dir)
+
+        if self._get_backend() in {"pipeline", "lite"}:
+            from vparse.backend.pipeline.pipeline_middle_json_mkcontent import union_make
+        else:
+            from vparse.backend.vlm.vlm_middle_json_mkcontent import union_make
+        return union_make(self.pdf_info, make_mode, image_dir)
+
+    def markdown(self, mode: str | None = None) -> str:
         """
         Get the final Markdown representation.
         
         Args:
             mode: Either 'mm_markdown' (multimodal) or 'nlp_markdown'.
         """
-        # In a real scenario, we might import union_make here to avoid circular imports
-        from vparse.backend.engine.output import union_make
-        return union_make(self._raw, mode)
+        render_mode = self._default_markdown_mode if mode is None else mode
+        return cast(str, self._render(render_mode))
 
     def content_list(self) -> List[Dict[str, Any]]:
         """Get the simplified content list format (useful for RAG)."""
-        from vparse.backend.engine.output import union_make
-        return union_make(self._raw, MakeMode.CONTENT_LIST)
+        return cast(List[Dict[str, Any]], self._render(MakeMode.CONTENT_LIST))
 
-    def middle_json(self) -> List[Dict[str, Any]]:
+    def middle_json(self) -> Dict[str, Any] | List[Dict[str, Any]]:
         """Get the raw middle_json representation."""
         return self._raw
 
