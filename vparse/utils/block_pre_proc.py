@@ -224,7 +224,6 @@ def remove_overlaps_min_blocks(all_bboxes):
             if overlap_box is not None:
                 # Determine which block has a smaller area and remove it
                 area1 = (block1[2] - block1[0]) * (block1[3] - block1[1])
-...
                 area2 = (block2[2] - block2[0]) * (block2[3] - block2[1])
 
                 if area1 <= area2:
