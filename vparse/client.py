@@ -4,6 +4,7 @@ import json
 import shutil
 import tempfile
 from pathlib import Path
+from types import TracebackType
 from typing import Any, Callable
 
 from .config import Config
@@ -334,6 +335,21 @@ class VParse:
                 return deduped
             suffix += 1
 
+    def _resolve_progress_callback(
+        self,
+        callback: Callable[[int, int], None] | None,
+        progress_callback: Callable[[int, int], None] | None,
+    ) -> Callable[[int, int], None] | None:
+        if (
+            callback is not None
+            and progress_callback is not None
+            and callback is not progress_callback
+        ):
+            raise ConfigurationError(
+                "Use only one of callback or progress_callback"
+            )
+        return progress_callback if progress_callback is not None else callback
+
     def process(
         self,
         input_path: str | Path | bytes,
@@ -347,9 +363,11 @@ class VParse:
         dump_model_output: bool = False,
         dump_orig_pdf: bool = False,
         callback: Callable[[int, int], None] | None = None,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> OCRResult:
         normalized_method = self._normalize_method(method)
         output_root = self._ensure_output_root(output_dir)
+        progress = self._resolve_progress_callback(callback, progress_callback)
 
         try:
             pdf_file_name, pdf_bytes = self._normalize_input(input_path, "document")
@@ -371,8 +389,8 @@ class VParse:
                 self._discard_temp_root(output_root)
             raise
 
-        if callback is not None:
-            callback(1, 1)
+        if progress is not None:
+            progress(1, 1)
 
         return result
 
@@ -389,9 +407,11 @@ class VParse:
         dump_model_output: bool = False,
         dump_orig_pdf: bool = False,
         callback: Callable[[int, int], None] | None = None,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> list[OCRResult]:
         normalized_method = self._normalize_method(method)
         output_root = self._ensure_output_root(output_dir)
+        progress = self._resolve_progress_callback(callback, progress_callback)
         try:
             total = len(input_paths)
             used_names: set[str] = set()
@@ -420,8 +440,8 @@ class VParse:
                 )
                 results.append(result)
 
-                if callback is not None:
-                    callback(index, total)
+                if progress is not None:
+                    progress(index, total)
 
             return results
         except Exception:
@@ -444,5 +464,10 @@ class VParse:
     def __enter__(self) -> "VParse":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         self.cleanup()

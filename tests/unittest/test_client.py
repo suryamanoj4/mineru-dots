@@ -263,6 +263,7 @@ def build_real_common_import_stubs() -> dict[str, types.ModuleType]:
 install_import_stubs()
 
 from vparse import VParse
+from vparse.exceptions import ConfigurationError
 
 
 TEST_PDF_PATH = Path(__file__).with_name("pdfs") / "test.pdf"
@@ -331,6 +332,41 @@ class VParseClientTests(unittest.TestCase):
         self.assertEqual(calls[1]["pdf_file_names"], ["test_2"])
         self.assertEqual(results[0].output_dir.parent.name, "test")
         self.assertEqual(results[1].output_dir.parent.name, "test_2")
+
+    def test_process_batch_accepts_progress_callback_alias(self):
+        calls: list[dict] = []
+        fake_common = build_fake_cli_common(calls)
+        progress_updates: list[tuple[int, int]] = []
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with mock.patch.dict(sys.modules, {"vparse.cli.common": fake_common}):
+                client = VParse()
+                results = client.process_batch(
+                    [TEST_PDF_PATH],
+                    output_dir=temp_dir,
+                    progress_callback=lambda progress, total: progress_updates.append((progress, total)),
+                )
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(progress_updates, [(1, 1)])
+
+    def test_process_rejects_conflicting_callback_names(self):
+        calls: list[dict] = []
+        fake_common = build_fake_cli_common(calls)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with mock.patch.dict(sys.modules, {"vparse.cli.common": fake_common}):
+                client = VParse()
+                with self.assertRaisesRegex(
+                    ConfigurationError,
+                    "Use only one of callback or progress_callback",
+                ):
+                    client.process(
+                        TEST_PDF_PATH,
+                        output_dir=temp_dir,
+                        callback=lambda progress, total: None,
+                        progress_callback=lambda progress, total: None,
+                    )
 
     def test_content_list_output_format_stays_compatible_with_do_parse(self):
         calls: list[dict] = []
