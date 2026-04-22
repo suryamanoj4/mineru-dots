@@ -9,7 +9,7 @@ from vparse.utils.enum_class import MakeMode
 
 class BlockInfo(BaseModel):
     """Information about a single layout block (paragraph, image, table, etc.)."""
-    type: str = Field(description="Type of the block (text, title, image, table, etc.)")
+    type: str = Field(description="Type of the block (text, title, image, table, etc.")
     bbox: List[float] = Field(description="Bounding box [x0, y0, x1, y1]")
     content: Optional[str] = Field(default=None, description="Text content of the block if applicable")
     page_idx: int = Field(description="Index of the page this block belongs to")
@@ -32,7 +32,7 @@ class OCRResult:
     Wraps the raw 'middle_json' dictionary and provides clean accessors.
     """
 
-def __init__(
+    def __init__(
         self,
         middle_json: Dict[str, Any] | List[Dict[str, Any]],
         output_dir: Optional[Path] = None,
@@ -46,16 +46,6 @@ def __init__(
         """
         self._raw = middle_json
         self._pdf_bytes = None
-        self._output_dir = output_dir
-        self._default_markdown_mode = default_markdown_mode
-        """
-        Initialize with raw middle_json, original pdf_bytes and optional output directory.
-        
-        ``middle_json`` may be either the original backend dictionary or the
-        extracted ``pdf_info`` page list for backward compatibility.
-        """
-        self._raw = middle_json
-        self._pdf_bytes = pdf_bytes
         self._output_dir = output_dir
         self._default_markdown_mode = default_markdown_mode
 
@@ -96,7 +86,7 @@ def __init__(
         return BlockInfo(
             type=raw_block.get("type", "unknown"),
             bbox=raw_block.get("bbox", [0.0, 0.0, 0.0, 0.0]),
-            content=raw_block.get("content"), # This might need to be merged text in some backends
+            content=raw_block.get("content"),
             page_idx=page_idx,
             blocks=nested
         )
@@ -140,7 +130,7 @@ def __init__(
             from vparse.backend.vlm.vlm_middle_json_mkcontent import union_make
         return union_make(self.pdf_info, make_mode, image_dir)
 
-def markdown(self, mode: str | None = None) -> str:
+    def markdown(self, mode: str | None = None) -> str:
         """
         Get the final Markdown representation.
         
@@ -153,6 +143,14 @@ def markdown(self, mode: str | None = None) -> str:
     def content_list(self) -> List[Dict[str, Any]]:
         """Get the simplified content list format (useful for RAG)."""
         return cast(List[Dict[str, Any]], self._render(MakeMode.CONTENT_LIST))
+
+    def content_list_v2(self) -> List[Any]:
+        """Get the page-grouped content list v2 representation."""
+        return cast(List[Any], self._render(MakeMode.CONTENT_LIST_V2))
+
+    def middle_json(self) -> Dict[str, Any] | List[Dict[str, Any]]:
+        """Get the raw middle_json representation."""
+        return self._raw
 
     def __repr__(self) -> str:
         return f"<OCRResult pages={self.num_pages} output_dir='{self.output_dir}'>"

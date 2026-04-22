@@ -221,6 +221,54 @@ def save_checkpoint(checkpoint_path: Path, checkpoint: dict):
     help="Write staged per-page streaming outputs instead of waiting for the full document to finish.",
     default=False,
 )
+@click.option(
+    "--markdown/--no-markdown",
+    "dump_md",
+    help="Write the final Markdown file. Default is enabled.",
+    default=True,
+)
+@click.option(
+    "--content-list/--no-content-list",
+    "dump_content_list",
+    help="Write the final content-list JSON file. Default is enabled.",
+    default=True,
+)
+@click.option(
+    "--content-list-v2/--no-content-list-v2",
+    "dump_content_list_v2",
+    help="Write the content-list v2 JSON file when supported. Default is disabled.",
+    default=False,
+)
+@click.option(
+    "--layout/--no-layout",
+    "draw_layout_bbox",
+    help="Write the layout PDF overlay. Default is enabled.",
+    default=True,
+)
+@click.option(
+    "--span-pdf/--no-span-pdf",
+    "draw_span_bbox",
+    help="Write the span PDF overlay. Default is disabled.",
+    default=False,
+)
+@click.option(
+    "--middle-json/--no-middle-json",
+    "dump_middle_json",
+    help="Write the middle JSON file. Default is disabled.",
+    default=False,
+)
+@click.option(
+    "--model-json/--no-model-json",
+    "dump_model_output",
+    help="Write the raw model-output JSON file. Default is disabled.",
+    default=False,
+)
+@click.option(
+    "--origin-pdf/--no-origin-pdf",
+    "dump_orig_pdf",
+    help="Write the source PDF copy. Default is disabled.",
+    default=False,
+)
 def main(
     ctx,
     input_path,
@@ -239,6 +287,14 @@ def main(
     batch_size,
     resume,
     stream,
+    dump_md,
+    dump_content_list,
+    dump_content_list_v2,
+    draw_layout_bbox,
+    draw_span_bbox,
+    dump_middle_json,
+    dump_model_output,
+    dump_orig_pdf,
     **kwargs,
 ):
 
@@ -348,6 +404,14 @@ def main(
                             server_url=server_url,
                             start_page_id=start_page_id,
                             end_page_id=end_page_id,
+                            f_draw_layout_bbox=draw_layout_bbox,
+                            f_draw_span_bbox=draw_span_bbox,
+                            f_dump_md=dump_md,
+                            f_dump_middle_json=dump_middle_json,
+                            f_dump_model_output=dump_model_output,
+                            f_dump_orig_pdf=dump_orig_pdf,
+                            f_dump_content_list=dump_content_list,
+                            f_dump_content_list_v2=dump_content_list_v2,
                             page_callback=lambda update: logger.info(
                                 f"{path.name}: streamed page {update['completed_pages']}/{update['total_pages']}"
                             ),
@@ -365,6 +429,14 @@ def main(
                             formula_enable=formula_enable,
                             table_enable=table_enable,
                             server_url=server_url,
+                            f_draw_layout_bbox=draw_layout_bbox,
+                            f_draw_span_bbox=draw_span_bbox,
+                            f_dump_md=dump_md,
+                            f_dump_middle_json=dump_middle_json,
+                            f_dump_model_output=dump_model_output,
+                            f_dump_orig_pdf=dump_orig_pdf,
+                            f_dump_content_list=dump_content_list,
+                            f_dump_content_list_v2=dump_content_list_v2,
                             start_page_id=start_page_id,
                             end_page_id=end_page_id,
                             **kwargs,
@@ -410,6 +482,14 @@ def main(
                         server_url=server_url,
                         start_page_id=start_page_id,
                         end_page_id=end_page_id,
+                        f_draw_layout_bbox=draw_layout_bbox,
+                        f_draw_span_bbox=draw_span_bbox,
+                        f_dump_md=dump_md,
+                        f_dump_middle_json=dump_middle_json,
+                        f_dump_model_output=dump_model_output,
+                        f_dump_orig_pdf=dump_orig_pdf,
+                        f_dump_content_list=dump_content_list,
+                        f_dump_content_list_v2=dump_content_list_v2,
                         page_callback=lambda update, current_path=path: logger.info(
                             f"{current_path.name}: streamed page {update['completed_pages']}/{update['total_pages']}"
                         ),
@@ -436,6 +516,14 @@ def main(
                     formula_enable=formula_enable,
                     table_enable=table_enable,
                     server_url=server_url,
+                    f_draw_layout_bbox=draw_layout_bbox,
+                    f_draw_span_bbox=draw_span_bbox,
+                    f_dump_md=dump_md,
+                    f_dump_middle_json=dump_middle_json,
+                    f_dump_model_output=dump_model_output,
+                    f_dump_orig_pdf=dump_orig_pdf,
+                    f_dump_content_list=dump_content_list,
+                    f_dump_content_list_v2=dump_content_list_v2,
                     start_page_id=start_page_id,
                     end_page_id=end_page_id,
                     **kwargs,
