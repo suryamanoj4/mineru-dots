@@ -195,5 +195,5 @@ def result_to_middle_json(
                     span['content'] = ''
                     span['score'] = 0.0
 
-    from vparse.backend.engine.processor import refine_middle_json
+    from vparse.utils.engine.processor import refine_middle_json
     return refine_middle_json(middle_json, pdf_doc=pdf_doc)

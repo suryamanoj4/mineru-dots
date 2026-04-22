@@ -30,14 +30,15 @@ class OCRResult:
     Wraps the raw 'middle_json' dictionary and provides clean accessors.
     """
 
-    def __init__(self, middle_json: List[Dict[str, Any]], output_dir: Optional[Path] = None):
+    def __init__(self, middle_json: List[Dict[str, Any]], pdf_bytes: Optional[bytes] = None, output_dir: Optional[Path] = None):
         """
-        Initialize with raw middle_json and optional output directory.
+        Initialize with raw middle_json, original pdf_bytes and optional output directory.
         
         Note: middle_json in VParse is typically a list of dicts, where each dict 
         represents a page's information.
         """
         self._raw = middle_json
+        self._pdf_bytes = pdf_bytes
         self._output_dir = output_dir
 
     @property
@@ -91,18 +92,27 @@ class OCRResult:
         Args:
             mode: Either 'mm_markdown' (multimodal) or 'nlp_markdown'.
         """
-        # In a real scenario, we might import union_make here to avoid circular imports
-        from vparse.backend.engine.output import union_make
+        from vparse.utils.engine.output import union_make
         return union_make(self._raw, mode)
 
     def content_list(self) -> List[Dict[str, Any]]:
         """Get the simplified content list format (useful for RAG)."""
-        from vparse.backend.engine.output import union_make
+        from vparse.utils.engine.output import union_make
         return union_make(self._raw, MakeMode.CONTENT_LIST)
 
-    def middle_json(self) -> List[Dict[str, Any]]:
-        """Get the raw middle_json representation."""
-        return self._raw
+    def draw_layout(self, output_path: str, filename: str):
+        """
+        Generate a PDF with layout bounding boxes drawn.
+        
+        Args:
+            output_path: Directory to save the layout PDF.
+            filename: Name of the layout PDF file.
+        """
+        if not self._pdf_bytes:
+            raise ValueError("pdf_bytes is required to generate layout PDF. Please provide it during OCRResult initialization.")
+        
+        from vparse.utils.draw_bbox import draw_layout_bbox
+        draw_layout_bbox(self._raw, self._pdf_bytes, output_path, filename)
 
     def __repr__(self) -> str:
         return f"<OCRResult pages={self.num_pages} output_dir='{self.output_dir}'>"

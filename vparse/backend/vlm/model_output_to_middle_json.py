@@ -107,5 +107,5 @@ def result_to_middle_json(model_output_blocks_list, images_list, pdf_doc, image_
         page_info = blocks_to_page_info(page_blocks, image_dict, page, image_writer, index)
         middle_json["pdf_info"].append(page_info)
 
-    from vparse.backend.engine.processor import refine_middle_json
+    from vparse.utils.engine.processor import refine_middle_json
     return refine_middle_json(middle_json, pdf_doc=pdf_doc)

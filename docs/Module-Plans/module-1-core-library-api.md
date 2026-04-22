@@ -72,7 +72,7 @@ Create `Config` fluent builder with Pydantic validation and `OCRResult` structur
 - [ ] `vparse/config.py` created with `Config` class supporting fluent API (`set_backend()`, `set_device()`, `set_language()`, `enable_formula()`, etc.)
 - [ ] Config hierarchy works: defaults < file < env < programmatic
 - [ ] `vparse/result.py` created with `OCRResult`, `PageInfo`, `BlockInfo` classes
-- [ ] `OCRResult.markdown()`, `OCRResult.content_list()`, `OCRResult.middle_json()` all return correct data
+- [ ] `OCRResult.markdown()`, `OCRResult.content_list()`, `OCRResult.draw_layout()` all return correct data
 - [ ] Existing `vparse/utils/config_reader.py` functions (`get_device()`, `get_s3_config()`, etc.) still work (backward compatible)
 - [ ] Unit tests for `Config` validation errors and `OCRResult` property access
 - [ ] Full type hints on both modules
