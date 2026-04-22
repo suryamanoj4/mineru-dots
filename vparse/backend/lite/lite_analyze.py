@@ -89,7 +89,8 @@ def doc_analyze(
         f"lite infer finished, cost: {infer_time}, speed: {round(len(images_list) / infer_time, 3)} page/s"
     )
 
-    pdf_doc.close()
+    from vparse.utils.engine.processor import refine_middle_json
+    middle_json = refine_middle_json(middle_json, pdf_doc=pdf_doc, lang=lang)
     return middle_json, None
 
 import sys

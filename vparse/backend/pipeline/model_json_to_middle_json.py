@@ -196,7 +196,7 @@ def result_to_middle_json(
             page_info = make_page_info_dict([], page_index, page_w, page_h, [])
         middle_json["pdf_info"].append(page_info)
 
-    from vparse.backend.engine.processor import refine_middle_json
+    from vparse.utils.engine.processor import refine_middle_json
     return refine_middle_json(
         middle_json,
         pdf_doc=pdf_doc,
