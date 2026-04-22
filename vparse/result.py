@@ -143,6 +143,10 @@ class OCRResult:
         """Get the simplified content list format (useful for RAG)."""
         return cast(List[Dict[str, Any]], self._render(MakeMode.CONTENT_LIST))
 
+    def content_list_v2(self) -> List[Any]:
+        """Get the page-grouped content list v2 representation."""
+        return cast(List[Any], self._render(MakeMode.CONTENT_LIST_V2))
+
     def middle_json(self) -> Dict[str, Any] | List[Dict[str, Any]]:
         """Get the raw middle_json representation."""
         return self._raw

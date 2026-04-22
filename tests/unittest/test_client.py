@@ -61,6 +61,7 @@ def build_fake_cli_common(calls: list[dict]) -> types.ModuleType:
         f_dump_model_output=True,
         f_dump_orig_pdf=True,
         f_dump_content_list=True,
+        f_dump_content_list_v2=False,
         f_make_md_mode="mm_markdown",
         start_page_id=0,
         end_page_id=None,
@@ -84,6 +85,7 @@ def build_fake_cli_common(calls: list[dict]) -> types.ModuleType:
                 "f_dump_model_output": f_dump_model_output,
                 "f_dump_orig_pdf": f_dump_orig_pdf,
                 "f_dump_content_list": f_dump_content_list,
+                "f_dump_content_list_v2": f_dump_content_list_v2,
                 "f_make_md_mode": f_make_md_mode,
                 "start_page_id": start_page_id,
                 "end_page_id": end_page_id,
@@ -287,6 +289,11 @@ class VParseClientTests(unittest.TestCase):
             self.assertEqual(calls[0]["backend"], "pipeline")
             self.assertEqual(calls[0]["parse_method"], "auto")
             self.assertEqual(calls[0]["f_make_md_mode"], "mm_markdown")
+            self.assertTrue(calls[0]["f_draw_layout_bbox"])
+            self.assertFalse(calls[0]["f_draw_span_bbox"])
+            self.assertTrue(calls[0]["f_dump_content_list"])
+            self.assertFalse(calls[0]["f_dump_model_output"])
+            self.assertFalse(calls[0]["f_dump_orig_pdf"])
             self.assertFalse((Path(temp_dir) / "test" / "auto" / "test_middle.json").exists())
 
     def test_process_accepts_raw_pdf_bytes(self):

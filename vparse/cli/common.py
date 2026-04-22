@@ -16,9 +16,9 @@ from vparse.utils.enum_class import MakeMode
 from vparse.utils.guess_suffix_or_lang import guess_suffix_by_bytes
 from vparse.utils.compat import get_env_with_legacy
 from vparse.utils.pdf_image_tools import images_bytes_to_pdf_bytes
-from vparse.backend.vlm.vlm_middle_json_mkcontent import union_make as vlm_union_make
 from vparse.backend.vlm.vlm_analyze import doc_analyze as vlm_doc_analyze
 from vparse.backend.vlm.vlm_analyze import aio_doc_analyze as aio_vlm_doc_analyze
+from vparse.result import OCRResult
 from vparse.utils.pdf_page_id import get_end_page_id
 
 if get_env_with_legacy("VPARSE_LMDEPLOY_DEVICE", "MINERU_LMDEPLOY_DEVICE", "") == "maca":
@@ -134,16 +134,21 @@ def _process_output(
         f_dump_orig_pdf,
         f_dump_md,
         f_dump_content_list,
+        f_dump_content_list_v2,
         f_dump_middle_json,
         f_dump_model_output,
         f_make_md_mode,
         middle_json,
         model_output=None,
-        is_pipeline=True
 ):
     f_draw_line_sort_bbox = False
-    from vparse.backend.pipeline.pipeline_middle_json_mkcontent import union_make as pipeline_union_make
     """Process output files"""
+    result = OCRResult(
+        middle_json,
+        output_dir=Path(local_md_dir),
+        default_markdown_mode=f_make_md_mode,
+    )
+
     if f_draw_layout_bbox:
         draw_layout_bbox(pdf_info, pdf_bytes, local_md_dir, f"{pdf_file_name}_layout.pdf")
 
@@ -159,29 +164,23 @@ def _process_output(
     if f_draw_line_sort_bbox:
         draw_line_sort_bbox(pdf_info, pdf_bytes, local_md_dir, f"{pdf_file_name}_line_sort.pdf")
 
-    image_dir = str(os.path.basename(local_image_dir))
-
     if f_dump_md:
-        make_func = pipeline_union_make if is_pipeline else vlm_union_make
-        md_content_str = make_func(pdf_info, f_make_md_mode, image_dir)
         md_writer.write_string(
             f"{pdf_file_name}.md",
-            md_content_str,
+            result.markdown(),
         )
 
     if f_dump_content_list:
-        make_func = pipeline_union_make if is_pipeline else vlm_union_make
-        content_list = make_func(pdf_info, MakeMode.CONTENT_LIST, image_dir)
         md_writer.write_string(
             f"{pdf_file_name}_content_list.json",
-            json.dumps(content_list, ensure_ascii=False, indent=4),
+            json.dumps(result.content_list(), ensure_ascii=False, indent=4),
         )
-        if not is_pipeline:
-            content_list_v2 = make_func(pdf_info, MakeMode.CONTENT_LIST_V2, image_dir)
-            md_writer.write_string(
-                f"{pdf_file_name}_content_list_v2.json",
-                json.dumps(content_list_v2, ensure_ascii=False, indent=4),
-            )
+
+    if f_dump_content_list_v2:
+        md_writer.write_string(
+            f"{pdf_file_name}_content_list_v2.json",
+            json.dumps(result.content_list_v2(), ensure_ascii=False, indent=4),
+        )
 
 
     if f_dump_middle_json:
@@ -215,6 +214,7 @@ def _process_pipeline(
         f_dump_model_output,
         f_dump_orig_pdf,
         f_dump_content_list,
+        f_dump_content_list_v2,
         f_make_md_mode,
 ):
     """Handle pipeline backend logic"""
@@ -256,8 +256,9 @@ def _process_pipeline(
             _process_output(
                 pdf_info, pdf_bytes, pdf_file_name, local_md_dir, local_image_dir,
                 md_writer, f_draw_layout_bbox, f_draw_span_bbox, f_dump_orig_pdf,
-                f_dump_md, f_dump_content_list, f_dump_middle_json, f_dump_model_output,
-                f_make_md_mode, middle_json, model_json, is_pipeline=True
+                f_dump_md, f_dump_content_list, f_dump_content_list_v2,
+                f_dump_middle_json, f_dump_model_output,
+                f_make_md_mode, middle_json, model_json
             )
 
 
@@ -275,6 +276,7 @@ def _process_lite(
         f_dump_model_output,
         f_dump_orig_pdf,
         f_dump_content_list,
+        f_dump_content_list_v2,
         f_make_md_mode,
 ):
     """Handle lite backend logic"""
@@ -297,8 +299,9 @@ def _process_lite(
         _process_output(
             pdf_info, pdf_bytes, pdf_file_name, local_md_dir, local_image_dir,
             md_writer, f_draw_layout_bbox, f_draw_span_bbox, f_dump_orig_pdf,
-            f_dump_md, f_dump_content_list, f_dump_middle_json, f_dump_model_output,
-            f_make_md_mode, middle_json, infer_result, is_pipeline=True
+            f_dump_md, f_dump_content_list, f_dump_content_list_v2,
+            f_dump_middle_json, f_dump_model_output,
+            f_make_md_mode, middle_json, infer_result
         )
 
 async def _async_process_vlm(
@@ -313,6 +316,7 @@ async def _async_process_vlm(
         f_dump_model_output,
         f_dump_orig_pdf,
         f_dump_content_list,
+        f_dump_content_list_v2,
         f_make_md_mode,
         server_url=None,
         **kwargs,
@@ -338,8 +342,9 @@ async def _async_process_vlm(
         _process_output(
             pdf_info, pdf_bytes, pdf_file_name, local_md_dir, local_image_dir,
             md_writer, f_draw_layout_bbox, f_draw_span_bbox, f_dump_orig_pdf,
-            f_dump_md, f_dump_content_list, f_dump_middle_json, f_dump_model_output,
-            f_make_md_mode, middle_json, infer_result, is_pipeline=False
+            f_dump_md, f_dump_content_list, f_dump_content_list_v2,
+            f_dump_middle_json, f_dump_model_output,
+            f_make_md_mode, middle_json, infer_result
         )
 
 def _process_vlm(
@@ -354,6 +359,7 @@ def _process_vlm(
         f_dump_model_output,
         f_dump_orig_pdf,
         f_dump_content_list,
+        f_dump_content_list_v2,
         f_make_md_mode,
         server_url=None,
         **kwargs,
@@ -379,8 +385,9 @@ def _process_vlm(
         _process_output(
             pdf_info, pdf_bytes, pdf_file_name, local_md_dir, local_image_dir,
             md_writer, f_draw_layout_bbox, f_draw_span_bbox, f_dump_orig_pdf,
-            f_dump_md, f_dump_content_list, f_dump_middle_json, f_dump_model_output,
-            f_make_md_mode, middle_json, infer_result, is_pipeline=False
+            f_dump_md, f_dump_content_list, f_dump_content_list_v2,
+            f_dump_middle_json, f_dump_model_output,
+            f_make_md_mode, middle_json, infer_result
         )
 
 
@@ -399,6 +406,7 @@ def _process_hybrid(
         f_dump_model_output,
         f_dump_orig_pdf,
         f_dump_content_list,
+        f_dump_content_list_v2,
         f_make_md_mode,
         server_url=None,
         **kwargs,
@@ -432,8 +440,9 @@ def _process_hybrid(
         _process_output(
             pdf_info, pdf_bytes, pdf_file_name, local_md_dir, local_image_dir,
             md_writer, f_draw_layout_bbox, f_draw_span_bbox, f_dump_orig_pdf,
-            f_dump_md, f_dump_content_list, f_dump_middle_json, f_dump_model_output,
-            f_make_md_mode, middle_json, infer_result, is_pipeline=False
+            f_dump_md, f_dump_content_list, f_dump_content_list_v2,
+            f_dump_middle_json, f_dump_model_output,
+            f_make_md_mode, middle_json, infer_result
         )
 
 
@@ -452,6 +461,7 @@ async def _async_process_hybrid(
         f_dump_model_output,
         f_dump_orig_pdf,
         f_dump_content_list,
+        f_dump_content_list_v2,
         f_make_md_mode,
         server_url=None,
         **kwargs,
@@ -485,8 +495,9 @@ async def _async_process_hybrid(
         _process_output(
             pdf_info, pdf_bytes, pdf_file_name, local_md_dir, local_image_dir,
             md_writer, f_draw_layout_bbox, f_draw_span_bbox, f_dump_orig_pdf,
-            f_dump_md, f_dump_content_list, f_dump_middle_json, f_dump_model_output,
-            f_make_md_mode, middle_json, infer_result, is_pipeline=False
+            f_dump_md, f_dump_content_list, f_dump_content_list_v2,
+            f_dump_middle_json, f_dump_model_output,
+            f_make_md_mode, middle_json, infer_result
         )
 
 
@@ -507,6 +518,7 @@ def do_parse(
         f_dump_model_output=True,
         f_dump_orig_pdf=True,
         f_dump_content_list=True,
+        f_dump_content_list_v2=False,
         f_make_md_mode=MakeMode.MM_MD,
         start_page_id=0,
         end_page_id=None,
@@ -520,14 +532,16 @@ def do_parse(
             output_dir, pdf_file_names, pdf_bytes_list, p_lang_list,
             backend, parse_method, formula_enable, table_enable,
             f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
-            f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode
+            f_dump_model_output, f_dump_orig_pdf, f_dump_content_list,
+            f_dump_content_list_v2, f_make_md_mode
         )
     elif backend == "lite":
         _process_lite(
             output_dir, pdf_file_names, pdf_bytes_list, p_lang_list,
             backend, parse_method,
             f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
-            f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode
+            f_dump_model_output, f_dump_orig_pdf, f_dump_content_list,
+            f_dump_content_list_v2, f_make_md_mode
         )
     else:
         if backend.startswith("vlm-"):
@@ -545,7 +559,8 @@ def do_parse(
             _process_vlm(
                 output_dir, pdf_file_names, pdf_bytes_list, backend,
                 f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
-                f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode,
+                f_dump_model_output, f_dump_orig_pdf, f_dump_content_list,
+                f_dump_content_list_v2, f_make_md_mode,
                 server_url, **kwargs,
             )
         elif backend.startswith("hybrid-"):
@@ -564,7 +579,8 @@ def do_parse(
             _process_hybrid(
                 output_dir, pdf_file_names, pdf_bytes_list, p_lang_list, parse_method, formula_enable, backend,
                 f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
-                f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode,
+                f_dump_model_output, f_dump_orig_pdf, f_dump_content_list,
+                f_dump_content_list_v2, f_make_md_mode,
                 server_url, **kwargs,
             )
 
@@ -586,6 +602,7 @@ async def aio_do_parse(
         f_dump_model_output=True,
         f_dump_orig_pdf=True,
         f_dump_content_list=True,
+        f_dump_content_list_v2=False,
         f_make_md_mode=MakeMode.MM_MD,
         start_page_id=0,
         end_page_id=None,
@@ -600,14 +617,16 @@ async def aio_do_parse(
             output_dir, pdf_file_names, pdf_bytes_list, p_lang_list,
             backend, parse_method, formula_enable, table_enable,
             f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
-            f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode
+            f_dump_model_output, f_dump_orig_pdf, f_dump_content_list,
+            f_dump_content_list_v2, f_make_md_mode
         )
     elif backend == "lite":
         _process_lite(
             output_dir, pdf_file_names, pdf_bytes_list, p_lang_list,
             backend, parse_method,
             f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
-            f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode
+            f_dump_model_output, f_dump_orig_pdf, f_dump_content_list,
+            f_dump_content_list_v2, f_make_md_mode
         )
     else:
         if backend.startswith("vlm-"):
@@ -625,7 +644,8 @@ async def aio_do_parse(
             await _async_process_vlm(
                 output_dir, pdf_file_names, pdf_bytes_list, backend,
                 f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
-                f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode,
+                f_dump_model_output, f_dump_orig_pdf, f_dump_content_list,
+                f_dump_content_list_v2, f_make_md_mode,
                 server_url, **kwargs,
             )
         elif backend.startswith("hybrid-"):
@@ -643,7 +663,8 @@ async def aio_do_parse(
             await _async_process_hybrid(
                 output_dir, pdf_file_names, pdf_bytes_list, p_lang_list, parse_method, formula_enable, backend,
                 f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
-                f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode,
+                f_dump_model_output, f_dump_orig_pdf, f_dump_content_list,
+                f_dump_content_list_v2, f_make_md_mode,
                 server_url, **kwargs,
             )
 
