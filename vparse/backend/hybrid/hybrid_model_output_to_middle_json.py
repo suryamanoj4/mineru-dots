@@ -195,17 +195,5 @@ def result_to_middle_json(
                     span['content'] = ''
                     span['score'] = 0.0
 
-    """Table cross-page merge"""
-    table_enable = get_table_enable(os.getenv('VPARSE_VLM_TABLE_ENABLE', 'True').lower() == 'true')
-    if table_enable:
-        cross_page_table_merge(middle_json["pdf_info"])
-
-    """Optimize heading hierarchy using LLM."""
-    if heading_level_import_success:
-        llm_aided_title_start_time = time.time()
-        llm_aided_title(middle_json["pdf_info"], title_aided_config)
-        logger.info(f'llm aided title time: {round(time.time() - llm_aided_title_start_time, 2)}')
-
-    # Close PDF document.
-    pdf_doc.close()
-    return middle_json
+    from vparse.backend.engine.processor import refine_middle_json
+    return refine_middle_json(middle_json, pdf_doc=pdf_doc)

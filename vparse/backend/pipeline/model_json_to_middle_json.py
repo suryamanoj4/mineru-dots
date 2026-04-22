@@ -196,71 +196,15 @@ def result_to_middle_json(
             page_info = make_page_info_dict([], page_index, page_w, page_h, [])
         middle_json["pdf_info"].append(page_info)
 
-    # Post-process OCR
-    need_ocr_list = []
-    img_crop_list = []
-    text_block_list = []
-    for page_info in middle_json["pdf_info"]:
-        for block in page_info['preproc_blocks']:
-            if block['type'] in ['table', 'image']:
-                for sub_block in block['blocks']:
-                    if sub_block['type'] in ['image_caption', 'image_footnote', 'table_caption', 'table_footnote']:
-                        text_block_list.append(sub_block)
-            elif block['type'] in ['text', 'title']:
-                text_block_list.append(block)
-        for block in page_info['discarded_blocks']:
-            text_block_list.append(block)
-    for block in text_block_list:
-        for line in block['lines']:
-            for span in line['spans']:
-                if 'np_img' in span:
-                    need_ocr_list.append(span)
-                    img_crop_list.append(span['np_img'])
-                    span.pop('np_img')
-    if len(img_crop_list) > 0:
-        atom_model_manager = AtomModelSingleton()
-        ocr_model = atom_model_manager.get_atom_model(
-            atom_model_name='ocr',
-            det_db_box_thresh=0.3,
-            lang=lang,
-            ocr_engine=ocr_engine,
-        )
-        ocr_res_list = ocr_model.ocr(img_crop_list, det=False, tqdm_enable=True)[0]
-        assert len(ocr_res_list) == len(
-            need_ocr_list), f'ocr_res_list: {len(ocr_res_list)}, need_ocr_list: {len(need_ocr_list)}'
-        for index, span in enumerate(need_ocr_list):
-            ocr_text, ocr_score = ocr_res_list[index]
-            if ocr_score > OcrConfidence.min_confidence:
-                span['content'] = ocr_text
-                span['score'] = float(f"{ocr_score:.3f}")
-            else:
-                span['content'] = ''
-                span['score'] = 0.0
-
-    # Paragraph splitting
-    para_split(middle_json["pdf_info"], ocr_engine=ocr_engine)
-
-    # Merge tables across pages
-    cross_page_table_merge(middle_json["pdf_info"])
-
-    # LLM optimization
-    llm_aided_config = get_llm_aided_config()
-
-    if llm_aided_config is not None:
-        # Heading optimization
-        title_aided_config = llm_aided_config.get('title_aided', None)
-        if title_aided_config is not None:
-            if title_aided_config.get('enable', False):
-                llm_aided_title_start_time = time.time()
-                llm_aided_title(middle_json["pdf_info"], title_aided_config)
-                logger.info(f'llm aided title time: {round(time.time() - llm_aided_title_start_time, 2)}')
-
-    # Clean up memory
-    pdf_doc.close()
-    if os.getenv('VPARSE_DONOT_CLEAN_MEM') is None and len(model_list) >= 10:
-        clean_memory(get_device())
-
-    return middle_json
+    from vparse.backend.engine.processor import refine_middle_json
+    return refine_middle_json(
+        middle_json,
+        pdf_doc=pdf_doc,
+        lang=lang,
+        ocr_enable=ocr_enable,
+        ocr_engine=ocr_engine,
+        formula_enabled=formula_enabled
+    )
 
 
 def make_page_info_dict(blocks, page_id, page_w, page_h, discarded_blocks):

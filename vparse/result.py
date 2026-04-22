@@ -92,12 +92,12 @@ class OCRResult:
             mode: Either 'mm_markdown' (multimodal) or 'nlp_markdown'.
         """
         # In a real scenario, we might import union_make here to avoid circular imports
-        from vparse.backend.pipeline.pipeline_middle_json_mkcontent import union_make
+        from vparse.backend.engine.output import union_make
         return union_make(self._raw, mode)
 
     def content_list(self) -> List[Dict[str, Any]]:
         """Get the simplified content list format (useful for RAG)."""
-        from vparse.backend.pipeline.pipeline_middle_json_mkcontent import union_make
+        from vparse.backend.engine.output import union_make
         return union_make(self._raw, MakeMode.CONTENT_LIST)
 
     def middle_json(self) -> List[Dict[str, Any]]:
