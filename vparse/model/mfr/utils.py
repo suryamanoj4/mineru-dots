@@ -202,7 +202,7 @@ def fix_unbalanced_braces(latex_formula):
 
 
 def process_latex(input_string):
-    """
+    r"""
     Handle backslashes in LaTeX formulas:
     1. If \ is followed by special characters (#$%&~_^\\{}) or a space, keep as is.
     2. If \ is followed by two lowercase letters, keep as is.
