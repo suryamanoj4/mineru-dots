@@ -188,7 +188,7 @@ class DotsOCRClient:
         
         # Patch the internal VLLM client's build_messages method for dots.ocr compatibility
         # dots.ocr's chat template expects string content, not OpenAI list format
-        def build_messages_string(prompt: str) -> list[dict]:
+        def build_messages_string(prompt: str, _num_images: int) -> list[dict]:
             prompt = prompt or vparse_client.client.prompt
             messages = []
             if vparse_client.client.system_prompt:
