@@ -424,7 +424,7 @@ class BatchAnalyze:
                         det_db_box_thresh=0.3,
                         lang=lang
                     )
-                    ocr_res_list = ocr_engine.ocr(img_crop_list, det=False, tqdm_enable=True)[0]
+                    ocr_res_list = ocr_model.ocr(img_crop_list, det=False, tqdm_enable=True)[0]
 
                     # Verify we have matching counts
                     assert len(ocr_res_list) == len(

@@ -399,7 +399,7 @@ def _normalize_bbox(
 def get_batch_ratio(device):
     """
     Get batch ratio based on VRAM size or environment variables
-    """
+
     # 1. Try to get from environment variables first
     When c/s architecture is deployed separately, it is recommended to specify the batch ratio by setting the environment variable VPARSE_HYBRID_BATCH_RATIO
     Recommended values are as follows. The following values have considered a certain amount of redundancy. When deploying on a single GPU with multiple terminals, to ensure stability, you can reserve an extra client-side VRAM as overall redundancy.
