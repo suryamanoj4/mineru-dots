@@ -55,7 +55,7 @@ def main():
     if not model_path:
         model_path = auto_download_and_get_model_root_path("/", "vlm")
     if (not has_logits_processors_arg) and custom_logits_processors:
-        args.extend(["--logits-processors", "mineru_vl_utils:VParseLogitsProcessor"])
+        args.extend(["--logits-processors", "mineru_vl_utils:MinerULogitsProcessor"])
 
     args = mod_kwargs_by_device_type(args, vllm_mode="server")
 
