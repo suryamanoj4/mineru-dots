@@ -6,6 +6,7 @@ from loguru import logger
 from .dots_ocr.utils.layout_utils import post_process_output
 from .dots_ocr.utils.prompts import dict_promptmode_to_prompt
 from .utils import set_default_gpu_memory_utilization
+from vparse.utils.compat import get_env_with_legacy
 from mineru_vl_utils import MinerUClient as VParseClient
 from mineru_vl_utils import MinerUSamplingParams as VParseSamplingParams
 from mineru_vl_utils.structs import ContentBlock
@@ -41,6 +42,8 @@ class DotsOCRClient:
         batch_size: int = 0,
         max_concurrency: int = 100,
         http_timeout: int = 600,
+        gpu_memory_utilization: Optional[float] = None,
+        max_model_len: Optional[int] = None,
         **kwargs,
     ):
         self.backend = backend
@@ -55,6 +58,8 @@ class DotsOCRClient:
         self.batch_size = batch_size
         self.max_concurrency = max_concurrency
         self.http_timeout = http_timeout
+        self.gpu_memory_utilization = gpu_memory_utilization
+        self.max_model_len = max_model_len
 
         self._client = self._create_client()
 
@@ -132,14 +137,36 @@ class DotsOCRClient:
 
         logger.info(f"Loading dots.ocr model with vLLM from: {self.model_path}")
 
-        gpu_memory_utilization = set_default_gpu_memory_utilization()
-        logger.info(f"Using GPU memory utilization: {gpu_memory_utilization}")
+        if self.gpu_memory_utilization is None:
+            env_val = get_env_with_legacy("VPARSE_GPU_MEMORY_UTILIZATION", "MINERU_GPU_MEMORY_UTILIZATION")
+            if env_val is not None:
+                try:
+                    self.gpu_memory_utilization = float(env_val)
+                except ValueError:
+                    logger.warning(f"Invalid VPARSE_GPU_MEMORY_UTILIZATION: {env_val}, using default")
+                    self.gpu_memory_utilization = set_default_gpu_memory_utilization()
+            else:
+                self.gpu_memory_utilization = set_default_gpu_memory_utilization()
+
+        if self.max_model_len is None:
+            env_val = get_env_with_legacy("VPARSE_MAX_MODEL_LEN", "MINERU_MAX_MODEL_LEN")
+            if env_val is not None:
+                try:
+                    self.max_model_len = int(env_val)
+                except ValueError:
+                    logger.warning(f"Invalid VPARSE_MAX_MODEL_LEN: {env_val}, using default 32768")
+                    self.max_model_len = 32768
+            else:
+                self.max_model_len = 32768
+
+        logger.info(f"Using GPU memory utilization: {self.gpu_memory_utilization}")
+        logger.info(f"Using max_model_len: {self.max_model_len}")
 
         vllm_llm = vllm.LLM(
             model=self.model_path,
             trust_remote_code=True,
-            gpu_memory_utilization=gpu_memory_utilization,
-            max_model_len=32768,
+            gpu_memory_utilization=self.gpu_memory_utilization,
+            max_model_len=self.max_model_len,
         )
 
         backend_type = (
