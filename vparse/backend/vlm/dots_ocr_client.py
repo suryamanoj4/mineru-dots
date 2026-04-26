@@ -6,7 +6,8 @@ from loguru import logger
 from .dots_ocr.utils.layout_utils import post_process_output
 from .dots_ocr.utils.prompts import dict_promptmode_to_prompt
 from .utils import set_default_gpu_memory_utilization
-from mineru_vl_utils import VParseClient, VParseSamplingParams
+from mineru_vl_utils import MinerUClient as VParseClient
+from mineru_vl_utils import MinerUSamplingParams as VParseSamplingParams
 from mineru_vl_utils.structs import ContentBlock
 
 

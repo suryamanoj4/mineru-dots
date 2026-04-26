@@ -63,7 +63,7 @@ class ModelSingleton:
                 logger.info(f"get {backend} predictor cost: {elapsed}s")
                 return self._models[key]
 
-            from mineru_vl_utils import VParseClient
+            from mineru_vl_utils import MinerUClient as VParseClient
 
             model = None
             processor = None
@@ -163,7 +163,7 @@ class ModelSingleton:
                     if enable_custom_logits_processors() and (
                         "logits_processors" not in kwargs
                     ):
-                        from mineru_vl_utils import VParseLogitsProcessor
+                        from mineru_vl_utils import MinerULogitsProcessor as VParseLogitsProcessor
 
                         kwargs["logits_processors"] = [VParseLogitsProcessor]
                     vllm_llm = vllm.LLM(**kwargs)
@@ -204,7 +204,7 @@ class ModelSingleton:
                     if enable_custom_logits_processors() and (
                         "logits_processors" not in kwargs
                     ):
-                        from mineru_vl_utils import VParseLogitsProcessor
+                        from mineru_vl_utils import MinerULogitsProcessor as VParseLogitsProcessor
 
                         kwargs["logits_processors"] = [VParseLogitsProcessor]
                     vllm_async_llm = AsyncLLM.from_engine_args(
