@@ -208,9 +208,34 @@ class DotsOCRClient:
             prompt_mode, dict_promptmode_to_prompt["prompt_layout_all_en"]
         )
 
+    def _build_model_prompt(self, prompt_mode: str) -> str:
+        base_prompt = self._get_prompt(prompt_mode)
+        return f"<|img|><|imgpad|><|endofimg|>{base_prompt}"
+
+    def _build_sampling_params(
+        self, max_new_tokens: Optional[int] = None
+    ) -> VParseSamplingParams:
+        return VParseSamplingParams(
+            temperature=self.temperature,
+            top_p=self.top_p,
+            max_new_tokens=max_new_tokens or self.max_completion_tokens,
+        )
+
+    def _get_retry_max_new_tokens(self, prompt_mode: str) -> int:
+        if prompt_mode == "prompt_layout_only_en":
+            return min(self.max_completion_tokens, 4096)
+        return self.max_completion_tokens
+
+    def _get_block_ocr_max_new_tokens(self, block_type: str) -> int:
+        if block_type == "table":
+            return min(self.max_completion_tokens, 4096)
+        if block_type == "equation":
+            return min(self.max_completion_tokens, 1024)
+        return min(self.max_completion_tokens, 2048)
+
     def _parse_dots_output(
         self, response: str, prompt_mode: str, image, min_pixels: int, max_pixels: int
-    ) -> List[dict]:
+    ) -> tuple[List[dict], bool]:
         cells, filtered = post_process_output(
             response,
             prompt_mode,
@@ -224,9 +249,9 @@ class DotsOCRClient:
             logger.warning(
                 f"Model output parsing failed or returned non-list: {type(cells)}"
             )
-            return []
+            return [], True
 
-        return cells
+        return cells, False
 
     def _convert_to_content_blocks(
         self, cells: List[dict], page_idx: int, width: int, height: int
@@ -255,18 +280,154 @@ class DotsOCRClient:
 
         return blocks
 
+    def _build_block_ocr_requests(
+        self, image, blocks: List[ContentBlock], not_extract_list: list | None = None
+    ) -> tuple[list, list[str], list[VParseSamplingParams], list[int]]:
+        width, height = image.size
+        skip_types = set(not_extract_list or [])
+
+        block_images = []
+        prompts = []
+        sampling_params = []
+        block_indices = []
+
+        for idx, block in enumerate(blocks):
+            if block.type == "image" or block.type in skip_types:
+                continue
+
+            x0 = max(0, int(block.bbox[0] * width))
+            y0 = max(0, int(block.bbox[1] * height))
+            x1 = min(width, int(block.bbox[2] * width))
+            y1 = min(height, int(block.bbox[3] * height))
+            if x1 <= x0 or y1 <= y0:
+                continue
+
+            block_images.append(image.crop((x0, y0, x1, y1)))
+            prompts.append(self._build_model_prompt("prompt_ocr"))
+            sampling_params.append(
+                self._build_sampling_params(
+                    self._get_block_ocr_max_new_tokens(block.type)
+                )
+            )
+            block_indices.append(idx)
+
+        return block_images, prompts, sampling_params, block_indices
+
+    def _extract_block_contents(
+        self, image, blocks: List[ContentBlock], not_extract_list: list | None = None
+    ) -> List[ContentBlock]:
+        block_images, prompts, sampling_params, block_indices = (
+            self._build_block_ocr_requests(image, blocks, not_extract_list)
+        )
+        if not block_images:
+            return blocks
+
+        outputs = self._client.client.batch_predict(
+            images=block_images,
+            prompts=prompts,
+            sampling_params=sampling_params,
+        )
+        for idx, output in zip(block_indices, outputs):
+            blocks[idx].content = output
+
+        return blocks
+
+    async def _aio_extract_block_contents(
+        self, image, blocks: List[ContentBlock], not_extract_list: list | None = None
+    ) -> List[ContentBlock]:
+        block_images, prompts, sampling_params, block_indices = (
+            self._build_block_ocr_requests(image, blocks, not_extract_list)
+        )
+        if not block_images:
+            return blocks
+
+        outputs = await self._client.client.aio_batch_predict(
+            images=block_images,
+            prompts=prompts,
+            sampling_params=sampling_params,
+        )
+        for idx, output in zip(block_indices, outputs):
+            blocks[idx].content = output
+
+        return blocks
+
+    def _retry_page_with_layout_only(
+        self, image, not_extract_list: list | None = None
+    ) -> List[ContentBlock]:
+        logger.warning(
+            "Retrying dots.ocr page with layout-only fallback after full-page output parsing failure"
+        )
+        output = self._client.client.batch_predict(
+            images=[image],
+            prompts=[self._build_model_prompt("prompt_layout_only_en")],
+            sampling_params=[
+                self._build_sampling_params(
+                    self._get_retry_max_new_tokens("prompt_layout_only_en")
+                )
+            ],
+        )[0]
+        cells, filtered = self._parse_dots_output(
+            output,
+            "prompt_layout_only_en",
+            image,
+            self.min_pixels,
+            self.max_pixels,
+        )
+        if filtered:
+            return []
+
+        blocks = self._convert_to_content_blocks(cells, 0, *image.size)
+        return self._extract_block_contents(image, blocks, not_extract_list)
+
+    async def _aio_retry_page_with_layout_only(
+        self, image, not_extract_list: list | None = None
+    ) -> List[ContentBlock]:
+        logger.warning(
+            "Retrying dots.ocr page with layout-only fallback after full-page output parsing failure"
+        )
+        output = (
+            await self._client.client.aio_batch_predict(
+                images=[image],
+                prompts=[self._build_model_prompt("prompt_layout_only_en")],
+                sampling_params=[
+                    self._build_sampling_params(
+                        self._get_retry_max_new_tokens("prompt_layout_only_en")
+                    )
+                ],
+            )
+        )[0]
+        cells, filtered = self._parse_dots_output(
+            output,
+            "prompt_layout_only_en",
+            image,
+            self.min_pixels,
+            self.max_pixels,
+        )
+        if filtered:
+            return []
+
+        blocks = self._convert_to_content_blocks(cells, 0, *image.size)
+        return await self._aio_extract_block_contents(image, blocks, not_extract_list)
+
     def _process_outputs(
-        self, images: List, outputs: List[str], prompt_mode: str
+        self,
+        images: List,
+        outputs: List[str],
+        prompt_mode: str,
+        not_extract_list: list | None = None,
     ) -> List[List[ContentBlock]]:
         results = []
         for idx, (image, response) in enumerate(zip(images, outputs)):
             width, height = image.size
 
             try:
-                cells = self._parse_dots_output(
+                cells, filtered = self._parse_dots_output(
                     response, prompt_mode, image, self.min_pixels, self.max_pixels
                 )
-                blocks = self._convert_to_content_blocks(cells, idx, width, height)
+                if filtered and prompt_mode == "prompt_layout_all_en":
+                    blocks = self._retry_page_with_layout_only(image, not_extract_list)
+                else:
+                    blocks = self._convert_to_content_blocks(cells, idx, width, height)
             except Exception as e:
                 logger.warning(f"Error processing image {idx}: {e}")
                 blocks = []
@@ -286,15 +447,9 @@ class DotsOCRClient:
             f"Processing {total} images with dots.ocr (prompt_mode: {prompt_mode})"
         )
 
-        # Get the dots.ocr prompt and add special tokens required by the model
-        base_prompt = self._get_prompt(prompt_mode)
-        # dots.ocr requires special tokens before the prompt text
-        prompt = f"<|img|><|imgpad|><|endofimg|>{base_prompt}"
-        
-        sampling_params = VParseSamplingParams(
-            temperature=self.temperature,
-            top_p=self.top_p,
-            max_new_tokens=self.max_completion_tokens,
+        prompt = self._build_model_prompt(prompt_mode)
+        sampling_params = self._build_sampling_params(
+            self._get_retry_max_new_tokens(prompt_mode)
         )
 
         start_time = time.time()
@@ -311,7 +466,7 @@ class DotsOCRClient:
             f"Inference done in {elapsed:.2f}s, speed: {round(total / elapsed, 3)} page/s"
         )
 
-        results = self._process_outputs(images, outputs, prompt_mode)
+        results = self._process_outputs(images, outputs, prompt_mode, not_extract_list)
         return results
 
     async def aio_batch_two_step_extract(
@@ -325,15 +480,9 @@ class DotsOCRClient:
             f"Processing {total} images with dots.ocr async (prompt_mode: {prompt_mode})"
         )
 
-        # Get the dots.ocr prompt and add special tokens required by the model
-        base_prompt = self._get_prompt(prompt_mode)
-        # dots.ocr requires special tokens before the prompt text
-        prompt = f"<|img|><|imgpad|><|endofimg|>{base_prompt}"
-        
-        sampling_params = VParseSamplingParams(
-            temperature=self.temperature,
-            top_p=self.top_p,
-            max_new_tokens=self.max_completion_tokens,
+        prompt = self._build_model_prompt(prompt_mode)
+        sampling_params = self._build_sampling_params(
+            self._get_retry_max_new_tokens(prompt_mode)
         )
 
         start_time = time.time()
@@ -349,7 +498,24 @@ class DotsOCRClient:
             f"Inference done in {elapsed:.2f}s, speed: {round(total / elapsed, 3)} page/s"
         )
 
-        results = self._process_outputs(images, outputs, prompt_mode)
+        results = []
+        for idx, (image, response) in enumerate(zip(images, outputs)):
+            width, height = image.size
+            try:
+                cells, filtered = self._parse_dots_output(
+                    response, prompt_mode, image, self.min_pixels, self.max_pixels
+                )
+                if filtered and prompt_mode == "prompt_layout_all_en":
+                    blocks = await self._aio_retry_page_with_layout_only(
+                        image, not_extract_list
+                    )
+                else:
+                    blocks = self._convert_to_content_blocks(cells, idx, width, height)
+            except Exception as e:
+                logger.warning(f"Error processing image {idx}: {e}")
+                blocks = []
+
+            results.append(blocks)
         return results
 
 
