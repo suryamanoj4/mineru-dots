@@ -1,0 +1,225 @@
+import math
+
+
+def is_in(box1, box2) -> bool:
+    """Check if box1 is completely inside box2."""
+    x0_1, y0_1, x1_1, y1_1 = box1
+    x0_2, y0_2, x1_2, y1_2 = box2
+
+    return (
+        x0_1 >= x0_2  # left boundary of box1 is not outside box2
+        and y0_1 >= y0_2  # top boundary of box1 is not outside box2
+        and x1_1 <= x1_2  # right boundary of box1 is not outside box2
+        and y1_1 <= y1_2  # bottom boundary of box1 is not outside box2
+    )
+
+
+def bbox_relative_pos(bbox1, bbox2):
+    """Determine the relative positional relationship between two rectangular boxes.
+
+    Args:
+        bbox1: A tuple of 4 floats representing the coordinates of the first box (x1, y1, x1b, y1b).
+        bbox2: A tuple of 4 floats representing the coordinates of the second box (x2, y2, x2b, y2b).
+
+    Returns:
+        A tuple (left, right, bottom, top) representing relative position.
+        left/right/bottom/top indicate if box1 is to the left/right/bottom/top of box2.
+    """
+    x1, y1, x1b, y1b = bbox1
+    x2, y2, x2b, y2b = bbox2
+
+    left = x2b < x1
+    right = x1b < x2
+    bottom = y2b < y1
+    top = y1b < y2
+    return left, right, bottom, top
+
+
+def bbox_distance(bbox1, bbox2):
+    """Calculate the distance between two rectangular boxes.
+
+    Args:
+        bbox1 (tuple): Coordinates of the first box (x1, y1, x2, y2).
+        bbox2 (tuple): Coordinates of the second box (x1, y1, x2, y2).
+
+    Returns:
+        float: Distance between the boxes.
+    """
+
+    def dist(point1, point2):
+        return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
+
+    x1, y1, x1b, y1b = bbox1
+    x2, y2, x2b, y2b = bbox2
+
+    left, right, bottom, top = bbox_relative_pos(bbox1, bbox2)
+
+    if top and left:
+        return dist((x1, y1b), (x2b, y2))
+    elif left and bottom:
+        return dist((x1, y1), (x2b, y2b))
+    elif bottom and right:
+        return dist((x1b, y1), (x2, y2b))
+    elif right and top:
+        return dist((x1b, y1b), (x2, y2))
+    elif left:
+        return x1 - x2b
+    elif right:
+        return x2 - x1b
+    elif bottom:
+        return y1 - y2b
+    elif top:
+        return y2 - y1b
+    return 0.0
+
+
+def bbox_center_distance(bbox1, bbox2):
+    """Calculate the Euclidean distance between the centers of two rectangular boxes.
+
+    Args:
+        bbox1 (tuple): Coordinates of the first box.
+        bbox2 (tuple): Coordinates of the second box.
+
+    Returns:
+        float: Euclidean distance between centers.
+    """
+    x1, y1, x1b, y1b = bbox1
+    x2, y2, x2b, y2b = bbox2
+
+    # Calculate centers
+    center1_x = (x1 + x1b) / 2
+    center1_y = (y1 + y1b) / 2
+    center2_x = (x2 + x2b) / 2
+    center2_y = (y2 + y2b) / 2
+
+    # Calculate Euclidean distance
+    return math.sqrt((center1_x - center2_x) ** 2 + (center1_y - center2_y) ** 2)
+
+
+def get_minbox_if_overlap_by_ratio(bbox1, bbox2, ratio):
+    """Calculate the overlap ratio between two bboxes as a fraction of the smaller box area.
+    Returns the smaller bbox if ratio > threshold, otherwise None."""
+    x1_min, y1_min, x1_max, y1_max = bbox1
+    x2_min, y2_min, x2_max, y2_max = bbox2
+    area1 = (x1_max - x1_min) * (y1_max - y1_min)
+    area2 = (x2_max - x2_min) * (y2_max - y2_min)
+    overlap_ratio = calculate_overlap_area_2_minbox_area_ratio(bbox1, bbox2)
+    if overlap_ratio > ratio:
+        if area1 <= area2:
+            return bbox1
+        else:
+            return bbox2
+    else:
+        return None
+
+
+def calculate_overlap_area_2_minbox_area_ratio(bbox1, bbox2):
+    """Calculate the ratio of overlap area between box1 and box2 to the area of the smaller box."""
+    # Determine the coordinates of the intersection rectangle
+    x_left = max(bbox1[0], bbox2[0])
+    y_top = max(bbox1[1], bbox2[1])
+    x_right = min(bbox1[2], bbox2[2])
+    y_bottom = min(bbox1[3], bbox2[3])
+
+    if x_right < x_left or y_bottom < y_top:
+        return 0.0
+
+    # The area of overlap area
+    intersection_area = (x_right - x_left) * (y_bottom - y_top)
+    min_box_area = min([(bbox1[2] - bbox1[0]) * (bbox1[3] - bbox1[1]),
+                        (bbox2[3] - bbox2[1]) * (bbox2[2] - bbox2[0])])
+    if min_box_area == 0:
+        return 0
+    else:
+        return intersection_area / min_box_area
+
+
+def calculate_iou(bbox1, bbox2):
+    """Calculate the Intersection over Union (IoU) of two bounding boxes.
+
+    Args:
+        bbox1 (list[float]): Coordinates of the first box.
+        bbox2 (list[float]): Coordinates of the second box.
+
+    Returns:
+        float: Intersection over Union (IoU) value, range [0, 1].
+    """
+    # Determine the coordinates of the intersection rectangle
+    x_left = max(bbox1[0], bbox2[0])
+    y_top = max(bbox1[1], bbox2[1])
+    x_right = min(bbox1[2], bbox2[2])
+    y_bottom = min(bbox1[3], bbox2[3])
+
+    if x_right < x_left or y_bottom < y_top:
+        return 0.0
+
+    # The area of overlap area
+    intersection_area = (x_right - x_left) * (y_bottom - y_top)
+
+    # The area of both rectangles
+    bbox1_area = (bbox1[2] - bbox1[0]) * (bbox1[3] - bbox1[1])
+    bbox2_area = (bbox2[2] - bbox2[0]) * (bbox2[3] - bbox2[1])
+
+    if any([bbox1_area == 0, bbox2_area == 0]):
+        return 0
+
+    # Compute the intersection over union by taking the intersection area
+    # and dividing it by the sum of both areas minus the intersection area
+    iou = intersection_area / float(bbox1_area + bbox2_area - intersection_area)
+
+    return iou
+
+
+def calculate_overlap_area_in_bbox1_area_ratio(bbox1, bbox2):
+    """Calculate the ratio of overlap area between box1 and box2 to the area of bbox1."""
+    # Determine the coordinates of the intersection rectangle
+    x_left = max(bbox1[0], bbox2[0])
+    y_top = max(bbox1[1], bbox2[1])
+    x_right = min(bbox1[2], bbox2[2])
+    y_bottom = min(bbox1[3], bbox2[3])
+
+    if x_right < x_left or y_bottom < y_top:
+        return 0.0
+
+    # The area of overlap area
+    intersection_area = (x_right - x_left) * (y_bottom - y_top)
+    bbox1_area = (bbox1[2] - bbox1[0]) * (bbox1[3] - bbox1[1])
+    if bbox1_area == 0:
+        return 0
+    else:
+        return intersection_area / bbox1_area
+
+
+def calculate_vertical_projection_overlap_ratio(block1, block2):
+    """
+    Calculate the proportion of the x-axis covered by the vertical projection of two blocks.
+
+    Args:
+        block1 (tuple): Coordinates of the first block (x0, y0, x1, y1).
+        block2 (tuple): Coordinates of the second block (x0, y0, x1, y1).
+
+    Returns:
+        float: The proportion of the x-axis covered by the vertical projection of the two blocks.
+    """
+    x0_1, _, x1_1, _ = block1
+    x0_2, _, x1_2, _ = block2
+
+    # Calculate the intersection of the x-coordinates
+    x_left = max(x0_1, x0_2)
+    x_right = min(x1_1, x1_2)
+
+    if x_right < x_left:
+        return 0.0
+
+    # Length of the intersection
+    intersection_length = x_right - x_left
+
+    # Length of the x-axis projection of the first block
+    block1_length = x1_1 - x0_1
+
+    if block1_length == 0:
+        return 0.0
+
+    # Proportion of the x-axis covered by the intersection
+    # logger.info(f"intersection_length: {intersection_length}, block1_length: {block1_length}")
+    return intersection_length / block1_length

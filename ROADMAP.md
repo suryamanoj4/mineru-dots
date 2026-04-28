@@ -1,6 +1,6 @@
-# MinerU OCR Toolkit - Comprehensive Development Roadmap
+# VParse OCR Toolkit - Comprehensive Development Roadmap
 
-> **Vision**: Transform MinerU into a one-stop, production-ready OCR toolkit with multiple backend support, optimized performance, and deployable as both a Python library and Docker service.
+> **Vision**: Transform VParse into a one-stop, production-ready OCR toolkit with multiple backend support, optimized performance, and deployable as both a Python library and Docker service.
 
 **Last Updated**: April 8, 2026  
 **Current Version**: 2.7.6  
@@ -76,53 +76,53 @@
 
 ##### 1.1 Design and implement unified public API
 - **Status**: ❌ NOT IMPLEMENTED
-- **Current State**: `mineru/__init__.py` is empty (only copyright comment). Users must use CLI commands (`mineru`, `mineru-api`) or call internal functions (`do_parse`, `aio_do_parse` from `mineru/cli/common.py`).
+- **Current State**: `vparse/__init__.py` is empty (only copyright comment). Users must use CLI commands (`vparse`, `vparse-api`) or call internal functions (`do_parse`, `aio_do_parse` from `vparse/cli/common.py`).
 - **What to Build**:
   ```python
   # Desired API
-  from mineru import MinerU
+  from vparse import VParse
   
   # Simple usage
-  ocr = MinerU(backend="pipeline", lang="en")
+  ocr = VParse(backend="pipeline", lang="en")
   result = ocr.process("document.pdf")
   
   # Context manager
-  with MinerU(backend="vlm") as ocr:
+  with VParse(backend="vlm") as ocr:
       result = ocr.process("document.pdf")
   
   # Async support
-  async with AsyncMinerU(backend="hybrid") as ocr:
+  async with AsyncVParse(backend="hybrid") as ocr:
       result = await ocr.process("document.pdf")
   ```
 - **Files to Create/Modify**:
-  - `mineru/__init__.py` - Export public API
-  - `mineru/client.py` - New high-level MinerU class
-  - `mineru/async_client.py` - Async version
+  - `vparse/__init__.py` - Export public API
+  - `vparse/client.py` - New high-level VParse class
+  - `vparse/async_client.py` - Async version
 - **Priority**: 🔴 CRITICAL - Foundation for all library usage
 
 ##### 1.2 Create high-level OCR class with context manager support
 - **Status**: ❌ NOT IMPLEMENTED
-- **Current State**: No unified class exists. Processing logic is scattered across `mineru/cli/common.py` (`do_parse`, `aio_do_parse`, `read_fn`).
+- **Current State**: No unified class exists. Processing logic is scattered across `vparse/cli/common.py` (`do_parse`, `aio_do_parse`, `read_fn`).
 - **What to Build**:
-  - `MinerU` class with `__enter__`/`__exit__` for context manager
+  - `VParse` class with `__enter__`/`__exit__` for context manager
   - Constructor accepts: `backend`, `lang`, `device`, `config`, `output_format`
   - Methods: `process()`, `process_batch()`, `get_supported_backends()`, `get_version()`
   - Automatic resource cleanup (model unloading, memory release) on exit
 - **Files to Create**:
-  - `mineru/client.py` - Sync client
-  - `mineru/async_client.py` - Async client
+  - `vparse/client.py` - Sync client
+  - `vparse/async_client.py` - Async client
 - **Priority**: 🔴 CRITICAL
 
 ##### 1.3 Implement configuration system
 - **Status**: ⚠️ PARTIAL
 - **Current State**:
-  - `mineru/utils/config_reader.py` - Reads `~/.mineru.json` config file
-  - `mineru/utils/os_env_config.py` - Reads environment variables
-  - `mineru.template.json` - Template config with bucket_info, latex-delimiter, llm-aided, models-dir
+  - `vparse/utils/config_reader.py` - Reads `~/.vparse.json` config file
+  - `vparse/utils/os_env_config.py` - Reads environment variables
+  - `vparse.template.json` - Template config with bucket_info, latex-delimiter, llm-aided, models-dir
   - **Gaps**: No programmatic config builder, no validation schema, no merge strategy (env → file → defaults), no runtime config changes
 - **What to Build**:
   ```python
-  from mineru import Config
+  from vparse import Config
   
   config = (
       Config()
@@ -132,7 +132,7 @@
       .enable_formula()
       .enable_tables()
       .set_batch_size(8)
-      .load_from_file("~/.mineru.json")  # Override with file
+      .load_from_file("~/.vparse.json")  # Override with file
       .load_from_env()  # Override with env vars
   )
   ```
@@ -140,24 +140,24 @@
   - Hierarchical config: defaults < file < env < programmatic
   - Runtime config updates without restart
 - **Files to Modify**:
-  - `mineru/utils/config_reader.py` - Add Pydantic models
-  - `mineru/data/utils/schemas.py` - Extend with full config schema
+  - `vparse/utils/config_reader.py` - Add Pydantic models
+  - `vparse/data/utils/schemas.py` - Extend with full config schema
 - **Priority**: 🟡 HIGH
 
 ##### 1.4 Add custom exception hierarchy
 - **Status**: ⚠️ PARTIAL
 - **Current State**: Exceptions are scattered:
-  - `mineru/data/utils/exceptions.py` - `FileNotExisted`, `InvalidConfig`, `InvalidParams`, `EmptyData`, `CUDA_NOT_AVAILABLE`
-  - `mineru/model/table/rec/slanet_plus/table_structure_utils.py` - `ONNXRuntimeError`
-  - `mineru/model/table/rec/unet_table/utils.py` - `ONNXRuntimeError`, `LoadImageError`
-  - **Gaps**: No base `MinerUError` class, no hierarchy, not exported from `mineru/__init__.py`, missing critical exceptions (ModelLoadError, BackendError, OCRProcessingError, TimeoutError)
+  - `vparse/data/utils/exceptions.py` - `FileNotExisted`, `InvalidConfig`, `InvalidParams`, `EmptyData`, `CUDA_NOT_AVAILABLE`
+  - `vparse/model/table/rec/slanet_plus/table_structure_utils.py` - `ONNXRuntimeError`
+  - `vparse/model/table/rec/unet_table/utils.py` - `ONNXRuntimeError`, `LoadImageError`
+  - **Gaps**: No base `VParseError` class, no hierarchy, not exported from `vparse/__init__.py`, missing critical exceptions (ModelLoadError, BackendError, OCRProcessingError, TimeoutError)
 - **What to Build**:
   ```python
-  class MinerUError(Exception):
-      """Base exception for all MinerU errors"""
+  class VParseError(Exception):
+      """Base exception for all VParse errors"""
       pass
   
-  class BackendError(MinerUError):
+  class BackendError(VParseError):
       """Backend-related errors"""
       pass
   
@@ -165,25 +165,25 @@
       """Failed to load model"""
       pass
   
-  class OCRProcessingError(MinerUError):
+  class OCRProcessingError(VParseError):
       """Error during OCR processing"""
       pass
   
-  class ConfigurationError(MinerUError):
+  class ConfigurationError(VParseError):
       """Invalid configuration"""
       pass
   
-  class InputError(MinerUError):
+  class InputError(VParseError):
       """Invalid input (file not found, unsupported format, etc.)"""
       pass
   
-  class TimeoutError(MinerUError):
+  class TimeoutError(VParseError):
       """Processing timeout"""
       pass
   ```
 - **Files to Create/Modify**:
-  - `mineru/exceptions.py` - New file with complete hierarchy
-  - `mineru/__init__.py` - Export all exceptions
+  - `vparse/exceptions.py` - New file with complete hierarchy
+  - `vparse/__init__.py` - Export all exceptions
 - **Priority**: 🟡 HIGH
 
 ##### 1.5 Create type hints and stubs for all public APIs
@@ -193,24 +193,24 @@
   - Some internal modules use `typing` annotations (35 files), but public APIs are untyped
   - **Impact**: No IDE autocomplete, no mypy/Pyright type checking for library users
 - **What to Build**:
-  - Add `py.typed` empty file to `mineru/` package root
+  - Add `py.typed` empty file to `vparse/` package root
   - Add type hints to all public API functions/classes
-  - Create `mineru/py.typed` marker file
+  - Create `vparse/py.typed` marker file
   - Update `pyproject.toml` to include `py.typed` in package data
   - Run `mypy --strict` on public API surface
 - **Files to Create/Modify**:
-  - `mineru/py.typed` - New marker file
-  - `mineru/__init__.py` - Add type hints to exports
+  - `vparse/py.typed` - New marker file
+  - `vparse/__init__.py` - Add type hints to exports
   - `pyproject.toml` - Add `include_package_data = true`
 - **Priority**: 🟡 HIGH
 
 ##### 1.6 Implement output format handlers
 - **Status**: ✅ IMPLEMENTED (needs enhancement)
 - **Current State**:
-  - `mineru/utils/format_utils.py` - OTSL-to-HTML conversion, table cell/grid models (Pydantic)
-  - `mineru/backend/pipeline/pipeline_middle_json_mkcontent.py` - `union_make()` for MM_MD, NLP_MD, CONTENT_LIST
-  - `mineru/backend/vlm/vlm_middle_json_mkcontent.py` - VLM union_make
-  - `mineru/utils/enum_class.py` - `MakeMode` enum (MM_MD, NLP_MD, CONTENT_LIST, CONTENT_LIST_V2)
+  - `vparse/utils/format_utils.py` - OTSL-to-HTML conversion, table cell/grid models (Pydantic)
+  - `vparse/backend/pipeline/pipeline_middle_json_mkcontent.py` - `union_make()` for MM_MD, NLP_MD, CONTENT_LIST
+  - `vparse/backend/vlm/vlm_middle_json_mkcontent.py` - VLM union_make
+  - `vparse/utils/enum_class.py` - `MakeMode` enum (MM_MD, NLP_MD, CONTENT_LIST, CONTENT_LIST_V2)
   - **Gaps**: No DOCX, EPUB, searchable PDF, CSV/TSV, LaTeX export. HTML converter is basic.
 - **What to Build**: (See Module 12 for full details)
 - **Priority**: 🟢 MEDIUM
@@ -218,11 +218,11 @@
 ##### 1.7 Add input source abstractions
 - **Status**: ✅ IMPLEMENTED
 - **Current State**:
-  - `mineru/data/data_reader_writer/base.py` - Abstract `DataReader`, `DataWriter` classes
-  - `mineru/data/data_reader_writer/filebase.py` - `FileBasedDataReader`, `FileBasedDataWriter`
-  - `mineru/data/data_reader_writer/s3.py` - S3 reader/writer
-  - `mineru/data/data_reader_writer/multi_bucket_s3.py` - Multi-bucket S3
-  - `mineru/data/io.py` - `IOReader`, `IOWriter`, `HttpReader`, `HttpWriter`, `S3Reader`, `S3Writer`
+  - `vparse/data/data_reader_writer/base.py` - Abstract `DataReader`, `DataWriter` classes
+  - `vparse/data/data_reader_writer/filebase.py` - `FileBasedDataReader`, `FileBasedDataWriter`
+  - `vparse/data/data_reader_writer/s3.py` - S3 reader/writer
+  - `vparse/data/data_reader_writer/multi_bucket_s3.py` - Multi-bucket S3
+  - `vparse/data/io.py` - `IOReader`, `IOWriter`, `HttpReader`, `HttpWriter`, `S3Reader`, `S3Writer`
   - **Gaps**: No PIL Image input, no URL input, no bytes stream input, no PDF page iterator
 - **What to Build**: (Enhance existing abstractions)
   - `ImageReader` - PIL Image, numpy array input
@@ -235,7 +235,7 @@
 - **Status**: ⚠️ PARTIAL
 - **Current State**:
   - `pyproject.toml` has proper `[build-system]`, `[project]` metadata
-  - Entry points: `mineru`, `mineru-vllm-server`, `mineru-lmdeploy-server`, `mineru-openai-server`, `mineru-models-download`, `mineru-api`, `mineru-gradio`
+  - Entry points: `vparse`, `vparse-vllm-server`, `vparse-lmdeploy-server`, `vparse-openai-server`, `vparse-models-download`, `vparse-api`, `vparse-gradio`
   - Optional dependency groups: `test`, `dev`, `vlm`, `vllm`, `lmdeploy`, `mlx`, `pipeline`, `api`, `gradio`, `core`, `all`
   - Python `>=3.10,<3.14`
   - **Gaps**: No `py.typed` marker, no `long_description_content_type`, missing some package data (resources, models), CI/CD only builds on `*released` tag
@@ -243,7 +243,7 @@
   - Add `py.typed` to package data
   - Add `[tool.setuptools.package-data]` to include resources, templates
   - Add classifiers for intended use cases
-  - Test `pip install mineru` in clean environment
+  - Test `pip install vparse` in clean environment
   - Add `python -m build` to CI workflow
 - **Files to Modify**:
   - `pyproject.toml` - Add package data, classifiers
@@ -262,7 +262,7 @@
 
 ##### 2.1 Design BackendProtocol interface
 - **Status**: ❌ NOT IMPLEMENTED
-- **Current State**: Backends are separate modules with hardcoded `doc_analyze()` functions. Selection logic is a string-based `if/elif` chain in `mineru/cli/common.py` lines 297-350:
+- **Current State**: Backends are separate modules with hardcoded `doc_analyze()` functions. Selection logic is a string-based `if/elif` chain in `vparse/cli/common.py` lines 297-350:
   ```python
   if backend == "pipeline":
       _process_pipeline(...)
@@ -275,7 +275,7 @@
   ```python
   from abc import ABC, abstractmethod
   from typing import Protocol, runtime_checkable
-  from mineru.data.data_reader_writer import DataWriter
+  from vparse.data.data_reader_writer import DataWriter
   
   @runtime_checkable
   class BackendProtocol(Protocol):
@@ -319,7 +319,7 @@
           ...
   ```
 - **Files to Create**:
-  - `mineru/backend/base.py` - BackendProtocol, BaseBackend ABC
+  - `vparse/backend/base.py` - BackendProtocol, BaseBackend ABC
 - **Priority**: 🔴 CRITICAL - Foundation for pluggable backends
 
 ##### 2.2 Implement BackendRegistry
@@ -365,8 +365,8 @@
           ...
   ```
 - **Files to Create**:
-  - `mineru/backend/registry.py` - BackendRegistry implementation
-  - `mineru/backend/__init__.py` - Register built-in backends
+  - `vparse/backend/registry.py` - BackendRegistry implementation
+  - `vparse/backend/__init__.py` - Register built-in backends
 - **Priority**: 🔴 CRITICAL
 
 ##### 2.3 Create backend configuration schema
@@ -374,7 +374,7 @@
 - **Current State**: No backend-specific config schema. Settings are passed as kwargs or env vars.
 - **What to Build**:
   ```yaml
-  # mineru-backends.yaml
+  # vparse-backends.yaml
   backends:
     pipeline:
       ocr_engine: "paddle"  # or "tesseract", "easyocr", "rapidocr"
@@ -399,8 +399,8 @@
   - Pydantic schema validation on load
   - Schema versioning for backward compatibility
 - **Files to Create**:
-  - `mineru/backend/config_schema.py` - Pydantic models
-  - `mineru/backends.example.yaml` - Example config
+  - `vparse/backend/config_schema.py` - Pydantic models
+  - `vparse/backends.example.yaml` - Example config
 - **Priority**: 🟡 HIGH
 
 ##### 2.4 Implement backend fallback chains
@@ -432,7 +432,7 @@
   result = await chain.execute(pdf_bytes)
   ```
 - **Files to Create**:
-  - `mineru/backend/fallback.py` - FallbackChain implementation
+  - `vparse/backend/fallback.py` - FallbackChain implementation
 - **Priority**: 🟡 HIGH
 
 ##### 2.5 Add backend performance profiling utilities
@@ -447,7 +447,7 @@
   - `benchmark()` function to run standardized test suite
   - Export results to JSON/CSV
 - **Files to Create**:
-  - `mineru/backend/profiler.py`
+  - `vparse/backend/profiler.py`
 - **Priority**: 🟢 MEDIUM
 
 ##### 2.6 Create backend health monitoring and circuit breaker
@@ -484,8 +484,8 @@
               self.state = "open"
   ```
 - **Files to Create**:
-  - `mineru/backend/health.py` - Health monitoring
-  - `mineru/backend/circuit_breaker.py` - Circuit breaker pattern
+  - `vparse/backend/health.py` - Health monitoring
+  - `vparse/backend/circuit_breaker.py` - Circuit breaker pattern
 - **Priority**: 🟢 MEDIUM
 
 ##### 2.7 Implement backend warmup and preloading
@@ -510,40 +510,40 @@
               )
   ```
 - **Files to Create**:
-  - `mineru/backend/warmup.py`
+  - `vparse/backend/warmup.py`
 - **Priority**: 🟢 MEDIUM
 
 ##### 2.8 Add backend lifecycle management
 - **Status**: ⚠️ PARTIAL
 - **Current State**:
   - **init/load**: Implicit via singletons (`ModelSingleton`, `AtomModelSingleton`, `HybridModelSingleton`)
-  - **unload**: NOT IMPLEMENTED. `clean_memory(device)` in `mineru/utils/model_utils.py` does `gc.collect()` + `torch.cuda.empty_cache()`, but models stay in memory
+  - **unload**: NOT IMPLEMENTED. `clean_memory(device)` in `vparse/utils/model_utils.py` does `gc.collect()` + `torch.cuda.empty_cache()`, but models stay in memory
 - **What to Build**:
   - Explicit `unload()`, `dispose()`, `shutdown()` methods
   - Reference counting for shared models
   - Automatic unload when backend not used for N seconds
   - `BackendLifecycleManager` to coordinate across backends
 - **Files to Create/Modify**:
-  - `mineru/backend/lifecycle.py` - Lifecycle manager
-  - `mineru/utils/model_utils.py` - Add model unload utilities
+  - `vparse/backend/lifecycle.py` - Lifecycle manager
+  - `vparse/utils/model_utils.py` - Add model unload utilities
 - **Priority**: 🟡 HIGH
 
 ---
 
 ### Module 3: Pipeline Backend Enhancements
 
-**Goal**: Expand pipeline backend with multiple OCR engines (Tesseract, EasyOCR, RapidOCR), optimizations, and pipeline-lite mode.
+**Goal**: Expand pipeline backend with multiple OCR engines (Tesseract, EasyOCR, RapidOCR) and optimizations.
 
 **Current Status**: 43.75% Complete (3 implemented, 1 partial, 4 not started)
 
 #### Task Breakdown
 
-##### 3.1 Integrate Tesseract OCR as pipeline-lite backend
-- **Status**: ❌ NOT IMPLEMENTED
-- **Current State**: No Tesseract integration. Only OCR engine is `PytorchPaddleOCR` at `mineru/model/ocr/pytorch_paddle.py`.
+##### 3.1 Integrate Tesseract OCR as lite backend
+- **Status**: ✅ IMPLEMENTED
+- **Current State**: Tesseract integrated as a high-performance alternative to PaddleOCR via the `lite` backend.
 - **What to Build**:
   ```python
-  # mineru/model/ocr/tesseract.py
+  # vparse/model/ocr/tesseract.py
   class TesseractOCRModel:
       def __init__(
           self,
@@ -567,20 +567,20 @@
               pil_img, lang=self.lang, config=self.config, output_type=Output.DICT
           )
           
-          # Convert to MinerU format
+          # Convert to VParse format
           return self._format_output(data)
   ```
-  - Add to `pyproject.toml`: `tesseract-ocr = ["pytesseract>=0.3.10"]`
-  - Add Tesseract to `AtomicModel` enum in `mineru/backend/pipeline/model_list.py`
+  - Add to `pyproject.toml`: `tesseract = ["pytesseract>=0.3.10"]`
+  - Add Tesseract to `AtomicModel` enum in `vparse/backend/pipeline/model_list.py`
   - Update `model_init.py` to support Tesseract
   - Add Tesseract language data download utility
 - **Files to Create**:
-  - `mineru/model/ocr/tesseract.py` - Tesseract model wrapper
-  - `mineru/model/ocr/__init__.py` - Export both engines
+  - `vparse/model/ocr/tesseract.py` - Tesseract model wrapper
+  - `vparse/model/ocr/__init__.py` - Export both engines
 - **Files to Modify**:
-  - `mineru/backend/pipeline/model_list.py` - Add TESSERACT to AtomicModel enum
-  - `mineru/backend/pipeline/model_init.py` - Add Tesseract initialization
-  - `mineru/backend/pipeline/batch_analyze.py` - Add Tesseract batch inference
+  - `vparse/backend/pipeline/model_list.py` - Add TESSERACT to AtomicModel enum
+  - `vparse/backend/pipeline/model_init.py` - Add Tesseract initialization
+  - `vparse/backend/pipeline/batch_analyze.py` - Add Tesseract batch inference
   - `pyproject.toml` - Add `[tesseract]` optional dependency
 - **Priority**: 🔴 CRITICAL - Requested feature
 
@@ -589,7 +589,7 @@
 - **Current State**: No EasyOCR integration.
 - **What to Build**:
   ```python
-  # mineru/model/ocr/easyocr.py
+  # vparse/model/ocr/easyocr.py
   class EasyOCRModel:
       def __init__(
           self,
@@ -611,7 +611,7 @@
   - Good for handwritten text
   - Add `[easyocr]` optional dependency
 - **Files to Create**:
-  - `mineru/model/ocr/easyocr.py`
+  - `vparse/model/ocr/easyocr.py`
 - **Priority**: 🟡 HIGH
 
 ##### 3.3 Implement PaddleOCR optimizations
@@ -623,7 +623,7 @@
   - ONNX export for cross-platform deployment
   - Benchmark suite comparing FP32 vs INT8 vs TensorRT
 - **Files to Modify**:
-  - `mineru/model/ocr/pytorch_paddle.py` - Add quantization support
+  - `vparse/model/ocr/pytorch_paddle.py` - Add quantization support
 - **Priority**: 🟡 HIGH
 
 ##### 3.4 Add RapidOCR as lightweight alternative
@@ -631,7 +631,7 @@
 - **Current State**: `RapidTable` exists (table recognition), but NOT `RapidOCR`.
 - **What to Build**:
   ```python
-  # mineru/model/ocr/rapidocr.py
+  # vparse/model/ocr/rapidocr.py
   class RapidOCRModel:
       def __init__(self, lang: str = "ch"):
           from rapidocr_onnx import RapidOCR
@@ -645,44 +645,43 @@
   - Fast startup, low memory
   - Good for CPU-only deployments
 - **Files to Create**:
-  - `mineru/model/ocr/rapidocr.py`
+  - `vparse/model/ocr/rapidocr.py`
 - **Priority**: 🟡 HIGH
 
 ##### 3.5 Create modular pipeline components
 - **Status**: ✅ IMPLEMENTED
 - **Current State**:
-  - `mineru/backend/pipeline/model_list.py` - `AtomicModel` enum (Layout, MFD, MFR, OCR, WirelessTable, WiredTable, TableCls, ImgOrientationCls)
-  - `mineru/backend/pipeline/model_init.py` - `AtomModelSingleton` for each component
-  - `mineru/backend/pipeline/batch_analyze.py` - Batch inference logic
+  - `vparse/backend/pipeline/model_list.py` - `AtomicModel` enum (Layout, MFD, MFR, OCR, WirelessTable, WiredTable, TableCls, ImgOrientationCls)
+  - `vparse/backend/pipeline/model_init.py` - `AtomModelSingleton` for each component
+  - `vparse/backend/pipeline/batch_analyze.py` - Batch inference logic
   - **Gaps**: Cannot selectively enable/disable components at runtime
 - **What to Build**:
   - Runtime component toggle (enable layout detection only, disable OCR)
   - Component dependency graph (layout → OCR → table)
   - Custom component pipeline (user-specified order)
 - **Files to Modify**:
-  - `mineru/backend/pipeline/model_init.py` - Add component enable/disable
+  - `vparse/backend/pipeline/model_init.py` - Add component enable/disable
 - **Priority**: 🟢 MEDIUM
 
-##### 3.6 Implement pipeline-lite mode
-- **Status**: ❌ NOT IMPLEMENTED
-- **Current State**: No lite mode.
+##### 3.6 Implement lite mode
+- **Status**: ✅ IMPLEMENTED
+- **Current State**: Lite mode implemented as direct-Tesseract backend.
 - **What to Build**:
-  - Minimal model set: layout detection + Tesseract OCR only
+  - Minimal model set: Tesseract OCR only
   - No formula recognition, no table recognition, no orientation classification
   - Fast startup (<5s), low memory (<2GB)
   - CPU-optimized
-  - Backend name: `"pipeline-lite"`
+  - Backend name: `"lite"`
   ```python
   # Usage
-  from mineru import MinerU
+  from vparse import VParse
   
-  ocr = MinerU(backend="pipeline-lite", lang="en")
+  ocr = VParse(backend="lite", lang="en")
   result = ocr.process("document.pdf")  # Fast, CPU-only
   ```
 - **Files to Create**:
-  - `mineru/backend/pipeline/lite_config.py` - Lite mode config
-  - `mineru/backend/pipeline/lite_model_init.py` - Minimal model init
-- **Priority**: 🔴 CRITICAL
+  - `vparse/backend/lite/lite_analyze.py` - Lite mode implementation
+- **Priority**: ✅ DONE
 
 ##### 3.7 Add pipeline accuracy vs speed tradeoff configuration
 - **Status**: ❌ NOT IMPLEMENTED
@@ -699,21 +698,21 @@
   }
   ```
 - **Files to Modify**:
-  - `mineru/backend/pipeline/pipeline_analyze.py` - Add mode selection
+  - `vparse/backend/pipeline/pipeline_analyze.py` - Add mode selection
 - **Priority**: 🟢 MEDIUM
 
 ##### 3.8 Create pipeline component benchmarking suite
 - **Status**: ❌ NOT IMPLEMENTED
 - **Current State**: No benchmarking utilities.
 - **What to Build**:
-  - `mineru/benchmarks/pipeline.py` - Benchmark script
+  - `vparse/benchmarks/pipeline.py` - Benchmark script
   - Compare: Tesseract vs PaddleOCR vs EasyOCR vs RapidOCR
   - Metrics: latency, accuracy (CER/WER), memory usage
   - Export to CSV/JSON
-  - CLI: `mineru-benchmark --backend pipeline --engines tesseract,paddle`
+  - CLI: `vparse-benchmark --backend pipeline --engines tesseract,paddle`
 - **Files to Create**:
-  - `mineru/benchmarks/__init__.py`
-  - `mineru/benchmarks/pipeline.py`
+  - `vparse/benchmarks/__init__.py`
+  - `vparse/benchmarks/pipeline.py`
 - **Priority**: 🟢 MEDIUM
 
 ---
@@ -731,7 +730,7 @@
 - **Current State**: VLM backend has `doc_analyze()` function but no abstract interface for models.
 - **What to Build**:
   ```python
-  # mineru/backend/vlm/base.py
+  # vparse/backend/vlm/base.py
   class VLMModelProtocol(Protocol):
       """Protocol for all VLM models"""
       
@@ -761,14 +760,14 @@
           ...
   ```
 - **Files to Create**:
-  - `mineru/backend/vlm/base.py` - VLMModelProtocol
+  - `vparse/backend/vlm/base.py` - VLMModelProtocol
 - **Priority**: 🔴 CRITICAL
 
 ##### 4.2 Add dots.mocr model support
 - **Status**: ✅ IMPLEMENTED
 - **Current State**:
-  - `mineru/backend/vlm/dots_ocr/` - Complete dots.ocr module
-  - `mineru/backend/vlm/dots_ocr_client.py` - `DotsOCRClient` with `batch_two_step_extract()`, `aio_batch_two_step_extract()`
+  - `vparse/backend/vlm/dots_ocr/` - Complete dots.ocr module
+  - `vparse/backend/vlm/dots_ocr_client.py` - `DotsOCRClient` with `batch_two_step_extract()`, `aio_batch_two_step_extract()`
   - Supports `transformers`, `vllm-engine`, `vllm-async-engine`, `lmdeploy-engine`, `mlx-engine`
   - Prompt modes: `prompt_layout_all_en`, `prompt_layout_only_en`
   - **Gaps**: No model versioning, no config validation
@@ -777,7 +776,7 @@
   - Add config validation
   - Improve error messages
 - **Files to Modify**:
-  - `mineru/backend/vlm/dots_ocr/` - Add validation
+  - `vparse/backend/vlm/dots_ocr/` - Add validation
 - **Priority**: 🟢 MEDIUM
 
 ##### 4.3 Integrate Qwen2-VL
@@ -785,7 +784,7 @@
 - **Current State**: No Qwen2-VL integration.
 - **What to Build**:
   ```python
-  # mineru/backend/vlm/models/qwen2_vl.py
+  # vparse/backend/vlm/models/qwen2_vl.py
   class Qwen2VLModel:
       def __init__(
           self,
@@ -802,8 +801,8 @@
   - Strong multilingual support
   - Good for general document understanding
 - **Files to Create**:
-  - `mineru/backend/vlm/models/__init__.py`
-  - `mineru/backend/vlm/models/qwen2_vl.py`
+  - `vparse/backend/vlm/models/__init__.py`
+  - `vparse/backend/vlm/models/qwen2_vl.py`
 - **Priority**: 🟡 HIGH
 
 ##### 4.4 Add InternVL2/2.5 support
@@ -814,7 +813,7 @@
   - Strong table and formula understanding
   - Add to model registry
 - **Files to Create**:
-  - `mineru/backend/vlm/models/internvl.py`
+  - `vparse/backend/vlm/models/internvl.py`
 - **Priority**: 🟡 HIGH
 
 ##### 4.5 Integrate Got-OCR2.0
@@ -825,7 +824,7 @@
   - High accuracy on printed text
   - Good fallback option
 - **Files to Create**:
-  - `mineru/backend/vlm/models/got_ocr.py`
+  - `vparse/backend/vlm/models/got_ocr.py`
 - **Priority**: 🟢 MEDIUM
 
 ##### 4.6 Add Nougat model support
@@ -836,14 +835,14 @@
   - Sequence-to-sequence architecture
   - Good for academic document processing
   ```python
-  # mineru/backend/vlm/models/nougat.py
+  # vparse/backend/vlm/models/nougat.py
   class NougatModel:
       def __init__(self, model_path: str):
           from transformers import VisionEncoderDecoderModel
           self.model = VisionEncoderDecoderModel.from_pretrained(model_path)
   ```
 - **Files to Create**:
-  - `mineru/backend/vlm/models/nougat.py`
+  - `vparse/backend/vlm/models/nougat.py`
 - **Priority**: 🟢 MEDIUM
 
 ##### 4.7 Implement model auto-selection
@@ -867,15 +866,15 @@
       return "qwen2-vl"
   ```
 - **Files to Create**:
-  - `mineru/backend/vlm/model_selector.py`
+  - `vparse/backend/vlm/model_selector.py`
 - **Priority**: 🟡 HIGH
 
 ##### 4.8 Create model hub
 - **Status**: ⚠️ PARTIAL
 - **Current State**:
-  - `mineru/utils/models_download_utils.py` - Download from HuggingFace/ModelScope
-  - `mineru/cli/models_download.py` - CLI for downloading
-  - `ModelPath` enum in `mineru/utils/enum_class.py` - Lists model paths
+  - `vparse/utils/models_download_utils.py` - Download from HuggingFace/ModelScope
+  - `vparse/cli/models_download.py` - CLI for downloading
+  - `ModelPath` enum in `vparse/utils/enum_class.py` - Lists model paths
   - **Gaps**: No versioning, no caching, no integrity verification, no model metadata
 - **What to Build**:
   - Model version tracking
@@ -884,20 +883,20 @@
   - Model metadata (size, license, intended use, performance metrics)
   - Local model cache with LRU eviction
 - **Files to Modify**:
-  - `mineru/utils/models_download_utils.py` - Add versioning, checksums
-  - `mineru/utils/enum_class.py` - Add model metadata
+  - `vparse/utils/models_download_utils.py` - Add versioning, checksums
+  - `vparse/utils/enum_class.py` - Add model metadata
 - **Priority**: 🟡 HIGH
 
 ##### 4.9 Add custom model fine-tuning interface
 - **Status**: ❌ NOT IMPLEMENTED
 - **Current State**: No fine-tuning support.
 - **What to Build**:
-  - Export fine-tuned models to MinerU format
+  - Export fine-tuned models to VParse format
   - Training script templates
   - Dataset preparation utilities
-  - `mineru finetune --model dots.mocr --data ./dataset`
+  - `vparse finetune --model dots.mocr --data ./dataset`
 - **Files to Create**:
-  - `mineru/finetune/` - Fine-tuning module
+  - `vparse/finetune/` - Fine-tuning module
 - **Priority**: 🔵 LOW
 
 ##### 4.10 Implement model ensemble voting
@@ -909,18 +908,18 @@
   - Confidence scoring
   - Useful for critical extractions (tables, formulas)
 - **Files to Create**:
-  - `mineru/backend/vlm/ensemble.py`
+  - `vparse/backend/vlm/ensemble.py`
 - **Priority**: 🔵 LOW
 
 ##### 4.11 Add model comparison and evaluation utilities
 - **Status**: ❌ NOT IMPLEMENTED
 - **Current State**: No comparison tools.
 - **What to Build**:
-  - `mineru evaluate --model1 dots.mocr --model2 qwen2-vl --dataset ./test_pdfs`
+  - `vparse evaluate --model1 dots.mocr --model2 qwen2-vl --dataset ./test_pdfs`
   - Compare CER, WER, table accuracy, formula accuracy
   - Export results to CSV/HTML
 - **Files to Create**:
-  - `mineru/evaluate.py`
+  - `vparse/evaluate.py`
 - **Priority**: 🟢 MEDIUM
 
 ---
@@ -936,9 +935,9 @@
 ##### 5.1 Integrate vLLM engine
 - **Status**: ✅ IMPLEMENTED
 - **Current State**:
-  - `mineru/cli/vlm_server.py` - `mineru-vllm-server` entry point
-  - `mineru/backend/vlm/vlm_analyze.py` - `vllm-engine`, `vllm-async-engine` support
-  - `mineru/utils/engine_utils.py` - vLLM utilities
+  - `vparse/cli/vlm_server.py` - `vparse-vllm-server` entry point
+  - `vparse/backend/vlm/vlm_analyze.py` - `vllm-engine`, `vllm-async-engine` support
+  - `vparse/utils/engine_utils.py` - vLLM utilities
   - **Gaps**: No KV cache optimization, no continuous batching tuning
 - **What to Build**: (See Module 7 for KV cache optimizations)
 - **Priority**: 🟢 MEDIUM
@@ -946,9 +945,9 @@
 ##### 5.2 Add LMDeploy engine support
 - **Status**: ✅ IMPLEMENTED
 - **Current State**:
-  - `mineru/cli/vlm_server.py` - `mineru-lmdeploy-server` entry point
-  - `mineru/backend/vlm/vlm_analyze.py` - `lmdeploy-engine` support
-  - `set_lmdeploy_backend()` in `mineru/backend/vlm/utils.py`
+  - `vparse/cli/vlm_server.py` - `vparse-lmdeploy-server` entry point
+  - `vparse/backend/vlm/vlm_analyze.py` - `lmdeploy-engine` support
+  - `set_lmdeploy_backend()` in `vparse/backend/vlm/utils.py`
   - **Gaps**: Limited documentation
 - **What to Build**: Improve documentation, add benchmarking
 - **Priority**: 🟢 MEDIUM
@@ -958,7 +957,7 @@
 - **Current State**: No Ollama integration.
 - **What to Build**:
   ```python
-  # mineru/backend/vlm/engines/ollama.py
+  # vparse/backend/vlm/engines/ollama.py
   class OllamaEngine:
       def __init__(
           self,
@@ -978,7 +977,7 @@
   - Good for development/testing
   - Add `[ollama]` optional dependency
 - **Files to Create**:
-  - `mineru/backend/vlm/engines/ollama.py`
+  - `vparse/backend/vlm/engines/ollama.py`
 - **Priority**: 🟡 HIGH
 
 ##### 5.4 Add Transformers.js support
@@ -989,13 +988,13 @@
   - Useful for edge deployments
   - Lower accuracy, but runs anywhere
 - **Files to Create**:
-  - `mineru/backend/vlm/engines/transformers_js.py`
+  - `vparse/backend/vlm/engines/transformers_js.py`
 - **Priority**: 🔵 LOW
 
 ##### 5.5 Implement MLX engine for Apple Silicon
 - **Status**: ✅ IMPLEMENTED
 - **Current State**:
-  - `mineru/backend/vlm/vlm_analyze.py` - `mlx-engine` support
+  - `vparse/backend/vlm/vlm_analyze.py` - `mlx-engine` support
   - macOS only (Apple Silicon M1/M2/M3)
   - **Gaps**: Limited model support
 - **What to Build**: Expand model compatibility
@@ -1009,13 +1008,13 @@
   - Production-grade serving
   - Good for enterprise deployments
 - **Files to Create**:
-  - `mineru/backend/vlm/engines/tgi.py`
+  - `vparse/backend/vlm/engines/tgi.py`
 - **Priority**: 🟡 HIGH
 
 ##### 5.7 Create HTTP/OpenAI-compatible client
 - **Status**: ✅ IMPLEMENTED
 - **Current State**:
-  - `mineru/backend/vlm/dots_ocr_client.py` - OpenAI-compatible client
+  - `vparse/backend/vlm/dots_ocr_client.py` - OpenAI-compatible client
   - `vlm-http-client` and `hybrid-http-client` backend options
   - Uses `openai` Python package
   - **Gaps**: No retry logic, no timeout handling
@@ -1035,7 +1034,7 @@
       return "transformers"
   ```
 - **Files to Modify**:
-  - `mineru/utils/engine_utils.py` - Add auto-detection
+  - `vparse/utils/engine_utils.py` - Add auto-detection
 - **Priority**: 🟡 HIGH
 
 ##### 5.9 Add engine-specific configuration templates
@@ -1043,7 +1042,7 @@
 - **Current State**: No templates.
 - **What to Build**:
   ```yaml
-  # mineru-engine-configs.yaml
+  # vparse-engine-configs.yaml
   engines:
     vllm:
       gpu_memory_utilization: 0.5
@@ -1057,7 +1056,7 @@
       cache_max_entry_count: 0.8
   ```
 - **Files to Create**:
-  - `mineru/backend/vlm/engine_configs.yaml`
+  - `vparse/backend/vlm/engine_configs.yaml`
 - **Priority**: 🟢 MEDIUM
 
 ---
@@ -1078,16 +1077,16 @@
   - Batch lazy loading (load only needed components)
   - Progress callbacks during loading
 - **Files to Modify**:
-  - `mineru/backend/vlm/vlm_analyze.py` - ModelSingleton
-  - `mineru/backend/pipeline/model_init.py` - AtomModelSingleton
+  - `vparse/backend/vlm/vlm_analyze.py` - ModelSingleton
+  - `vparse/backend/pipeline/model_init.py` - AtomModelSingleton
 - **Priority**: 🟡 HIGH
 
 ##### 6.2 Add model unloading and memory release
 - **Status**: ❌ NOT IMPLEMENTED
-- **Current State**: No model unloading. `clean_memory(device)` in `mineru/utils/model_utils.py` only clears cache, doesn't unload models.
+- **Current State**: No model unloading. `clean_memory(device)` in `vparse/utils/model_utils.py` only clears cache, doesn't unload models.
 - **What to Build**:
   ```python
-  # mineru/utils/model_utils.py
+  # vparse/utils/model_utils.py
   def unload_model(model: Any, device: str):
       """Completely unload model and free memory"""
       del model
@@ -1102,7 +1101,7 @@
       unload_model(self.model, self.device)
   ```
 - **Files to Modify**:
-  - `mineru/utils/model_utils.py` - Add unload utilities
+  - `vparse/utils/model_utils.py` - Add unload utilities
   - All backend classes - Add `shutdown()` method
 - **Priority**: 🟡 HIGH
 
@@ -1114,12 +1113,12 @@
   - Reuse tensors across pages
   - Reduce memory fragmentation
 - **Files to Create**:
-  - `mineru/utils/memory_pool.py`
+  - `vparse/utils/memory_pool.py`
 - **Priority**: 🟢 MEDIUM
 
 ##### 6.4 Implement streaming PDF processing
 - **Status**: ⚠️ PARTIAL
-- **Current State**: `aio_do_parse()` in `mineru/cli/common.py` supports async processing, but entire PDF is loaded into memory.
+- **Current State**: `aio_do_parse()` in `vparse/cli/common.py` supports async processing, but entire PDF is loaded into memory.
 - **What to Build**:
   - Page-by-page processing
   - Never load entire PDF into memory
@@ -1129,23 +1128,23 @@
       save_result(page_result)
   ```
 - **Files to Modify**:
-  - `mineru/cli/common.py` - Add streaming mode
-  - `mineru/utils/pdf_reader.py` - Add page iterator
+  - `vparse/cli/common.py` - Add streaming mode
+  - `vparse/utils/pdf_reader.py` - Add page iterator
 - **Priority**: 🟡 HIGH
 
 ##### 6.5 Add VRAM-aware batch sizing
 - **Status**: ⚠️ PARTIAL
 - **Current State**:
-  - `mineru/utils/model_utils.py` - `get_vram(device)` and batch sizing logic
+  - `vparse/utils/model_utils.py` - `get_vram(device)` and batch sizing logic
   - 32GB→16, 16GB→8, 12GB→4, 8GB→2, <8GB→1
-  - `set_default_batch_size()` in `mineru/backend/vlm/utils.py`
+  - `set_default_batch_size()` in `vparse/backend/vlm/utils.py`
   - **Gaps**: Not dynamic (doesn't adjust during processing)
 - **What to Build**:
   - Real-time VRAM monitoring
   - Dynamic batch size adjustment
   - Backpressure when VRAM is low
 - **Files to Modify**:
-  - `mineru/utils/model_utils.py` - Add dynamic sizing
+  - `vparse/utils/model_utils.py` - Add dynamic sizing
 - **Priority**: 🟡 HIGH
 
 ##### 6.6 Implement garbage collection tuning
@@ -1156,19 +1155,19 @@
   - Disable GC during inference (performance)
   - Force GC when memory pressure is high
 - **Files to Modify**:
-  - `mineru/backend/pipeline/batch_analyze.py` - Add GC tuning
+  - `vparse/backend/pipeline/batch_analyze.py` - Add GC tuning
 - **Priority**: 🟢 MEDIUM
 
 ##### 6.7 Create memory usage profiling tools
 - **Status**: ❌ NOT IMPLEMENTED
 - **Current State**: No profiling tools.
 - **What to Build**:
-  - `mineru profile-memory --backend pipeline document.pdf`
+  - `vparse profile-memory --backend pipeline document.pdf`
   - Show memory usage per component
   - Identify memory leaks
   - Export to HTML report
 - **Files to Create**:
-  - `mineru/utils/memory_profiler.py`
+  - `vparse/utils/memory_profiler.py`
 - **Priority**: 🟢 MEDIUM
 
 ##### 6.8 Add OOM prevention with backpressure
@@ -1180,7 +1179,7 @@
   - Resume when memory drops
   - Graceful degradation
 - **Files to Create**:
-  - `mineru/utils/oom_prevention.py`
+  - `vparse/utils/oom_prevention.py`
 - **Priority**: 🟡 HIGH
 
 ##### 6.9 Implement model weight sharing
@@ -1195,9 +1194,9 @@
 ##### 6.10 Add device abstraction and auto-selection
 - **Status**: ✅ IMPLEMENTED
 - **Current State**:
-  - `mineru/utils/config_reader.py` - `get_device()` function
+  - `vparse/utils/config_reader.py` - `get_device()` function
   - Supports: cpu, cuda, cuda:N, npu, mps, gcu, musa, mlu, sdaa
-  - `MINERU_DEVICE_MODE` environment variable
+  - `VPARSE_DEVICE_MODE` environment variable
   - **Gaps**: No automatic performance benchmarking per device
 - **Priority**: 🟢 MEDIUM
 
@@ -1229,7 +1228,7 @@
   - Identify cache size vs performance tradeoffs
   - Document findings
 - **Files to Create**:
-  - `mineru/backend/vlm/kv_cache_analysis.py`
+  - `vparse/backend/vlm/kv_cache_analysis.py`
 - **Priority**: 🔴 CRITICAL - Prerequisite for other KV cache tasks
 
 ##### 7.2 Implement KV cache sharing for similar pages
@@ -1245,7 +1244,7 @@
       reuse_cache(cache_registry[page.layout_hash])
   ```
 - **Files to Create**:
-  - `mineru/backend/vlm/kv_cache_sharing.py`
+  - `vparse/backend/vlm/kv_cache_sharing.py`
 - **Priority**: 🟡 HIGH
 
 ##### 7.3 Add KV cache pre-allocation for bulk jobs
@@ -1256,7 +1255,7 @@
   - Avoid runtime cache expansion
   - Configure via `--kv-cache-size` parameter
 - **Files to Modify**:
-  - `mineru/cli/vlm_server.py` - Add pre-allocation
+  - `vparse/cli/vlm_server.py` - Add pre-allocation
 - **Priority**: 🟡 HIGH
 
 ##### 7.4 Create intelligent KV cache eviction policies
@@ -1268,7 +1267,7 @@
   - Priority-based (keep high-priority jobs in cache)
   - Configurable eviction strategy
 - **Files to Create**:
-  - `mineru/backend/vlm/kv_cache_eviction.py`
+  - `vparse/backend/vlm/kv_cache_eviction.py`
 - **Priority**: 🟡 HIGH
 
 ##### 7.5 Implement vLLM KV cache tuning
@@ -1290,7 +1289,7 @@
   )
   ```
 - **Files to Modify**:
-  - `mineru/backend/vlm/vlm_analyze.py` - Add tuning parameters
+  - `vparse/backend/vlm/vlm_analyze.py` - Add tuning parameters
 - **Priority**: 🔴 CRITICAL
 
 ##### 7.6 Add page similarity detection for cache reuse
@@ -1302,7 +1301,7 @@
   - Image hash for similar images
   - Cache similar page prefixes
 - **Files to Create**:
-  - `mineru/backend/vlm/page_similarity.py`
+  - `vparse/backend/vlm/page_similarity.py`
 - **Priority**: 🟡 HIGH
 
 ##### 7.7 Implement batch-aware KV cache management
@@ -1324,7 +1323,7 @@
   - Eviction rate
   - Export to Prometheus
 - **Files to Create**:
-  - `mineru/backend/vlm/kv_cache_metrics.py`
+  - `vparse/backend/vlm/kv_cache_metrics.py`
 - **Priority**: 🟡 HIGH
 
 ##### 7.9 Add continuous batching optimization
@@ -1370,7 +1369,7 @@
 - **What to Build**:
   ```python
   # Bulk API
-  from mineru import BulkProcessor
+  from vparse import BulkProcessor
   
   processor = BulkProcessor(
       backend="pipeline",
@@ -1389,8 +1388,8 @@
   results = job.wait_and_get_results()
   ```
 - **Files to Create**:
-  - `mineru/bulk.py` - BulkProcessor class
-  - `mineru/job.py` - Job tracking
+  - `vparse/bulk.py` - BulkProcessor class
+  - `vparse/job.py` - Job tracking
 - **Priority**: 🟡 HIGH
 
 ##### 8.2 Implement Redis/Celery job queue
@@ -1406,20 +1405,20 @@
   from celery import Celery
   
   app = Celery(
-      "mineru",
+      "vparse",
       broker="redis://localhost:6379/0",
       backend="redis://localhost:6379/1",
   )
   
   @app.task
   def process_pdf(pdf_bytes: bytes, config: dict) -> dict:
-      from mineru import MinerU
-      ocr = MinerU(**config)
+      from vparse import VParse
+      ocr = VParse(**config)
       return ocr.process_bytes(pdf_bytes)
   ```
 - **Files to Create**:
-  - `mineru/celery_app.py`
-  - `mineru/tasks.py` - Celery tasks
+  - `vparse/celery_app.py`
+  - `vparse/tasks.py` - Celery tasks
 - **Priority**: 🟡 HIGH
 
 ##### 8.3 Add priority queue support
@@ -1457,14 +1456,14 @@
           print(f"Throughput: {event.pages_per_sec} pages/sec")
   ```
 - **Files to Create**:
-  - `mineru/progress.py` - Progress tracker
+  - `vparse/progress.py` - Progress tracker
 - **Priority**: 🟡 HIGH
 
 ##### 8.6 Add checkpoint and resume for interrupted jobs
 - **Status**: ✅ IMPLEMENTED (CLI only)
 - **Current State**:
   - CLI has `--resume` and `--no-resume` flags
-  - Checkpoints stored in `.mineru_checkpoints/` directory
+  - Checkpoints stored in `.vparse_checkpoints/` directory
   - Tracks processed and failed files in JSON
   - **Gaps**: No API-level checkpoint, no bulk job resume
 - **What to Build**:
@@ -1472,8 +1471,8 @@
   - Resume bulk jobs from failure point
   - Configurable checkpoint interval
 - **Files to Modify**:
-  - `mineru/cli/common.py` - Extract checkpoint logic
-  - `mineru/checkpoint.py` - Shared checkpoint module
+  - `vparse/cli/common.py` - Extract checkpoint logic
+  - `vparse/checkpoint.py` - Shared checkpoint module
 - **Priority**: 🟡 HIGH
 
 ##### 8.7 Implement parallel page processing
@@ -1542,9 +1541,9 @@
 ##### 9.1 Create production FastAPI service
 - **Status**: ✅ IMPLEMENTED
 - **Current State**:
-  - `mineru/cli/fast_api.py` - `mineru-api` entry point
+  - `vparse/cli/fast_api.py` - `vparse-api` entry point
   - `/file_parse` endpoint with file upload
-  - Concurrency control via `MINERU_API_MAX_CONCURRENT_REQUESTS`
+  - Concurrency control via `VPARSE_API_MAX_CONCURRENT_REQUESTS`
   - Multiple response formats (markdown, middle_json, model_output, content_list, images)
   - ZIP export option
   - OpenAPI documentation at `/docs`
@@ -1571,7 +1570,7 @@
 
 ##### 9.3 Add health check endpoints
 - **Status**: ⚠️ PARTIAL
-- **Current State**: No dedicated health endpoints. Docker Compose has `curl -f http://localhost:30000/health` for vLLM server, but MinerU FastAPI doesn't implement it.
+- **Current State**: No dedicated health endpoints. Docker Compose has `curl -f http://localhost:30000/health` for vLLM server, but VParse FastAPI doesn't implement it.
 - **What to Build**:
   ```python
   @app.get("/health")
@@ -1603,7 +1602,7 @@
   - `docker/global/Dockerfile` - Global x86_64 build
   - `docker/china/*.Dockerfile` - Platform-specific builds (NPU, DCU, GCU, PPU, MLU, MUSA, MACA, COREX, KXPU)
   - Base: `vllm/vllm-openai:v0.10.1.1`
-  - Installs: `mineru[core]>=2.7.0`, fonts
+  - Installs: `vparse[core]>=2.7.0`, fonts
   - Downloads all models
   - **Gaps**: No multi-stage build (large image size), no CPU-only variant, no slim variant
 - **What to Build**:
@@ -1619,9 +1618,9 @@
 - **Status**: ✅ IMPLEMENTED
 - **Current State**:
   - `docker/compose.yaml` - Three services:
-    - `mineru-openai-server` (port 30000) - vLLM server
-    - `mineru-api` (port 8000) - FastAPI
-    - `mineru-gradio` (port 7860) - Gradio UI
+    - `vparse-openai-server` (port 30000) - vLLM server
+    - `vparse-api` (port 8000) - FastAPI
+    - `vparse-gradio` (port 7860) - Gradio UI
   - GPU reservations, health checks
   - Profiles for selective startup
   - **Gaps**: No Redis, no monitoring (Prometheus/Grafana), no worker autoscaling
@@ -1637,7 +1636,7 @@
 - **Status**: ❌ NOT IMPLEMENTED
 - **Current State**: No K8s manifests.
 - **What to Build**:
-  - `k8s/deployment.yaml` - MinerU deployment
+  - `k8s/deployment.yaml` - VParse deployment
   - `k8s/service.yaml` - ClusterIP/LoadBalancer service
   - `k8s/hpa.yaml` - Horizontal Pod Autoscaler
   - `k8s/configmap.yaml` - Configuration
@@ -1651,9 +1650,9 @@
 - **Status**: ❌ NOT IMPLEMENTED
 - **Current State**: No Helm chart.
 - **What to Build**:
-  - `helm/mineru/Chart.yaml`
-  - `helm/mineru/values.yaml` - Configurable values
-  - `helm/mineru/templates/` - Templates
+  - `helm/vparse/Chart.yaml`
+  - `helm/vparse/values.yaml` - Configurable values
+  - `helm/vparse/templates/` - Templates
   - Support:
     - Replica count
     - GPU allocation
@@ -1661,7 +1660,7 @@
     - Autoscaling
     - Ingress
 - **Files to Create**:
-  - `helm/mineru/` - Complete Helm chart
+  - `helm/vparse/` - Complete Helm chart
 - **Priority**: 🟢 MEDIUM
 
 ##### 9.8 Implement graceful shutdown
@@ -1894,7 +1893,7 @@
   - Binarization
   - Border removal
   ```python
-  from mineru.preprocessing import enhance_page
+  from vparse.preprocessing import enhance_page
   
   enhanced_img = enhance_page(
       image,
@@ -1917,7 +1916,7 @@
 ##### 11.3 Create language detection
 - **Status**: ✅ IMPLEMENTED
 - **Current State**:
-  - `mineru/utils/language.py` - Language detection utilities
+  - `vparse/utils/language.py` - Language detection utilities
   - `fast-langdetect` package
   - **Gaps**: Could be more accurate for mixed-language documents
 - **Priority**: 🟢 MEDIUM
@@ -1933,7 +1932,7 @@
 ##### 11.5 Implement reading order optimization
 - **Status**: ✅ IMPLEMENTED
 - **Current State**:
-  - `mineru/utils/block_sort.py` - Reading order sorting
+  - `vparse/utils/block_sort.py` - Reading order sorting
   - `layout_reader`, xycut algorithms
   - `ModelSingleton` for layout reader
   - **Gaps**: Could be improved for complex layouts
@@ -1942,19 +1941,19 @@
 ##### 11.6 Create table detection and structure extraction
 - **Status**: ✅ IMPLEMENTED
 - **Current State**:
-  - `mineru/model/table/rec/slanet_plus/` - SlanetPlus (wired tables)
-  - `mineru/model/table/rec/unet_table/` - UnetTableModel (wireless tables)
-  - `mineru/model/table/cls/` - Table classification
-  - `mineru/utils/table_merge.py` - Table merging utilities
-  - `mineru/utils/format_utils.py` - OTSL-to-HTML conversion
+  - `vparse/model/table/rec/slanet_plus/` - SlanetPlus (wired tables)
+  - `vparse/model/table/rec/unet_table/` - UnetTableModel (wireless tables)
+  - `vparse/model/table/cls/` - Table classification
+  - `vparse/utils/table_merge.py` - Table merging utilities
+  - `vparse/utils/format_utils.py` - OTSL-to-HTML conversion
   - **Gaps**: Could support more table types
 - **Priority**: 🟢 MEDIUM
 
 ##### 11.7 Add formula detection and LaTeX conversion
 - **Status**: ✅ IMPLEMENTED
 - **Current State**:
-  - `mineru/model/mfd/yolo_v8.py` - Formula detection (YOLOv8)
-  - `mineru/model/mfr/unimernet/` - Formula recognition (Unimernet)
+  - `vparse/model/mfd/yolo_v8.py` - Formula detection (YOLOv8)
+  - `vparse/model/mfr/unimernet/` - Formula recognition (Unimernet)
   - Supports inline and display formulas
   - **Gaps**: Formula refinement, LaTeX quality
 - **Priority**: 🟢 MEDIUM
@@ -2020,8 +2019,8 @@
 ##### 12.1 Enhanced Markdown output
 - **Status**: ✅ IMPLEMENTED
 - **Current State**:
-  - `mineru/backend/pipeline/pipeline_middle_json_mkcontent.py` - `union_make()` for MM_MD, NLP_MD
-  - `mineru/backend/vlm/vlm_middle_json_mkcontent.py` - VLM markdown
+  - `vparse/backend/pipeline/pipeline_middle_json_mkcontent.py` - `union_make()` for MM_MD, NLP_MD
+  - `vparse/backend/vlm/vlm_middle_json_mkcontent.py` - VLM markdown
   - Includes: headings, text, tables (HTML), formulas (LaTeX), images
   - **Gaps**: No frontmatter, no metadata, no footnotes
 - **What to Build**: Add YAML frontmatter, metadata, footnotes
@@ -2030,7 +2029,7 @@
 ##### 12.2 Implement HTML export
 - **Status**: ⚠️ PARTIAL
 - **Current State**:
-  - `mineru/utils/format_utils.py` - Table HTML conversion
+  - `vparse/utils/format_utils.py` - Table HTML conversion
   - **Gaps**: No full document HTML, no semantic tags, no accessibility
 - **What to Build**:
   - Complete HTML document
@@ -2061,7 +2060,7 @@
   - Add images
   - Add tables
 - **Files to Create**:
-  - `mineru/export/docx.py`
+  - `vparse/export/docx.py`
 - **Priority**: 🟡 HIGH
 
 ##### 12.4 Create searchable PDF export
@@ -2194,7 +2193,7 @@
   - Use `httpx` async client for testing
   ```python
   from fastapi.testclient import TestClient
-  from mineru.cli.fast_api import app
+  from vparse.cli.fast_api import app
   
   client = TestClient(app)
   
@@ -2229,7 +2228,7 @@
   # locustfile.py
   from locust import HttpUser, task, between
   
-  class MinerUUser(HttpUser):
+  class VParseUser(HttpUser):
       wait_time = between(1, 3)
       
       @task
@@ -2324,9 +2323,9 @@
   ```python
   from prometheus_client import Counter, Histogram, generate_latest
   
-  REQUEST_COUNT = Counter("mineru_requests_total", "Total requests", ["backend", "status"])
-  REQUEST_LATENCY = Histogram("mineru_request_latency_seconds", "Request latency", ["backend"])
-  PAGES_PROCESSED = Counter("mineru_pages_processed_total", "Total pages processed", ["backend"])
+  REQUEST_COUNT = Counter("vparse_requests_total", "Total requests", ["backend", "status"])
+  REQUEST_LATENCY = Histogram("vparse_request_latency_seconds", "Request latency", ["backend"])
+  PAGES_PROCESSED = Counter("vparse_pages_processed_total", "Total pages processed", ["backend"])
   
   @app.get("/metrics")
   async def metrics():
@@ -2485,10 +2484,10 @@
 - **Status**: ❌ NOT IMPLEMENTED
 - **Current State**: No migration guides.
 - **What to Build**:
-  - Migrate from Tesseract → MinerU
-  - Migrate from EasyOCR → MinerU
-  - Migrate from PaddleOCR → MinerU
-  - Migrate from Unstructured → MinerU
+  - Migrate from Tesseract → VParse
+  - Migrate from EasyOCR → VParse
+  - Migrate from PaddleOCR → VParse
+  - Migrate from Unstructured → VParse
 - **Priority**: 🟢 MEDIUM
 
 ##### 15.6 Create troubleshooting guide
@@ -2516,7 +2515,7 @@
 - **Current State**:
   - FastAPI auto-generates Swagger at `/docs`
   - Redoc at `/redoc`
-  - Can be disabled via `MINERU_API_ENABLE_FASTAPI_DOCS=0`
+  - Can be disabled via `VPARSE_API_ENABLE_FASTAPI_DOCS=0`
   - **Gaps**: No examples in schema
 - **Priority**: 🟢 MEDIUM
 
@@ -2553,17 +2552,17 @@
 | 3 | M1 | 1.4 Exception hierarchy | 1 day | Error handling |
 | 4 | M2 | 2.1 BackendProtocol interface | 3 days | Enables pluggable backends |
 | 5 | M2 | 2.2 BackendRegistry | 2 days | Backend discovery |
-| 6 | M3 | **3.1 Tesseract integration** | 5 days | **Requested feature** |
-| 7 | M3 | **3.6 Pipeline-lite mode** | 3 days | **Requested feature** |
+| 6 | M3 | **3.1 Tesseract integration** | 5 days | **Implemented via lite backend** |
+| 7 | M3 | **3.6 Lite mode** | 3 days | **Implemented via lite backend** |
 | 8 | M9 | 9.3 Health check endpoints | 1 day | Docker deployment ready |
 | 9 | M9 | 9.8 Graceful shutdown | 1 day | Production readiness |
 | 10 | M1 | 1.8 PyPI packaging | 2 days | Distribution ready |
 
 **Deliverables**: 
-- ✅ `pip install mineru` works
-- ✅ `from mineru import MinerU` works
+- ✅ `pip install vparse` works
+- ✅ `from vparse import VParse` works
 - ✅ Tesseract backend available
-- ✅ Pipeline-lite mode available
+- ✅ Lite mode available
 - ✅ Docker service has health checks
 
 ---
@@ -2721,10 +2720,10 @@
 
 ### For Contributors
 
-1. **Fork the repository**: `git clone https://github.com/your-username/MinerU-dots.git`
+1. **Fork the repository**: `git clone https://github.com/your-username/VParse-dots.git`
 2. **Set up development environment**:
    ```bash
-   cd MinerU-dots
+   cd VParse-dots
    python -m venv .venv
    source .venv/bin/activate
    pip install -e ".[dev,test]"
@@ -2739,8 +2738,8 @@
 🔴 **CRITICAL** (Start these first):
 1. **M1.1** - Unified public API (foundation)
 2. **M2.1** - BackendProtocol interface (enables plugin architecture)
-3. **M3.1** - Tesseract integration (requested feature)
-4. **M3.6** - Pipeline-lite mode (requested feature)
+3. **M3.1** - Tesseract integration (✅ DONE)
+4. **M3.6** - Lite mode (✅ DONE)
 5. **M7.1** - KV cache analysis (prerequisite for optimization)
 6. **M13.1** - Unit tests (quality foundation)
 
@@ -2758,7 +2757,7 @@
 ### Key Files and Directories
 
 ```
-mineru/
+vparse/
 ├── __init__.py                          # ⚠️ Empty - needs exports
 ├── cli/
 │   ├── common.py                        # ✅ do_parse, aio_do_parse
@@ -2806,12 +2805,12 @@ tests/
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `MINERU_DEVICE_MODE` | Device selection | auto-detect |
-| `MINERU_VIRTUAL_VRAM_SIZE` | VRAM limit | auto-detect |
-| `MINERU_MODEL_SOURCE` | Model source | huggingface |
-| `MINERU_API_MAX_CONCURRENT_REQUESTS` | API concurrency | 0 (unlimited) |
-| `MINERU_HYBRID_BATCH_RATIO` | Hybrid batch ratio | auto |
-| `MINERU_LOG_LEVEL` | Logging level | INFO |
+| `VPARSE_DEVICE_MODE` | Device selection | auto-detect |
+| `VPARSE_VIRTUAL_VRAM_SIZE` | VRAM limit | auto-detect |
+| `VPARSE_MODEL_SOURCE` | Model source | huggingface |
+| `VPARSE_API_MAX_CONCURRENT_REQUESTS` | API concurrency | 0 (unlimited) |
+| `VPARSE_HYBRID_BATCH_RATIO` | Hybrid batch ratio | auto |
+| `VPARSE_LOG_LEVEL` | Logging level | INFO |
 
 ---
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-MinerU integrates **dots.ocr** (`rednote-hilab/dots.mocr`) as the default VLM model for high-accuracy document parsing. This is a 3B parameter multilingual document parsing VLM developed by the rednote-hilab team.
+VParse integrates **dots.ocr** (`rednote-hilab/dots.mocr`) as the default VLM model for high-accuracy document parsing. This is a 3B parameter multilingual document parsing VLM developed by the rednote-hilab team.
 
 ## Supported Capabilities
 
@@ -58,30 +58,30 @@ Both backends support auto-engine selection. The available inference engines are
 ### Basic Usage (vlm-auto-engine)
 
 ```bash
-mineru -p <input_path> -o <output_path>
+vparse -p <input_path> -o <output_path>
 ```
 
 ### Using hybrid-auto-engine
 
 ```bash
-mineru -p <input_path> -o <output_path> -b hybrid-auto-engine
+vparse -p <input_path> -o <output_path> -b hybrid-auto-engine
 ```
 
 ### Using with custom server
 
 ```bash
 # Start vLLM server
-mineru-openai-server --port 30000
+vparse-openai-server --port 30000
 
 # Connect via HTTP client
-mineru -p <input_path> -o <output_path> -b vlm-http-client -u http://localhost:30000
+vparse -p <input_path> -o <output_path> -b vlm-http-client -u http://localhost:30000
 ```
 
 ## Environment Variables
 
-- `MINERU_MODEL_SOURCE`: Model source (huggingface/modelscope/local)
-- `MINERU_VL_MODEL_NAME`: Model name for remote servers
-- `MINERU_VL_API_KEY`: API key for remote servers
+- `VPARSE_MODEL_SOURCE`: Model source (huggingface/modelscope/local)
+- `VPARSE_VL_MODEL_NAME`: Model name for remote servers
+- `VPARSE_VL_API_KEY`: API key for remote servers
 
 ## Troubleshooting
 
@@ -89,13 +89,13 @@ mineru -p <input_path> -o <output_path> -b vlm-http-client -u http://localhost:3
 
 If you encounter OOM errors:
 1. Try using `hybrid-auto-engine` backend instead of `vlm-auto-engine`
-2. Reduce batch size with `MINERU_HYBRID_BATCH_RATIO=1`
+2. Reduce batch size with `VPARSE_HYBRID_BATCH_RATIO=1`
 3. Use HTTP client mode with a server that has more VRAM
 
 ### Model Download Issues
 
 If model download fails:
-1. Try switching model source: `export MINERU_MODEL_SOURCE=modelscope`
+1. Try switching model source: `export VPARSE_MODEL_SOURCE=modelscope`
 2. Download manually from HuggingFace or ModelScope and use local mode
 
 ## Model Information

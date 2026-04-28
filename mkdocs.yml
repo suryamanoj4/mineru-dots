@@ -1,7 +1,7 @@
-site_name: MinerU
-site_url: https://opendatalab.github.io/MinerU
-repo_name: opendatalab/MinerU
-repo_url: https://github.com/opendatalab/MinerU
+site_name: VParse
+site_url: https://opendatalab.github.io/VParse
+repo_name: opendatalab/VParse
+repo_url: https://github.com/opendatalab/VParse
 
 theme:
   icon:
@@ -55,7 +55,7 @@ extra:
     property: G-44K480CC48
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/opendatalab/MinerU
+      link: https://github.com/opendatalab/VParse
       name: GitHub
     - icon: fontawesome/brands/x-twitter
       link: https://x.com/OpenDataLab_AI
@@ -64,17 +64,17 @@ extra:
       link: https://discord.gg/Tdedn9GTXq
       name: Discord
     - icon: fontawesome/brands/weixin
-      link: https://mineru.net/community-portal/?aliasId=3c430f94
+      link: https://vparse.net/community-portal/?aliasId=3c430f94
       name: WeChat
     - icon: material/email
       link: mailto:OpenDataLab@pjlab.org.cn
       name: E-mail
 
-copyright: © 2024 - 2025 MinerU. All Rights Reserved.
+copyright: © 2024 - 2025 VParse. All Rights Reserved.
 
 nav:
   - Home:
-    - "MinerU": index.md
+    - "VParse": index.md
     - Quick Start:
       - Quick Start: quick_start/index.md
       - Extension Modules: quick_start/extension_modules.md
@@ -128,24 +128,24 @@ plugins:
           name: English
           build: true
         - locale: zh
-          name: 中文
+          name: Chinese
           build: true
           nav_translations:
-            Home: 主页
-            Quick Start: 快速入门
-            Extension Modules: 扩展模块安装
-            Docker Deployment: Docker部署
-            Usage: 使用指南
-            Quick Usage: 基础使用
-            dots.ocr Integration: dots.ocr 集成
-            CLI Tools: 命令行工具
-            Model Source: 模型源配置
-            Advanced CLI Parameters: 命令行进阶参数
-            FAQ: 常见问题解答
-            Reference: 参考资料
-            Output File Format: 输出文件格式
-            Changelog: 更新日志
-            Demo: 在线演示
+            Home: Home
+            Quick Start: Quick Start
+            Extension Modules: Extension Modules
+            Docker Deployment: Docker Deployment
+            Usage: Usage
+            Quick Usage: Quick Usage
+            dots.ocr Integration: dots.ocr Integration
+            CLI Tools: CLI Tools
+            Model Source: Model Source
+            Advanced CLI Parameters: Advanced CLI Parameters
+            FAQ: FAQ
+            Reference: Reference
+            Output File Format: Output File Format
+            Changelog: Changelog
+            Demo: Demo
   - mkdocs-video
 
 markdown_extensions:

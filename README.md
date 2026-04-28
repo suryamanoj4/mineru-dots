@@ -1,31 +1,31 @@
 <div align="center" xmlns="http://www.w3.org/1999/html">
 <!-- logo -->
 <p align="center">
-  <img src="https://gcore.jsdelivr.net/gh/opendatalab/MinerU@master/docs/images/MinerU-logo.png" width="300px" style="vertical-align:middle;">
+  <img src="https://gcore.jsdelivr.net/gh/opendatalab/VParse@master/docs/images/VParse-logo.png" width="300px" style="vertical-align:middle;">
 </p>
 
 <!-- status badge -->
 
 [![Status](https://img.shields.io/badge/status-active--development-orange)](ROADMAP.md)
-[![Version](https://img.shields.io/badge/version-2.7.6--vparse--dev-blue)](mineru/version.py)
+[![Version](https://img.shields.io/badge/version-2.7.6--vparse--dev-blue)](vparse/version.py)
 [![Python](https://img.shields.io/badge/python-3.10--3.13-blue)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE.md)
 [![Roadmap](https://img.shields.io/badge/📋-view%20roadmap-purple)](ROADMAP.md)
 
 <!-- language -->
 
-[English](README.md) | [简体中文](README_zh-CN.md)
+[English](README.md)
 
 <!-- disclaimer banner -->
 
 <p align="center">
-⚠️ <strong>ACTIVE REBRANDING NOTICE:</strong> This project is undergoing internal rebranding from <strong>MinerU</strong> to <strong>vParse</strong>. Core functionality remains stable, but package names, CLI commands, and internal structures will change in upcoming releases. See <a href="#rebranding-status">Rebranding Status</a> for details.
+⚠️ <strong>ACTIVE REBRANDING NOTICE:</strong> This project has completed the internal rebranding from <strong>MinerU</strong> to <strong>VParse</strong>. Core functionality remains stable, and legacy commands/imports remain available through compatibility aliases.
 </p>
 
 <!-- join us -->
 
 <p align="center">
-    👋 join us on <a href="https://discord.gg/Tdedn9GTXq" target="_blank">Discord</a> and <a href="https://mineru.net/community-portal/?aliasId=3c430f94" target="_blank">WeChat</a>
+    👋 join us on <a href="https://discord.gg/Tdedn9GTXq" target="_blank">Discord</a> and <a href="https://vparse.net/community-portal/?aliasId=3c430f94" target="_blank">WeChat</a>
 </p>
 
 </div>
@@ -34,35 +34,34 @@
 
 ## ⚠️ Rebranding Status
 
-> **This project is actively being rebranded from MinerU → vParse**
+> **This project has been rebranded from MinerU → VParse**
 >
-> **Current Stage**: Early development & refactoring phase
-> - ✅ **Core OCR functionality**: Stable and production-ready (inherited from MinerU 2.7.6)
-> - 🚧 **Active rebranding**: Package name, CLI commands, and documentation are being updated
+> - ✅ **Core OCR functionality**: Stable and production-ready
+> - ✅ **Rebranding completed**: Package name, CLI commands, and documentation now use VParse branding
+> - ✅ **Backward compatibility retained**: Legacy `mineru*` commands/imports remain available as aliases
 > - 📋 **Roadmap**: Comprehensive development plan available at [ROADMAP.md](ROADMAP.md)
-> - 🔧 **Breaking changes expected**: Internal APIs and module structures will be refactored
 >
 > **What this means for users**:
 > - Current functionality works as documented
-> - Future versions will use `vparse` package name instead of `mineru`
-> - CLI commands will change from `mineru` to `vparse`
-> - We recommend pinning to current version if stability is critical: `pip install mineru==2.7.6`
+> - Use `vparse` as the primary package name
+> - Use `vparse` CLI commands as primary commands
+> - Legacy `mineru` imports and CLI commands continue to work during migration
 >
 > **See [ROADMAP.md](ROADMAP.md) for complete development plan and contribution guide.**
 
 ---
 
-# vParse (formerly MinerU)
+# VParse (formerly MinerU)
 
-> **vParse is built on top of [MinerU](https://github.com/opendatalab/MinerU) by customizing and extending the original tool to meet specific OCR and document parsing needs.** We extend MinerU's powerful document understanding capabilities with additional backend support, Docker deployment, multi-model VLM integration, and production-grade optimizations.
+> **VParse is built on top of [VParse](https://github.com/opendatalab/VParse) by customizing and extending the original tool to meet specific OCR and document parsing needs.** We extend VParse's powerful document understanding capabilities with additional backend support, Docker deployment, multi-model VLM integration, and production-grade optimizations.
 
 ## Project Introduction
 
-**vParse** (previously known as MinerU) is a comprehensive document parsing and OCR toolkit that converts PDFs and images into machine-readable formats (e.g., markdown, JSON, HTML, DOCX). It supports multiple OCR backends, VLM models, and deployment methods.
+**VParse** (previously known as MinerU) is a comprehensive document parsing and OCR toolkit that converts PDFs and images into machine-readable formats (e.g., markdown, JSON, HTML, DOCX). It supports multiple OCR backends, VLM models, and deployment methods.
 
-vParse originated from [MinerU](https://github.com/opendatalab/MinerU), which was born during the pre-training process of [InternLM](https://github.com/InternLM/InternLM). We are extending it into a one-stop OCR toolkit with enhanced backend support, Docker deployment capabilities, and optimized performance for bulk processing.
+VParse originated from [VParse](https://github.com/opendatalab/VParse), which was born during the pre-training process of [InternLM](https://github.com/InternLM/InternLM). We are extending it into a one-stop OCR toolkit with enhanced backend support, Docker deployment capabilities, and optimized performance for bulk processing.
 
-If you encounter any issues or if the results are not as expected, please submit an issue on [GitHub Issues](https://github.com/opendatalab/MinerU/issues) and **attach the relevant PDF**.
+If you encounter any issues or if the results are not as expected, please submit an issue on [GitHub Issues](https://github.com/opendatalab/VParse/issues) and **attach the relevant PDF**.
 
 https://github.com/user-attachments/assets/4bea02c9-6d54-4cd6-97ed-dff14340982c
 
@@ -83,19 +82,18 @@ https://github.com/user-attachments/assets/4bea02c9-6d54-4cd6-97ed-dff14340982c
 | **Table Recognition** | ✅ Stable | HTML conversion via SlanetPlus/UnetTableModel |
 | **CPU Support** | ✅ Stable | Pure CPU inference with pipeline backend |
 | **GPU Acceleration** | ✅ Stable | CUDA, NPU (CANN), MPS (Apple Silicon) support |
-| **CLI Interface** | ✅ Stable | `mineru` command-line tool |
-| **FastAPI Server** | ✅ Stable | `mineru-api` with `/file_parse` endpoint |
-| **Gradio Web UI** | ✅ Stable | `mineru-gradio` for browser-based usage |
+| **CLI Interface** | ✅ Stable | `vparse` command-line tool |
+| **FastAPI Server** | ✅ Stable | `vparse-api` with `/file_parse` endpoint |
+| **Gradio Web UI** | ✅ Stable | `vparse-gradio` for browser-based usage |
 | **Docker Support** | ✅ Stable | Docker Compose with vLLM, API, Gradio services |
 | **Output Formats** | ✅ Stable | Markdown, JSON (middle, model, content_list), images |
 | **Domestic Hardware** | ✅ Stable | Ascend, Hygon, Enflame, MooreThreads, IluvatarCorex, Cambricon, METAX, Kunlunxin, Tecorigin, Biren |
 
-### 🚧 Under Active Development
+### 📋 Planned Enhancements
 
 | Feature | Status | Expected Completion |
 |---------|--------|---------------------|
-| **vParse Rebranding** | 🚧 In Progress | Package rename, CLI commands, documentation |
-| **Tesseract Integration** | 📋 Planned | Pipeline-lite backend for lightweight OCR |
+| **Tesseract Integration** | ✅ Done | Lightweight `lite` backend for fast OCR |
 | **Multi-Model VLM Support** | 📋 Planned | Qwen2-VL, InternVL2, Got-OCR2.0, Nougat |
 | **KV Cache Optimization** | 📋 Planned | Memory optimization for bulk VLM processing |
 | **Bulk Processing API** | 📋 Planned | Job queue, progress tracking, checkpoint/resume |
@@ -113,7 +111,7 @@ For detailed development plan with 15 modules and 148 tasks, see **[ROADMAP.md](
 
 ### Backend Comparison
 
-vParse currently supports **three main backends** with different trade-offs:
+VParse currently supports **three main backends** with different trade-offs:
 
 <table>
   <thead>
@@ -182,12 +180,12 @@ vParse currently supports **three main backends** with different trade-offs:
 
 | Scenario | Recommended Backend | Command |
 |----------|---------------------|---------|
-| **CPU-only device** | `pipeline` | `mineru -p input.pdf -b pipeline` |
-| **GPU available, fast processing** | `pipeline` | `mineru -p input.pdf -b pipeline` |
-| **GPU available, highest accuracy** | `vlm-auto-engine` | `mineru -p input.pdf -b vlm-auto-engine` |
-| **GPU available, balanced accuracy** | `hybrid-auto-engine` | `mineru -p input.pdf -b hybrid-auto-engine` |
-| **Remote VLM server** | `vlm-http-client` | `mineru -p input.pdf -b vlm-http-client -u http://server:30000` |
-| **Remote VLM + local OCR** | `hybrid-http-client` | `mineru -p input.pdf -b hybrid-http-client -u http://server:30000` |
+| **CPU-only device** | `pipeline` | `vparse -p input.pdf -b pipeline` |
+| **GPU available, fast processing** | `pipeline` | `vparse -p input.pdf -b pipeline` |
+| **GPU available, highest accuracy** | `vlm-auto-engine` | `vparse -p input.pdf -b vlm-auto-engine` |
+| **GPU available, balanced accuracy** | `hybrid-auto-engine` | `vparse -p input.pdf -b hybrid-auto-engine` |
+| **Remote VLM server** | `vlm-http-client` | `vparse -p input.pdf -b vlm-http-client -u http://server:30000` |
+| **Remote VLM + local OCR** | `hybrid-http-client` | `vparse -p input.pdf -b hybrid-http-client -u http://server:30000` |
 
 ### Supported VLM Models
 
@@ -249,9 +247,29 @@ vParse currently supports **three main backends** with different trade-offs:
 
 ---
 
-## Quick Start
+### Installation
 
-> ⚠️ **Note**: During the rebranding period, CLI commands still use `mineru` prefix. Future versions will use `vparse`.
+#### 1. Full Installation (All Features)
+```bash
+pip install "vparse[all]"
+```
+
+#### 2. CPU/Lite Installation (Fast & Lightweight)
+If you only need the high-performance `lite` backend (Tesseract-based) and want to avoid heavy dependencies like PyTorch and PaddleOCR:
+```bash
+pip install "vparse[lite]"
+```
+
+> ⚠️ **IMPORTANT: System Requirement**  
+> The `lite` backend requires the Tesseract-OCR engine to be installed on your system:  
+> - **Ubuntu/Linux**: `sudo apt install tesseract-ocr`  
+> - **macOS**: `brew install tesseract`  
+> - **Windows**: [Download Tesseract Binary](https://github.com/UB-Mannheim/tesseract/wiki)
+
+### Quick Start
+
+
+> ⚠️ **Note**: `vparse` is the primary CLI prefix. Legacy `mineru*` commands remain available as backward-compatible aliases.
 
 If you encounter any installation issues, please first consult the <a href="#faq">FAQ</a>. </br>
 If the parsing results are not as expected, refer to the <a href="#known-issues">Known Issues</a>. </br>
@@ -264,70 +282,72 @@ For detailed development roadmap, see <a href="ROADMAP.md">ROADMAP.md</a>.
 ```bash
 pip install --upgrade pip
 pip install uv
-uv pip install -U "mineru[all]"
+uv pip install -U "vparse[all]"
 ```
 
 #### Install From Source
 
 ```bash
-git clone https://github.com/opendatalab/MinerU.git
-cd MinerU
+git clone https://github.com/opendatalab/VParse.git
+cd VParse
 uv pip install -e .[all]
 ```
 
 > [!TIP]
-> `mineru[all]` includes all core features, compatible with Windows / Linux / macOS systems.
-> For VLM inference engine selection or lightweight installation, see [Extension Modules Installation Guide](https://opendatalab.github.io/MinerU/quick_start/extension_modules/).
+> `vparse[all]` includes all core features, compatible with Windows / Linux / macOS systems.
+> For VLM inference engine selection or lightweight installation, see [Extension Modules Installation Guide](https://opendatalab.github.io/VParse/quick_start/extension_modules/).
 
 #### Deploy Using Docker
 
-vParse provides Docker deployment with Docker Compose:
+VParse provides Docker deployment with Docker Compose:
 
 ```bash
 cd docker
-# Start API service
-docker compose --profile api up -d
+# CPU deployment: FastAPI backend on :8000 and Gradio frontend on :7860
+docker compose --profile cpu up -d
 
-# Start vLLM server
-docker compose --profile openai-server up -d
+# GPU deployment: FastAPI backend on :8000 and Gradio frontend on :7860
+docker compose --profile gpu up -d
 
-# Start Gradio Web UI
-docker compose --profile gradio up -d
+# Hybrid deployment: FastAPI backend on :8000 and Gradio frontend on :7860
+docker compose --profile hybrid up -d
 ```
 
-See [Docker Deployment Documentation](https://opendatalab.github.io/MinerU/quick_start/docker_deployment/) for detailed instructions.
+On the first `docker compose up`, the API container downloads only the models needed for that profile into persistent Docker volumes. The image stays lean, and later restarts reuse the mounted cache.
+
+See [Docker Deployment Documentation](https://opendatalab.github.io/VParse/quick_start/docker_deployment/) for detailed instructions.
 
 ---
 
-### Using vParse
+### Using VParse
 
 #### CLI Usage
 
 For GPU-accelerated parsing (recommended):
 ```bash
-mineru -p <input_path> -o <output_path>
+vparse -p <input_path> -o <output_path>
 ```
 
 For CPU-only environment:
 ```bash
-mineru -p <input_path> -o <output_path> -b pipeline
+vparse -p <input_path> -o <output_path> -b pipeline
 ```
 
 For VLM backend with highest accuracy:
 ```bash
-mineru -p <input_path> -o <output_path> -b vlm-auto-engine
+vparse -p <input_path> -o <output_path> -b vlm-auto-engine
 ```
 
 For remote VLM server:
 ```bash
-mineru -p <input_path> -o <output_path> -b vlm-http-client -u http://127.0.0.1:30000
+vparse -p <input_path> -o <output_path> -b vlm-http-client -u http://127.0.0.1:30000
 ```
 
 #### API Usage
 
 Start the FastAPI server:
 ```bash
-mineru-api --host 0.0.0.0 --port 8000
+vparse-api --host 0.0.0.0 --port 8000
 ```
 
 Then send requests:
@@ -342,18 +362,18 @@ curl -X POST "http://localhost:8000/file_parse" \
 
 Start the Gradio interface:
 ```bash
-mineru-gradio --server-name 0.0.0.0 --server-port 7860
+vparse-gradio --server-name 0.0.0.0 --server-port 7860
 ```
 
 Then open `http://localhost:7860` in your browser.
 
-For detailed usage instructions, see the [Usage Guide](https://opendatalab.github.io/MinerU/usage/).
+For detailed usage instructions, see the [Usage Guide](https://opendatalab.github.io/VParse/usage/).
 
 ---
 
 ## Development Roadmap
 
-vParse is undergoing active development with a comprehensive roadmap to become a one-stop OCR toolkit.
+VParse is undergoing active development with a comprehensive roadmap to become a one-stop OCR toolkit.
 
 ### Planned Modules (15 Total)
 
@@ -379,7 +399,7 @@ vParse is undergoing active development with a comprehensive roadmap to become a
 
 | Wave | Focus | Timeline | Key Deliverables |
 |------|-------|----------|------------------|
-| **Wave 1** | Foundation | Weeks 1-4 | Unified API, Tesseract, pipeline-lite, PyPI package |
+| **Wave 1** | Foundation | Weeks 1-4 | Unified API, Tesseract `lite` backend, PyPI package |
 | **Wave 2** | Multi-Model VLM | Weeks 5-8 | Qwen2-VL, InternVL2, model auto-selection |
 | **Wave 3** | Memory & Performance | Weeks 9-12 | KV cache optimization, streaming, OOM prevention |
 | **Wave 4** | Bulk Processing & Docker | Weeks 13-16 | Job queue, Redis/Celery, production Docker |
@@ -406,18 +426,18 @@ vParse is undergoing active development with a comprehensive roadmap to become a
 
 ## FAQ
 
-- If you encounter any issues during usage, you can first check the [FAQ](https://opendatalab.github.io/MinerU/faq/) for solutions.
-- If your issue remains unresolved, you may also use [DeepWiki](https://deepwiki.com/opendatalab/MinerU) to interact with an AI assistant, which can address most common problems.
-- If you still cannot resolve the issue, you are welcome to join our community via [Discord](https://discord.gg/Tdedn9GTXq) or [WeChat](https://mineru.net/community-portal/?aliasId=3c430f94) to discuss with other users and developers.
+- If you encounter any issues during usage, you can first check the [FAQ](https://opendatalab.github.io/VParse/faq/) for solutions.
+- If your issue remains unresolved, you may also use [DeepWiki](https://deepwiki.com/opendatalab/VParse) to interact with an AI assistant, which can address most common problems.
+- If you still cannot resolve the issue, you are welcome to join our community via [Discord](https://discord.gg/Tdedn9GTXq) or [WeChat](https://vparse.net/community-portal/?aliasId=3c430f94) to discuss with other users and developers.
 
 ---
 
 ## Contributing
 
-We welcome contributions! During the rebranding phase, please note:
+We welcome contributions. Please note:
 
-1. **Current codebase**: Still uses `mineru` namespace - this is intentional for backward compatibility
-2. **Future changes**: Will introduce `vparse` namespace with proper migration path
+1. **Primary namespace**: The codebase now uses the `vparse` namespace by default
+2. **Compatibility namespace**: The legacy `mineru` namespace remains available for backward compatibility
 3. **Contributing to roadmap**: See [ROADMAP.md](ROADMAP.md) for detailed task breakdown
 4. **Pick a task**: Each module has specific files to create/modify and implementation details
 
@@ -425,8 +445,8 @@ We welcome contributions! During the rebranding phase, please note:
 
 ```bash
 # Fork and clone
-git clone https://github.com/your-username/MinerU-dots.git
-cd MinerU-dots
+git clone https://github.com/your-username/VParse-dots.git
+cd VParse-dots
 
 # Set up dev environment
 python -m venv .venv
@@ -451,7 +471,7 @@ Some models in this project are trained based on YOLO. Since YOLO follows the AG
 
 ## Acknowledgments
 
-- [MinerU (Original Project)](https://github.com/opendatalab/MinerU)
+- [VParse (Original Project)](https://github.com/opendatalab/VParse)
 - [PDF-Extract-Kit](https://github.com/opendatalab/PDF-Extract-Kit)
 - [DocLayout-YOLO](https://github.com/opendatalab/DocLayout-YOLO)
 - [dots.ocr](https://huggingface.co/rednote-hilab/dots.mocr) - Multilingual document parsing VLM
@@ -467,7 +487,7 @@ Some models in this project are trained based on YOLO. Since YOLO follows the AG
 
 ```bibtex
 @article{dong2026minerudiffusion,
-  title={MinerU-Diffusion: Rethinking Document OCR as Inverse Rendering via Diffusion Decoding},
+  title={VParse-Diffusion: Rethinking Document OCR as Inverse Rendering via Diffusion Decoding},
   author={Dong, Hejun and Niu, Junbo and Wang, Bin and Zeng, Weijun and Zhang, Wentao and He, Conghui},
   journal={arXiv preprint arXiv:2603.22458},
   year={2026}
@@ -492,4 +512,4 @@ Some models in this project are trained based on YOLO. Since YOLO follows the AG
 
 **Last Updated**: April 8, 2026  
 **Project Status**: Active Development & Rebranding  
-**Version**: 2.7.6 (vParse development branch)
+**Version**: 2.7.6 (VParse development branch)

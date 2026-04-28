@@ -1,87 +1,221 @@
 services:
-  mineru-openai-server:
-    image: mineru:latest
-    container_name: mineru-openai-server
+  vparse-api-cpu:
+    profiles: ["cpu"]
+    build:
+      context: ..
+      dockerfile: docker/global/Dockerfile.cpu
+    container_name: vparse-api-cpu
     restart: always
-    profiles: ["openai-server"]
     ports:
-      - 30000:30000
+      - "8000:8000"
     environment:
-      MINERU_MODEL_SOURCE: local
-    entrypoint: mineru-openai-server
+      VPARSE_MODEL_SOURCE: huggingface
+      VPARSE_PREFETCH_MODELS: pipeline
+      VPARSE_TOOLS_CONFIG_JSON: /root/.vparse/vparse.json
+      VPARSE_API_ENABLE_FASTAPI_DOCS: "1"
+    entrypoint:
+      - python3
+      - /app/docker/global/start-with-models.py
     command:
-      --host 0.0.0.0
-      --port 30000
-      # --data-parallel-size 2  # If using multiple GPUs, increase throughput using vllm's multi-GPU parallel mode
-      # --gpu-memory-utilization 0.5  # If running on a single GPU and encountering VRAM shortage, reduce the KV cache size by this parameter, if VRAM issues persist, try lowering it further to `0.4` or below.
+      - vparse-api
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
     ulimits:
       memlock: -1
       stack: 67108864
     ipc: host
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:30000/health || exit 1"]
+    volumes:
+      - vparse-hf-cache:/root/.cache/huggingface
+      - vparse-ms-cache:/root/.cache/modelscope
+      - vparse-config:/root/.vparse
+      - vparse-config:/root/.mineru
+
+  vparse-gradio-cpu:
+    profiles: ["cpu"]
+    build:
+      context: ..
+      dockerfile: docker/global/Dockerfile.cpu
+    container_name: vparse-gradio-cpu
+    restart: always
+    depends_on:
+      - vparse-api-cpu
+    ports:
+      - "7860:7860"
+    environment:
+      VPARSE_MODEL_SOURCE: huggingface
+      VPARSE_PREFETCH_MODELS: none
+      VPARSE_TOOLS_CONFIG_JSON: /root/.vparse/vparse.json
+      VPARSE_GRADIO_BACKEND_OPTIONS: pipeline
+      VPARSE_GRADIO_DEFAULT_BACKEND: pipeline
+      VPARSE_GRADIO_BACKEND_API_URL: http://vparse-api-cpu:8000
+    entrypoint:
+      - python3
+      - /app/docker/global/start-with-models.py
+    command:
+      - vparse-gradio
+      - --server-name
+      - 0.0.0.0
+      - --server-port
+      - "7860"
+    volumes:
+      - vparse-hf-cache:/root/.cache/huggingface
+      - vparse-ms-cache:/root/.cache/modelscope
+      - vparse-config:/root/.vparse
+      - vparse-config:/root/.mineru
+
+  vparse-api-gpu:
+    profiles: ["gpu"]
+    build:
+      context: ..
+      dockerfile: docker/global/Dockerfile
+    container_name: vparse-api-gpu
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      VPARSE_MODEL_SOURCE: huggingface
+      VPARSE_PREFETCH_MODELS: vlm
+      VPARSE_TOOLS_CONFIG_JSON: /root/.vparse/vparse.json
+      VPARSE_API_ENABLE_FASTAPI_DOCS: "1"
+    entrypoint:
+      - python3
+      - /app/docker/global/start-with-models.py
+    command:
+      - vparse-api
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --gpu-memory-utilization
+      - "0.5"
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    ipc: host
+    volumes:
+      - vparse-hf-cache:/root/.cache/huggingface
+      - vparse-ms-cache:/root/.cache/modelscope
+      - vparse-config:/root/.vparse
+      - vparse-config:/root/.mineru
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ["0"]  # Modify for multiple GPUs: ["0", "1"]
+              device_ids: ["0"]
               capabilities: [gpu]
 
-  mineru-api:
-    image: mineru:latest
-    container_name: mineru-api
+  vparse-gradio-gpu:
+    profiles: ["gpu"]
+    build:
+      context: ..
+      dockerfile: docker/global/Dockerfile.cpu
+    container_name: vparse-gradio-gpu
     restart: always
-    profiles: ["api"]
+    depends_on:
+      - vparse-api-gpu
     ports:
-      - 8000:8000
+      - "7860:7860"
     environment:
-      MINERU_MODEL_SOURCE: local
-    entrypoint: mineru-api
+      VPARSE_MODEL_SOURCE: huggingface
+      VPARSE_PREFETCH_MODELS: none
+      VPARSE_TOOLS_CONFIG_JSON: /root/.vparse/vparse.json
+      VPARSE_GRADIO_BACKEND_OPTIONS: vlm-auto-engine
+      VPARSE_GRADIO_DEFAULT_BACKEND: vlm-auto-engine
+      VPARSE_GRADIO_BACKEND_API_URL: http://vparse-api-gpu:8000
+    entrypoint:
+      - python3
+      - /app/docker/global/start-with-models.py
     command:
-      --host 0.0.0.0
-      --port 8000
-      # parameters for vllm-engine
-      # --data-parallel-size 2  # If using multiple GPUs, increase throughput using vllm's multi-GPU parallel mode
-      # --gpu-memory-utilization 0.5  # If running on a single GPU and encountering VRAM shortage, reduce the KV cache size by this parameter, if VRAM issues persist, try lowering it further to `0.4` or below.
+      - vparse-gradio
+      - --server-name
+      - 0.0.0.0
+      - --server-port
+      - "7860"
+    volumes:
+      - vparse-hf-cache:/root/.cache/huggingface
+      - vparse-ms-cache:/root/.cache/modelscope
+      - vparse-config:/root/.vparse
+      - vparse-config:/root/.mineru
+
+  vparse-api-hybrid:
+    profiles: ["hybrid"]
+    build:
+      context: ..
+      dockerfile: docker/global/Dockerfile
+    container_name: vparse-api-hybrid
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      VPARSE_MODEL_SOURCE: huggingface
+      VPARSE_PREFETCH_MODELS: all
+      VPARSE_TOOLS_CONFIG_JSON: /root/.vparse/vparse.json
+      VPARSE_API_ENABLE_FASTAPI_DOCS: "1"
+    entrypoint:
+      - python3
+      - /app/docker/global/start-with-models.py
+    command:
+      - vparse-api
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --gpu-memory-utilization
+      - "0.5"
     ulimits:
       memlock: -1
       stack: 67108864
     ipc: host
+    volumes:
+      - vparse-hf-cache:/root/.cache/huggingface
+      - vparse-ms-cache:/root/.cache/modelscope
+      - vparse-config:/root/.vparse
+      - vparse-config:/root/.mineru
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ["0"]  # Modify for multiple GPUs: ["0", "1"]
+              device_ids: ["0"]
               capabilities: [gpu]
 
-  mineru-gradio:
-    image: mineru:latest
-    container_name: mineru-gradio
+  vparse-gradio-hybrid:
+    profiles: ["hybrid"]
+    build:
+      context: ..
+      dockerfile: docker/global/Dockerfile.cpu
+    container_name: vparse-gradio-hybrid
     restart: always
-    profiles: ["gradio"]
+    depends_on:
+      - vparse-api-hybrid
     ports:
-      - 7860:7860
+      - "7860:7860"
     environment:
-      MINERU_MODEL_SOURCE: local
-    entrypoint: mineru-gradio
+      VPARSE_MODEL_SOURCE: huggingface
+      VPARSE_PREFETCH_MODELS: none
+      VPARSE_TOOLS_CONFIG_JSON: /root/.vparse/vparse.json
+      VPARSE_GRADIO_BACKEND_OPTIONS: hybrid-auto-engine
+      VPARSE_GRADIO_DEFAULT_BACKEND: hybrid-auto-engine
+      VPARSE_GRADIO_BACKEND_API_URL: http://vparse-api-hybrid:8000
+    entrypoint:
+      - python3
+      - /app/docker/global/start-with-models.py
     command:
-      --server-name 0.0.0.0
-      --server-port 7860
-      # --enable-api false  # If you want to disable the API, set this to false
-      # --max-convert-pages 20  # If you want to limit the number of pages for conversion, set this to a specific number
-      # parameters for vllm-engine
-      # --data-parallel-size 2  # If using multiple GPUs, increase throughput using vllm's multi-GPU parallel mode
-      # --gpu-memory-utilization 0.5  # If running on a single GPU and encountering VRAM shortage, reduce the KV cache size by this parameter, if VRAM issues persist, try lowering it further to `0.4` or below.
-    ulimits:
-      memlock: -1
-      stack: 67108864
-    ipc: host
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ["0"]  # Modify for multiple GPUs: ["0", "1"]
-              capabilities: [gpu]
+      - vparse-gradio
+      - --server-name
+      - 0.0.0.0
+      - --server-port
+      - "7860"
+    volumes:
+      - vparse-hf-cache:/root/.cache/huggingface
+      - vparse-ms-cache:/root/.cache/modelscope
+      - vparse-config:/root/.vparse
+      - vparse-config:/root/.mineru
+
+volumes:
+  vparse-hf-cache:
+  vparse-ms-cache:
+  vparse-config:

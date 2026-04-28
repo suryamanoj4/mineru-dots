@@ -6,18 +6,18 @@ from pathlib import Path
 
 from loguru import logger
 
-from mineru.cli.common import convert_pdf_bytes_to_bytes_by_pypdfium2, prepare_env, read_fn
-from mineru.data.data_reader_writer import FileBasedDataWriter
-from mineru.utils.draw_bbox import draw_layout_bbox, draw_span_bbox
-from mineru.utils.engine_utils import get_vlm_engine
-from mineru.utils.enum_class import MakeMode
-from mineru.backend.vlm.vlm_analyze import doc_analyze as vlm_doc_analyze
-from mineru.backend.pipeline.pipeline_analyze import doc_analyze as pipeline_doc_analyze
-from mineru.backend.pipeline.pipeline_middle_json_mkcontent import union_make as pipeline_union_make
-from mineru.backend.pipeline.model_json_to_middle_json import result_to_middle_json as pipeline_result_to_middle_json
-from mineru.backend.vlm.vlm_middle_json_mkcontent import union_make as vlm_union_make
-from mineru.backend.hybrid.hybrid_analyze import doc_analyze as hybrid_doc_analyze
-from mineru.utils.guess_suffix_or_lang import guess_suffix_by_path
+from vparse.cli.common import convert_pdf_bytes_to_bytes_by_pypdfium2, prepare_env, read_fn
+from vparse.data.data_reader_writer import FileBasedDataWriter
+from vparse.utils.draw_bbox import draw_layout_bbox, draw_span_bbox
+from vparse.utils.engine_utils import get_vlm_engine
+from vparse.utils.enum_class import MakeMode
+from vparse.backend.vlm.vlm_analyze import doc_analyze as vlm_doc_analyze
+from vparse.backend.pipeline.pipeline_analyze import doc_analyze as pipeline_doc_analyze
+from vparse.backend.pipeline.pipeline_middle_json_mkcontent import union_make as pipeline_union_make
+from vparse.backend.pipeline.model_json_to_middle_json import result_to_middle_json as pipeline_result_to_middle_json
+from vparse.backend.vlm.vlm_middle_json_mkcontent import union_make as vlm_union_make
+from vparse.backend.hybrid.hybrid_analyze import doc_analyze as hybrid_doc_analyze
+from vparse.utils.guess_suffix_or_lang import guess_suffix_by_path
 
 
 def do_parse(
@@ -145,7 +145,7 @@ def _process_output(
         model_output=None,
         is_pipeline=True
 ):
-    """处理输出文件"""
+    """Process output files"""
     if f_draw_layout_bbox:
         draw_layout_bbox(pdf_info, pdf_bytes, local_md_dir, f"{pdf_file_name}_layout.pdf")
 
@@ -264,8 +264,8 @@ if __name__ == '__main__':
         if guess_suffix_by_path(doc_path) in pdf_suffixes + image_suffixes:
             doc_path_list.append(doc_path)
 
-    """如果您由于网络问题无法下载模型，可以设置环境变量MINERU_MODEL_SOURCE为modelscope使用免代理仓库下载模型"""
-    # os.environ['MINERU_MODEL_SOURCE'] = "modelscope"
+    """If you cannot download the model due to network issues, you can set the environment variable VPARSE_MODEL_SOURCE to modelscope to use the proxy-free repository for model downloads."""
+    # os.environ['VPARSE_MODEL_SOURCE'] = "modelscope"
 
     """Use hybrid mode and local computing power to parse documents"""
     parse_doc(doc_path_list, output_dir, backend="hybrid-auto-engine")

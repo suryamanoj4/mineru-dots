@@ -4,7 +4,7 @@ from loguru import logger
 import asyncio
 import aiohttp
 
-async def mineru_parse_async(session, file_path, url='http://127.0.0.1:8000/predict', **options):
+async def vparse_parse_async(session, file_path, url='http://127.0.0.1:8000/predict', **options):
     """
     Asynchronous version of the parse function.
     """
@@ -55,7 +55,7 @@ async def main():
     # Create an aiohttp session to be reused across requests
     async with aiohttp.ClientSession() as session:
         # === Basic Processing ===
-        basic_tasks = [mineru_parse_async(session, file_path) for file_path in existing_files[:2]]
+        basic_tasks = [vparse_parse_async(session, file_path) for file_path in existing_files[:2]]
 
         # === Custom Options ===
         custom_options = {
@@ -65,7 +65,7 @@ async def main():
             # 'backend': 'vlm-http-client', 'server_url': 'http://127.0.0.1:30000',
         }
 
-        custom_tasks = [mineru_parse_async(session, file_path, **custom_options) for file_path in existing_files[2:]]
+        custom_tasks = [vparse_parse_async(session, file_path, **custom_options) for file_path in existing_files[2:]]
 
         # Start all tasks
         all_tasks = basic_tasks + custom_tasks

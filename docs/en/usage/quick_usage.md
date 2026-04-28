@@ -1,19 +1,19 @@
-# Using MinerU
+# Using VParse
 
 > [!NOTE]
-> MinerU now uses **dots.ocr** (`rednote-hilab/dots.mocr`) as the default VLM model for high-accuracy document parsing. The `vlm-auto-engine` backend uses dots.ocr for full layout detection + text extraction, while `hybrid-auto-engine` uses dots.ocr for layout detection only and pipeline for OCR/formula/table processing.
+> VParse now uses **dots.ocr** (`rednote-hilab/dots.mocr`) as the default VLM model for high-accuracy document parsing. The `vlm-auto-engine` backend uses dots.ocr for full layout detection + text extraction, while `hybrid-auto-engine` uses dots.ocr for layout detection only and pipeline for OCR/formula/table processing.
 
 ## Quick Model Source Configuration
-MinerU uses `huggingface` as the default model source. If users cannot access `huggingface` due to network restrictions, they can conveniently switch the model source to `modelscope` through environment variables:
+VParse uses `huggingface` as the default model source. If users cannot access `huggingface` due to network restrictions, they can conveniently switch the model source to `modelscope` through environment variables:
 ```bash
-export MINERU_MODEL_SOURCE=modelscope
+export VPARSE_MODEL_SOURCE=modelscope
 ```
 For more information about model source configuration and custom local model paths, please refer to the [Model Source Documentation](./model_source.md) in the documentation.
 
 ## Quick Usage via Command Line
-MinerU has built-in command line tools that allow users to quickly use MinerU for PDF parsing through the command line:
+VParse has built-in command line tools that allow users to quickly use VParse for PDF parsing through the command line:
 ```bash
-mineru -p <input_path> -o <output_path>
+vparse -p <input_path> -o <output_path>
 ```
 > [!TIP]
 >- `<input_path>`: Local PDF/image file or directory
@@ -29,16 +29,16 @@ If you need to adjust parsing options through custom parameters, you can also ch
 
 ## Advanced Usage via API, WebUI, http-client/server
 
-- Direct Python API calls: [Python Usage Example](https://github.com/opendatalab/MinerU/blob/master/demo/demo.py)
+- Direct Python API calls: [Python Usage Example](https://github.com/opendatalab/VParse/blob/master/demo/demo.py)
 - FastAPI calls:
   ```bash
-  mineru-api --host 0.0.0.0 --port 8000
+  vparse-api --host 0.0.0.0 --port 8000
   ```
   >[!TIP]
   >Access `http://127.0.0.1:8000/docs` in your browser to view the API documentation.
 - Start Gradio WebUI visual frontend:
   ```bash
-  mineru-gradio --server-name 0.0.0.0 --server-port 7860
+  vparse-gradio --server-name 0.0.0.0 --server-port 7860
   ```
   >[!TIP]
   >
@@ -47,24 +47,24 @@ If you need to adjust parsing options through custom parameters, you can also ch
 - Using `http-client/server` method:
   ```bash
   # Start openai compatible server (requires vllm or lmdeploy environment)
-  mineru-openai-server --port 30000
+  vparse-openai-server --port 30000
   ``` 
   >[!TIP]
   >In another terminal, connect to openai server via http client
   > ```bash
-  > mineru -p <input_path> -o <output_path> -b hybrid-http-client -u http://127.0.0.1:30000
+  > vparse -p <input_path> -o <output_path> -b hybrid-http-client -u http://127.0.0.1:30000
   > ```
 
 > [!NOTE]
-> All officially supported `vllm/lmdeploy` parameters can be passed to MinerU through command line arguments, including the following commands: `mineru`, `mineru-openai-server`, `mineru-gradio`, `mineru-api`.
+> All officially supported `vllm/lmdeploy` parameters can be passed to VParse through command line arguments, including the following commands: `vparse`, `vparse-openai-server`, `vparse-gradio`, `vparse-api`.
 > We have compiled some commonly used parameters and usage methods for `vllm/lmdeploy`, which can be found in the documentation [Advanced Command Line Parameters](./advanced_cli_parameters.md).
 
-## Extending MinerU Functionality with Configuration Files
+## Extending VParse Functionality with Configuration Files
 
-MinerU is now ready to use out of the box, but also supports extending functionality through configuration files. You can edit `mineru.json` file in your user directory to add custom configurations.  
+VParse is now ready to use out of the box, but also supports extending functionality through configuration files. You can edit `~/.vparse.json` to add custom configurations. Legacy config files such as `~/.mineru.json`, `~/vparse.json`, and `~/mineru.json` are still recognized for backward compatibility.  
 
 >[!IMPORTANT]
->The `mineru.json` file will be automatically generated when you use the built-in model download command `mineru-models-download`, or you can create it by copying the [configuration template file](https://github.com/opendatalab/MinerU/blob/master/mineru.template.json) to your user directory and renaming it to `mineru.json`.  
+>The `~/.vparse.json` file will be automatically generated when you use the built-in model download command `vparse-models-download`, or you can create it by copying the [configuration template file](https://github.com/opendatalab/VParse/blob/master/vparse.template.json) to your user directory and renaming it to `.vparse.json`.  
 
 Here are some available configuration options:  
 
@@ -100,4 +100,4 @@ Here are some available configuration options:
 - `models-dir`: 
     * Used to specify local model storage directory
     * Please specify model directories for `pipeline` and `vlm` backends separately.
-    * After specifying the directory, you can use local models by configuring the environment variable `export MINERU_MODEL_SOURCE=local`.
+    * After specifying the directory, you can use local models by configuring the environment variable `export VPARSE_MODEL_SOURCE=local`.
