@@ -1,13 +1,15 @@
 # Copyright (c) Opendatalab. All rights reserved.
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
+
 from pydantic import BaseModel, Field
+
 from vparse.utils.enum_class import MakeMode
 
 
 class BlockInfo(BaseModel):
     """Information about a single layout block (paragraph, image, table, etc.)."""
-    type: str = Field(description="Type of the block (text, title, image, table, etc.)")
+    type: str = Field(description="Type of the block (text, title, image, table, etc.")
     bbox: List[float] = Field(description="Bounding box [x0, y0, x1, y1]")
     content: Optional[str] = Field(default=None, description="Text content of the block if applicable")
     page_idx: int = Field(description="Index of the page this block belongs to")
@@ -30,22 +32,36 @@ class OCRResult:
     Wraps the raw 'middle_json' dictionary and provides clean accessors.
     """
 
-    def __init__(self, middle_json: List[Dict[str, Any]], pdf_bytes: Optional[bytes] = None, output_dir: Optional[Path] = None):
+    def __init__(
+        self,
+        middle_json: Dict[str, Any] | List[Dict[str, Any]],
+        output_dir: Optional[Path] = None,
+        default_markdown_mode: str = MakeMode.MM_MD,
+    ):
         """
         Initialize with raw middle_json, original pdf_bytes and optional output directory.
         
-        Note: middle_json in VParse is typically a list of dicts, where each dict 
-        represents a page's information.
+        ``middle_json`` may be either the original backend dictionary or the
+        extracted ``pdf_info`` page list for backward compatibility.
         """
         self._raw = middle_json
-        self._pdf_bytes = pdf_bytes
+        self._pdf_bytes = None
         self._output_dir = output_dir
+        self._default_markdown_mode = default_markdown_mode
+
+    @property
+    def pdf_info(self) -> List[Dict[str, Any]]:
+        """Get the normalized page list from the wrapped middle_json payload."""
+        if isinstance(self._raw, dict):
+            pdf_info = self._raw.get("pdf_info", [])
+            return pdf_info if isinstance(pdf_info, list) else []
+        return self._raw
 
     @property
     def pages(self) -> List[PageInfo]:
         """Get a list of structured PageInfo objects."""
         pages = []
-        for i, raw_page in enumerate(self._raw):
+        for i, raw_page in enumerate(self.pdf_info):
             blocks = []
             # Extract blocks from 'para_blocks' (standard) or other possible keys
             raw_blocks = raw_page.get("para_blocks", [])
@@ -70,7 +86,7 @@ class OCRResult:
         return BlockInfo(
             type=raw_block.get("type", "unknown"),
             bbox=raw_block.get("bbox", [0.0, 0.0, 0.0, 0.0]),
-            content=raw_block.get("content"), # This might need to be merged text in some backends
+            content=raw_block.get("content"),
             page_idx=page_idx,
             blocks=nested
         )
@@ -78,41 +94,63 @@ class OCRResult:
     @property
     def num_pages(self) -> int:
         """Get the total number of pages."""
-        return len(self._raw)
+        return len(self.pdf_info)
 
     @property
     def output_dir(self) -> Optional[Path]:
         """Get the path to the directory containing output files (images, etc.)."""
         return self._output_dir
 
-    def markdown(self, mode: str = MakeMode.MM_MD) -> str:
+    def _get_backend(self) -> str:
+        if isinstance(self._raw, dict):
+            backend = self._raw.get("_backend")
+            if isinstance(backend, str) and backend:
+                return backend
+        return "pipeline"
+
+    def _get_image_dir(self) -> str:
+        if self._output_dir is None:
+            return ""
+        return (self._output_dir / "images").name
+
+    def _render(self, make_mode: str) -> str | List[Dict[str, Any]]:
+        image_dir = self._get_image_dir()
+
+        try:
+            from vparse.backend.engine.output import union_make as engine_union_make
+        except Exception:
+            engine_union_make = None
+
+        if engine_union_make is not None:
+            return engine_union_make(self.pdf_info, make_mode, image_dir)
+
+        if self._get_backend() in {"pipeline", "lite"}:
+            from vparse.backend.pipeline.pipeline_middle_json_mkcontent import union_make
+        else:
+            from vparse.backend.vlm.vlm_middle_json_mkcontent import union_make
+        return union_make(self.pdf_info, make_mode, image_dir)
+
+    def markdown(self, mode: str | None = None) -> str:
         """
         Get the final Markdown representation.
         
         Args:
             mode: Either 'mm_markdown' (multimodal) or 'nlp_markdown'.
         """
-        from vparse.utils.engine.output import union_make
-        return union_make(self._raw, mode)
+        render_mode = self._default_markdown_mode if mode is None else mode
+        return cast(str, self._render(render_mode))
 
     def content_list(self) -> List[Dict[str, Any]]:
         """Get the simplified content list format (useful for RAG)."""
-        from vparse.utils.engine.output import union_make
-        return union_make(self._raw, MakeMode.CONTENT_LIST)
+        return cast(List[Dict[str, Any]], self._render(MakeMode.CONTENT_LIST))
 
-    def draw_layout(self, output_path: str, filename: str):
-        """
-        Generate a PDF with layout bounding boxes drawn.
-        
-        Args:
-            output_path: Directory to save the layout PDF.
-            filename: Name of the layout PDF file.
-        """
-        if not self._pdf_bytes:
-            raise ValueError("pdf_bytes is required to generate layout PDF. Please provide it during OCRResult initialization.")
-        
-        from vparse.utils.draw_bbox import draw_layout_bbox
-        draw_layout_bbox(self._raw, self._pdf_bytes, output_path, filename)
+    def content_list_v2(self) -> List[Any]:
+        """Get the page-grouped content list v2 representation."""
+        return cast(List[Any], self._render(MakeMode.CONTENT_LIST_V2))
+
+    def middle_json(self) -> Dict[str, Any] | List[Dict[str, Any]]:
+        """Get the raw middle_json representation."""
+        return self._raw
 
     def __repr__(self) -> str:
         return f"<OCRResult pages={self.num_pages} output_dir='{self.output_dir}'>"
