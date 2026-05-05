@@ -8,6 +8,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(PROJECT_ROOT))
+
 
 def install_import_stubs() -> None:
     if "loguru" not in sys.modules:
@@ -263,6 +266,7 @@ def build_real_common_import_stubs() -> dict[str, types.ModuleType]:
 install_import_stubs()
 
 from vparse import VParse
+from vparse.config import Config
 from vparse.exceptions import ConfigurationError
 
 
@@ -398,6 +402,14 @@ class VParseClientTests(unittest.TestCase):
         self.assertEqual(calls[0]["f_make_md_mode"], "mm_markdown")
         self.assertIn("pipeline", client.get_available_backends())
         self.assertIn("hybrid-auto-engine", client.get_available_backends())
+
+    def test_explicit_constructor_values_override_config_even_when_they_match_defaults(self):
+        config = Config().set_backend("lite").set_language("ch")
+
+        client = VParse(config=config, backend="pipeline", lang="en")
+
+        self.assertEqual(client.backend, "pipeline")
+        self.assertEqual(client.lang, "en")
 
     def test_context_manager_cleans_up_temporary_output_root(self):
         calls: list[dict] = []

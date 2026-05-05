@@ -28,13 +28,6 @@ _SUPPORTED_OUTPUT_FORMATS = {
     MakeMode.NLP_MD,
     MakeMode.CONTENT_LIST,
 }
-_CTOR_DEFAULTS = {
-    "backend": "pipeline",
-    "lang": "en",
-    "output_format": MakeMode.MM_MD,
-    "formula_enable": True,
-    "table_enable": True,
-}
 
 
 def _guess_input_suffix(file_bytes: bytes) -> str:
@@ -69,13 +62,13 @@ class VParse:
 
     def __init__(
         self,
-        backend: str = "pipeline",
-        lang: str = "en",
+        backend: str | None = None,
+        lang: str | None = None,
         device: str | None = None,
         config: Config | None = None,
-        output_format: str = MakeMode.MM_MD,
-        formula_enable: bool = True,
-        table_enable: bool = True,
+        output_format: str | None = None,
+        formula_enable: bool | None = None,
+        table_enable: bool | None = None,
         **kwargs: Any,
     ) -> None:
         resolved = self._resolve_config(
@@ -111,13 +104,13 @@ class VParse:
     def _resolve_config(
         cls,
         *,
-        backend: str,
-        lang: str,
+        backend: str | None,
+        lang: str | None,
         device: str | None,
         config: Config | None,
-        output_format: str,
-        formula_enable: bool,
-        table_enable: bool,
+        output_format: str | None,
+        formula_enable: bool | None,
+        table_enable: bool | None,
     ) -> dict[str, Any]:
         if config is not None and not isinstance(config, Config):
             raise ConfigurationError("config must be an instance of Config")
@@ -135,11 +128,22 @@ class VParse:
             "table_enable": table_enable,
         }
         for key, value in explicit_values.items():
-            if value != _CTOR_DEFAULTS[key]:
+            if value is not None:
                 resolved[key] = value
 
         if device is not None:
             resolved["device"] = device
+
+        if resolved.get("backend") is None:
+            resolved["backend"] = "pipeline"
+        if resolved.get("lang") is None:
+            resolved["lang"] = "en"
+        if resolved.get("output_format") is None:
+            resolved["output_format"] = MakeMode.MM_MD
+        if resolved.get("formula_enable") is None:
+            resolved["formula_enable"] = True
+        if resolved.get("table_enable") is None:
+            resolved["table_enable"] = True
 
         normalized_output_format = resolved.get("output_format", MakeMode.MM_MD)
         if normalized_output_format not in _SUPPORTED_OUTPUT_FORMATS:

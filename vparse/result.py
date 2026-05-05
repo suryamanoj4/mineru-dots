@@ -86,15 +86,16 @@ class OCRResult:
     def _build_pages(self) -> List[PageInfo]:
         pages = []
         for i, raw_page in enumerate(self._raw_pdf_info()):
+            page_number = int(raw_page.get("page_idx", i))
             blocks = []
             # Extract blocks from 'para_blocks' (standard) or other possible keys
             raw_blocks = raw_page.get("para_blocks", [])
             for raw_block in raw_blocks:
-                blocks.append(self._parse_block(raw_block, i))
+                blocks.append(self._parse_block(raw_block, page_number))
 
             w, h = raw_page.get("page_size", [0.0, 0.0])
             pages.append(PageInfo(
-                page_number=int(raw_page.get("page_idx", i)),
+                page_number=page_number,
                 width=float(w),
                 height=float(h),
                 blocks=blocks
