@@ -9,6 +9,21 @@ from vparse.utils.enum_class import MakeMode
 from vparse.exceptions import ConfigurationError
 
 
+_FILE_KEY_ALIASES: dict[str, tuple[str, ...]] = {
+    "backend": ("backend",),
+    "lang": ("lang",),
+    "device": ("device", "device-mode"),
+    "output_format": ("output_format", "output-format"),
+    "formula_enable": ("formula_enable", "formula-enable"),
+    "table_enable": ("table_enable", "table-enable"),
+    "models_dir": ("models_dir", "models-dir"),
+    "batch_size": ("batch_size", "batch-size"),
+    "bucket_info": ("bucket_info",),
+    "latex_delimiters": ("latex_delimiters", "latex-delimiter-config"),
+    "llm_aided_config": ("llm_aided_config", "llm-aided-config"),
+}
+
+
 class VParseConfigModel(BaseModel):
     """Internal Pydantic model for VParse configuration validation."""
     model_config = ConfigDict(protected_namespaces=())
@@ -98,6 +113,16 @@ class Config:
         self._programmatic_overrides["models_dir"] = path
         return self
 
+    @staticmethod
+    def _normalize_file_config(data: dict[str, Any]) -> dict[str, Any]:
+        file_config: dict[str, Any] = {}
+        for field_name, aliases in _FILE_KEY_ALIASES.items():
+            for alias in aliases:
+                if alias in data:
+                    file_config[field_name] = data[alias]
+                    break
+        return file_config
+
     def load_from_file(self, path: Optional[str] = None) -> "Config":
         """
         Load configuration from a JSON file.
@@ -108,18 +133,9 @@ class Config:
             try:
                 with open(config_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                
-                # Map JSON keys to model fields
-                file_config = {}
-                if "models-dir" in data:
-                    file_config["models_dir"] = data["models-dir"]
-                if "bucket_info" in data:
-                    file_config["bucket_info"] = data["bucket_info"]
-                if "latex-delimiter-config" in data:
-                    file_config["latex_delimiters"] = data["latex-delimiter-config"]
-                if "llm-aided-config" in data:
-                    file_config["llm_aided_config"] = data["llm-aided-config"]
-                
+
+                file_config = self._normalize_file_config(data)
+
                 # Update the base model with file values
                 for k, v in file_config.items():
                     setattr(self._model, k, v)
