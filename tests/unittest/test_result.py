@@ -25,7 +25,7 @@ install_import_stubs()
 from vparse.result import OCRResult, PageInfo, BlockInfo
 
 def test_ocr_result_structure():
-    """Test that OCRResult correctly wraps the raw middle_json dictionary."""
+    """Test that OCRResult exposes structured page and block models."""
     mock_json = [
         {
             "page_idx": 0,
@@ -39,12 +39,15 @@ def test_ocr_result_structure():
     result = OCRResult(mock_json)
     
     assert result.num_pages == 1
+    assert isinstance(result.pdf_info[0], PageInfo)
+    assert result.pdf_info[0].page_number == 0
     assert result.pages[0].width == 612.0
-    assert result.pages[0].blocks[0].type == "text"
+    assert result.pages[0].blocks[0].block_type == "text"
     assert result.pages[0].blocks[0].content == "Hello World"
+    assert result.pages[0].blocks[0].bbox == (10.0, 10.0, 100.0, 50.0)
 
 def test_ocr_result_accessors():
-    """Test that OCRResult exposes markdown, content list, and raw middle_json."""
+    """Test that OCRResult exposes markdown, content list, typed pages, and raw middle_json."""
     mock_json = [
         {
             "page_idx": 0,
@@ -68,8 +71,22 @@ def test_ocr_result_accessors():
         assert result.markdown() == "mock-markdown"
         assert result.content_list() == [{"type": "text", "text": "mock-content", "page_idx": 0}]
         assert result.middle_json()["pdf_info"] == mock_json
+        assert result.get_page(0).page_number == 0
+        assert result.get_page(0).blocks == []
+
+def test_ocr_result_get_page_rejects_out_of_range():
+    result = OCRResult(
+        [{"page_idx": 0, "page_size": [612.0, 792.0], "para_blocks": []}]
+    )
+
+    try:
+        result.get_page(1)
+        assert False, "Should have raised InputError"
+    except Exception as exc:
+        assert "out of range" in str(exc)
 
 if __name__ == "__main__":
     test_ocr_result_structure()
     test_ocr_result_accessors()
+    test_ocr_result_get_page_rejects_out_of_range()
     print("test_result.py passed!")

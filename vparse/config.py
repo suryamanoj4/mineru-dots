@@ -64,29 +64,39 @@ class Config:
         # Start with defaults
         self._model = VParseConfigModel()
         self._programmatic_overrides: Dict[str, Any] = {}
+        self._frozen = False
+
+    def _ensure_mutable(self) -> None:
+        if self._frozen:
+            raise ConfigurationError("Config is frozen and cannot be modified")
 
     def set_backend(self, backend: str) -> "Config":
         """Set the OCR backend (e.g., 'pipeline', 'vlm-auto-engine')."""
+        self._ensure_mutable()
         self._programmatic_overrides["backend"] = backend
         return self
 
     def set_device(self, device: str) -> "Config":
         """Set the compute device (e.g., 'cpu', 'cuda', 'mps')."""
+        self._ensure_mutable()
         self._programmatic_overrides["device"] = device
         return self
 
     def set_language(self, lang: str) -> "Config":
         """Set the primary language for OCR."""
+        self._ensure_mutable()
         self._programmatic_overrides["lang"] = lang
         return self
 
     def set_output_format(self, fmt: str) -> "Config":
         """Set the output format (e.g., 'mm_markdown', 'nlp_markdown')."""
+        self._ensure_mutable()
         self._programmatic_overrides["output_format"] = fmt
         return self
 
     def enable_formula(self, enable: bool = True) -> "Config":
         """Enable or disable formula recognition."""
+        self._ensure_mutable()
         self._programmatic_overrides["formula_enable"] = enable
         return self
 
@@ -96,6 +106,7 @@ class Config:
 
     def enable_tables(self, enable: bool = True) -> "Config":
         """Enable or disable table recognition."""
+        self._ensure_mutable()
         self._programmatic_overrides["table_enable"] = enable
         return self
 
@@ -105,11 +116,13 @@ class Config:
 
     def set_batch_size(self, size: int) -> "Config":
         """Set the batch size for processing."""
+        self._ensure_mutable()
         self._programmatic_overrides["batch_size"] = size
         return self
 
     def set_models_dir(self, path: str) -> "Config":
         """Set the directory where models are stored."""
+        self._ensure_mutable()
         self._programmatic_overrides["models_dir"] = path
         return self
 
@@ -128,6 +141,7 @@ class Config:
         Load configuration from a JSON file.
         Priority level 2 in the hierarchy.
         """
+        self._ensure_mutable()
         config_path = path or get_config_file_path(prefer_existing=True)
         if config_path and os.path.exists(config_path):
             try:
@@ -148,6 +162,7 @@ class Config:
         Load configuration from environment variables.
         Priority level 3 in the hierarchy.
         """
+        self._ensure_mutable()
         env_mappings = {
             "backend": ("VPARSE_BACKEND", "MINERU_BACKEND"),
             "device": ("VPARSE_DEVICE_MODE", "MINERU_DEVICE_MODE"),
@@ -170,6 +185,11 @@ class Config:
                     except ValueError:
                         continue
                 setattr(self._model, field, val)
+        return self
+
+    def freeze(self) -> "Config":
+        """Freeze this configuration instance to prevent further mutation."""
+        self._frozen = True
         return self
 
     def build(self) -> VParseConfigModel:

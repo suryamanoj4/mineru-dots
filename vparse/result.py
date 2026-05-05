@@ -1,28 +1,45 @@
 # Copyright (c) Opendatalab. All rights reserved.
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Any, Dict, List, Optional, cast
 
 from pydantic import BaseModel, Field
 
+from vparse.exceptions import InputError
 from vparse.utils.enum_class import MakeMode
 
 
 class BlockInfo(BaseModel):
     """Information about a single layout block (paragraph, image, table, etc.)."""
-    type: str = Field(description="Type of the block (text, title, image, table, etc.")
-    bbox: List[float] = Field(description="Bounding box [x0, y0, x1, y1]")
+    block_type: str = Field(description="Type of the block (text, title, image, table, etc.)")
+    bbox: tuple[float, float, float, float] = Field(
+        description="Bounding box (x0, y0, x1, y1)"
+    )
     content: Optional[str] = Field(default=None, description="Text content of the block if applicable")
-    page_idx: int = Field(description="Index of the page this block belongs to")
+    page_number: int = Field(description="Zero-based page number this block belongs to")
     # Blocks can be nested (e.g., Table contains TableBody, TableCaption)
     blocks: Optional[List["BlockInfo"]] = Field(default=None, description="Nested blocks")
+
+    @property
+    def type(self) -> str:
+        return self.block_type
+
+    @property
+    def page_idx(self) -> int:
+        return self.page_number
 
 
 class PageInfo(BaseModel):
     """Information about a single document page."""
-    page_idx: int = Field(description="Zero-based index of the page")
+    page_number: int = Field(description="Zero-based page number")
     width: float = Field(description="Width of the page in points")
     height: float = Field(description="Height of the page in points")
     blocks: List[BlockInfo] = Field(default_factory=list, description="List of blocks on this page")
+
+    @property
+    def page_idx(self) -> int:
+        return self.page_number
 
 
 class OCRResult:
@@ -48,53 +65,60 @@ class OCRResult:
         self._pdf_bytes = None
         self._output_dir = output_dir
         self._default_markdown_mode = default_markdown_mode
+        self._pages = self._build_pages()
 
-    @property
-    def pdf_info(self) -> List[Dict[str, Any]]:
-        """Get the normalized page list from the wrapped middle_json payload."""
+    def _raw_pdf_info(self) -> List[Dict[str, Any]]:
         if isinstance(self._raw, dict):
             pdf_info = self._raw.get("pdf_info", [])
             return pdf_info if isinstance(pdf_info, list) else []
         return self._raw
 
     @property
+    def pdf_info(self) -> List[PageInfo]:
+        """Get a structured list of document pages."""
+        return list(self._pages)
+
+    @property
     def pages(self) -> List[PageInfo]:
-        """Get a list of structured PageInfo objects."""
+        """Compatibility alias for the structured page list."""
+        return self.pdf_info
+
+    def _build_pages(self) -> List[PageInfo]:
         pages = []
-        for i, raw_page in enumerate(self.pdf_info):
+        for i, raw_page in enumerate(self._raw_pdf_info()):
             blocks = []
             # Extract blocks from 'para_blocks' (standard) or other possible keys
             raw_blocks = raw_page.get("para_blocks", [])
             for raw_block in raw_blocks:
                 blocks.append(self._parse_block(raw_block, i))
-            
+
             w, h = raw_page.get("page_size", [0.0, 0.0])
             pages.append(PageInfo(
-                page_idx=raw_page.get("page_idx", i),
+                page_number=int(raw_page.get("page_idx", i)),
                 width=float(w),
                 height=float(h),
                 blocks=blocks
             ))
         return pages
 
-    def _parse_block(self, raw_block: Dict[str, Any], page_idx: int) -> BlockInfo:
+    def _parse_block(self, raw_block: Dict[str, Any], page_number: int) -> BlockInfo:
         """Recursively parse raw block dictionaries into BlockInfo objects."""
         nested = None
         if "blocks" in raw_block:
-            nested = [self._parse_block(b, page_idx) for b in raw_block["blocks"]]
-            
+            nested = [self._parse_block(b, page_number) for b in raw_block["blocks"]]
+
         return BlockInfo(
-            type=raw_block.get("type", "unknown"),
-            bbox=raw_block.get("bbox", [0.0, 0.0, 0.0, 0.0]),
+            block_type=str(raw_block.get("type", "unknown")),
+            bbox=tuple(float(v) for v in raw_block.get("bbox", [0.0, 0.0, 0.0, 0.0])),
             content=raw_block.get("content"),
-            page_idx=page_idx,
+            page_number=page_number,
             blocks=nested
         )
 
     @property
     def num_pages(self) -> int:
         """Get the total number of pages."""
-        return len(self.pdf_info)
+        return len(self._pages)
 
     @property
     def output_dir(self) -> Optional[Path]:
@@ -122,13 +146,13 @@ class OCRResult:
             engine_union_make = None
 
         if engine_union_make is not None:
-            return engine_union_make(self.pdf_info, make_mode, image_dir)
+            return engine_union_make(self._raw_pdf_info(), make_mode, image_dir)
 
         if self._get_backend() in {"pipeline", "lite"}:
             from vparse.backend.pipeline.pipeline_middle_json_mkcontent import union_make
         else:
             from vparse.backend.vlm.vlm_middle_json_mkcontent import union_make
-        return union_make(self.pdf_info, make_mode, image_dir)
+        return union_make(self._raw_pdf_info(), make_mode, image_dir)
 
     def markdown(self, mode: str | None = None) -> str:
         """
@@ -151,6 +175,13 @@ class OCRResult:
     def middle_json(self) -> Dict[str, Any] | List[Dict[str, Any]]:
         """Get the raw middle_json representation."""
         return self._raw
+
+    def get_page(self, page_num: int) -> PageInfo:
+        """Return the structured page object for a zero-based page number."""
+        for page in self._pages:
+            if page.page_number == page_num:
+                return page
+        raise InputError(f"Page {page_num} is out of range for a {self.num_pages}-page result")
 
     def __repr__(self) -> str:
         return f"<OCRResult pages={self.num_pages} output_dir='{self.output_dir}'>"

@@ -290,9 +290,9 @@ class VParseClientTests(unittest.TestCase):
             self.assertEqual(calls[0]["backend"], "pipeline")
             self.assertEqual(calls[0]["parse_method"], "auto")
             self.assertEqual(calls[0]["f_make_md_mode"], "mm_markdown")
-            self.assertTrue(calls[0]["f_draw_layout_bbox"])
+            self.assertFalse(calls[0]["f_draw_layout_bbox"])
             self.assertFalse(calls[0]["f_draw_span_bbox"])
-            self.assertTrue(calls[0]["f_dump_content_list"])
+            self.assertFalse(calls[0]["f_dump_content_list"])
             self.assertFalse(calls[0]["f_dump_model_output"])
             self.assertFalse(calls[0]["f_dump_orig_pdf"])
             self.assertFalse((Path(temp_dir) / "test" / "auto" / "test_middle.json").exists())
@@ -332,6 +332,23 @@ class VParseClientTests(unittest.TestCase):
         self.assertEqual(calls[1]["pdf_file_names"], ["test_2"])
         self.assertEqual(results[0].output_dir.parent.name, "test")
         self.assertEqual(results[1].output_dir.parent.name, "test_2")
+
+    def test_process_explicit_output_flags_override_prd_defaults(self):
+        calls: list[dict] = []
+        fake_common = build_fake_cli_common(calls)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with mock.patch.dict(sys.modules, {"vparse.cli.common": fake_common}):
+                client = VParse()
+                client.process(
+                    TEST_PDF_PATH,
+                    output_dir=temp_dir,
+                    draw_layout_bbox=True,
+                    dump_content_list=True,
+                )
+
+        self.assertTrue(calls[0]["f_draw_layout_bbox"])
+        self.assertTrue(calls[0]["f_dump_content_list"])
 
     def test_process_batch_accepts_progress_callback_alias(self):
         calls: list[dict] = []
@@ -419,8 +436,8 @@ class VParseClientTests(unittest.TestCase):
                     )
                     self.assertEqual(result.num_pages, 1)
                     self.assertEqual(result.output_dir.name, "lite_auto")
-                    self.assertEqual(result.pages[0].page_idx, 0)
-                    self.assertEqual(result.pages[0].blocks[0].type, "text")
+                    self.assertEqual(result.pdf_info[0].page_number, 0)
+                    self.assertEqual(result.pages[0].blocks[0].block_type, "text")
                     self.assertIsNone(result.pages[0].blocks[0].content)
                     self.assertEqual(result.markdown(), "integration-markdown")
                     self.assertEqual(
@@ -428,6 +445,7 @@ class VParseClientTests(unittest.TestCase):
                         [{"type": "text", "text": "integration-content", "page_idx": 0}],
                     )
                     self.assertEqual(result.middle_json()["_backend"], "lite")
+                    self.assertEqual(result.get_page(0).page_number, 0)
                     self.assertTrue((result.output_dir / "test_middle.json").exists())
 
 

@@ -110,10 +110,30 @@ def test_config_to_dict():
     assert config_dict["backend"] == "vlm-auto-engine"
     assert "device" in config_dict
 
+def test_config_freeze_blocks_further_mutation():
+    """Test that freeze prevents further builder mutation."""
+    config = Config().set_backend("pipeline").freeze()
+
+    frozen_dict = config.to_dict()
+    assert frozen_dict["backend"] == "pipeline"
+
+    try:
+        config.set_batch_size(4)
+        assert False, "Should have raised ConfigurationError"
+    except ConfigurationError:
+        pass
+
+    try:
+        config.load_from_env()
+        assert False, "Should have raised ConfigurationError"
+    except ConfigurationError:
+        pass
+
 if __name__ == "__main__":
     test_config_builder_fluent_api()
     test_config_load_from_file_supports_phase_three_fields()
     test_config_hierarchy_file_env_programmatic()
     test_config_validation_error()
     test_config_to_dict()
+    test_config_freeze_blocks_further_mutation()
     print("test_config.py passed!")
