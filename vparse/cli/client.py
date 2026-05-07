@@ -7,6 +7,7 @@ import sys
 import click
 from pathlib import Path
 from loguru import logger
+from vparse import VParse
 from vparse.constants import AVAILABLE_BACKENDS
 from vparse.utils.compat import get_env_with_legacy
 
@@ -21,6 +22,14 @@ from vparse.utils.model_utils import get_vram
 from ..version import __version__
 from .common import do_parse, read_fn, pdf_suffixes, image_suffixes
 from .streaming import stream_parse
+
+CLI_DRAW_LAYOUT_BBOX = True
+CLI_DRAW_SPAN_BBOX = False
+CLI_DUMP_MD = True
+CLI_DUMP_CONTENT_LIST = True
+CLI_DUMP_MIDDLE_JSON = False
+CLI_DUMP_MODEL_OUTPUT = False
+CLI_DUMP_ORIG_PDF = False
 
 
 def get_checkpoint_path(output_dir: str, input_folder_name: str) -> Path:
@@ -39,6 +48,35 @@ def save_checkpoint(checkpoint_path: Path, checkpoint: dict):
     checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
     with open(checkpoint_path, "w") as f:
         json.dump(checkpoint, f, indent=2)
+
+
+def build_vparse_client(
+    backend: str,
+    lang: str,
+    device_mode: str | None,
+    formula_enable: bool,
+    table_enable: bool,
+    server_url: str | None,
+    start_page_id: int,
+    end_page_id: int | None,
+    extra_kwargs: dict,
+) -> VParse:
+    constructor_kwargs = dict(extra_kwargs)
+    constructor_kwargs.update(
+        {
+            "server_url": server_url,
+            "start_page_id": start_page_id,
+            "end_page_id": end_page_id,
+        }
+    )
+    return VParse(
+        backend=backend,
+        lang=lang,
+        device=device_mode,
+        formula_enable=formula_enable,
+        table_enable=table_enable,
+        **constructor_kwargs,
+    )
 
 
 @click.command(
@@ -309,12 +347,11 @@ def main(
         for batch_start in range(0, len(remaining_paths), batch_size):
             batch_paths = remaining_paths[batch_start : batch_start + batch_size]
 
-            batch_data = []
+            readable_paths = []
             for path in batch_paths:
-                file_name = str(Path(path).stem)
                 try:
-                    pdf_bytes = read_fn(path)
-                    batch_data.append((path, file_name, pdf_bytes))
+                    read_fn(path)
+                    readable_paths.append(path)
                 except Exception as e:
                     logger.error(f"Error reading {path.name}: {e}")
                     checkpoint["failed"].append(path.name)
@@ -323,11 +360,15 @@ def main(
                         checkpoint["batch_size"] = batch_size
                         save_checkpoint(checkpoint_path, checkpoint)
                     logger.info(f"Skipping unreadable file: {path.name}")
-                    continue
 
-            for path, file_name, pdf_bytes in batch_data:
-                try:
-                    if stream:
+            if not readable_paths:
+                continue
+
+            try:
+                if stream:
+                    for path in readable_paths:
+                        file_name = str(Path(path).stem)
+                        pdf_bytes = read_fn(path)
                         stream_session = stream_parse(
                             output_dir=output_dir,
                             pdf_file_name=file_name,
@@ -340,49 +381,64 @@ def main(
                             server_url=server_url,
                             start_page_id=start_page_id,
                             end_page_id=end_page_id,
-                            page_callback=lambda update: logger.info(
-                                f"{path.name}: streamed page {update['completed_pages']}/{update['total_pages']}"
+                            page_callback=lambda update, current_path=path: logger.info(
+                                f"{current_path.name}: streamed page {update['completed_pages']}/{update['total_pages']}"
                             ),
                             **kwargs,
                         )
                         logger.info(f"Streaming output dir: {stream_session}")
-                    else:
-                        do_parse(
+                else:
+                    with build_vparse_client(
+                        backend=backend,
+                        lang=lang,
+                        device_mode=device_mode,
+                        formula_enable=formula_enable,
+                        table_enable=table_enable,
+                        server_url=server_url,
+                        start_page_id=start_page_id,
+                        end_page_id=end_page_id,
+                        extra_kwargs=kwargs,
+                    ) as client:
+                        client.process_batch(
+                            readable_paths,
                             output_dir=output_dir,
-                            pdf_file_names=[file_name],
-                            pdf_bytes_list=[pdf_bytes],
-                            p_lang_list=[lang],
-                            backend=backend,
-                            parse_method=method,
-                            formula_enable=formula_enable,
-                            table_enable=table_enable,
-                            server_url=server_url,
-                            start_page_id=start_page_id,
-                            end_page_id=end_page_id,
-                            **kwargs,
+                            method=method,
+                            draw_layout_bbox=CLI_DRAW_LAYOUT_BBOX,
+                            draw_span_bbox=CLI_DRAW_SPAN_BBOX,
+                            dump_md=CLI_DUMP_MD,
+                            dump_content_list=CLI_DUMP_CONTENT_LIST,
+                            dump_middle_json=CLI_DUMP_MIDDLE_JSON,
+                            dump_model_output=CLI_DUMP_MODEL_OUTPUT,
+                            dump_orig_pdf=CLI_DUMP_ORIG_PDF,
+                            callback=lambda progress, total, current_batch=readable_paths: logger.info(
+                                f"Batch progress: {progress}/{total} files ({current_batch[progress - 1].name})"
+                            ),
                         )
 
-                    checkpoint["processed"].append(path.name)
+                checkpoint["processed"].extend(path.name for path in readable_paths)
 
-                    if checkpoint_path:
-                        checkpoint["total"] = total_files
-                        checkpoint["batch_size"] = batch_size
-                        save_checkpoint(checkpoint_path, checkpoint)
+                if checkpoint_path:
+                    checkpoint["total"] = total_files
+                    checkpoint["batch_size"] = batch_size
+                    save_checkpoint(checkpoint_path, checkpoint)
 
-                    current_processed = len(checkpoint["processed"])
-                    logger.info(
-                        f"Progress: {current_processed}/{total_files} files processed"
-                    )
-
-                except Exception as e:
-                    logger.error(f"Error processing {path.name}: {e}")
-                    checkpoint["failed"].append(path.name)
-                    if checkpoint_path:
-                        checkpoint["total"] = total_files
-                        checkpoint["batch_size"] = batch_size
-                        save_checkpoint(checkpoint_path, checkpoint)
-                    logger.info(f"Skipping failed file: {path.name}")
-                    continue
+                current_processed = len(checkpoint["processed"])
+                logger.info(
+                    f"Progress: {current_processed}/{total_files} files processed"
+                )
+            except Exception as e:
+                logger.error(f"Error processing batch starting with {readable_paths[0].name}: {e}")
+                checkpoint["failed"].extend(
+                    path.name
+                    for path in readable_paths
+                    if path.name not in checkpoint["failed"]
+                )
+                if checkpoint_path:
+                    checkpoint["total"] = total_files
+                    checkpoint["batch_size"] = batch_size
+                    save_checkpoint(checkpoint_path, checkpoint)
+                logger.info("Skipping failed batch")
+                continue
 
     def parse_doc(path_list: list[Path]):
         try:
@@ -409,29 +465,29 @@ def main(
                     )
                     logger.info(f"Streaming output dir: {stream_session}")
             else:
-                file_name_list = []
-                pdf_bytes_list = []
-                lang_list = []
-                for path in path_list:
-                    file_name = str(Path(path).stem)
-                    pdf_bytes = read_fn(path)
-                    file_name_list.append(file_name)
-                    pdf_bytes_list.append(pdf_bytes)
-                    lang_list.append(lang)
-                do_parse(
-                    output_dir=output_dir,
-                    pdf_file_names=file_name_list,
-                    pdf_bytes_list=pdf_bytes_list,
-                    p_lang_list=lang_list,
+                with build_vparse_client(
                     backend=backend,
-                    parse_method=method,
+                    lang=lang,
+                    device_mode=device_mode,
                     formula_enable=formula_enable,
                     table_enable=table_enable,
                     server_url=server_url,
                     start_page_id=start_page_id,
                     end_page_id=end_page_id,
-                    **kwargs,
-                )
+                    extra_kwargs=kwargs,
+                ) as client:
+                    client.process_batch(
+                        path_list,
+                        output_dir=output_dir,
+                        method=method,
+                        draw_layout_bbox=CLI_DRAW_LAYOUT_BBOX,
+                        draw_span_bbox=CLI_DRAW_SPAN_BBOX,
+                        dump_md=CLI_DUMP_MD,
+                        dump_content_list=CLI_DUMP_CONTENT_LIST,
+                        dump_middle_json=CLI_DUMP_MIDDLE_JSON,
+                        dump_model_output=CLI_DUMP_MODEL_OUTPUT,
+                        dump_orig_pdf=CLI_DUMP_ORIG_PDF,
+                    )
         except Exception as e:
             logger.exception(e)
 
