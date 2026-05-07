@@ -91,23 +91,27 @@ def set_default_gpu_memory_utilization() -> float:
         return 0.5
 
 
-def set_default_batch_size() -> int:
+def resolve_vlm_engine() -> str:
     try:
-        device = get_device()
-        gpu_memory = get_vram(device)
+        import vllm
+        return "vllm"
+    except ImportError:
+        pass
 
-        if gpu_memory >= 16:
-            batch_size = 8
-        elif gpu_memory >= 8:
-            batch_size = 4
-        else:
-            batch_size = 1
-        logger.info(f'gpu_memory: {gpu_memory} GB, batch_size: {batch_size}')
+    try:
+        from mlx_vlm import load as mlx_load  # noqa: F401
+        return "mlx"
+    except ImportError:
+        pass
 
-    except Exception as e:
-        logger.warning(f'Error determining VRAM: {e}, using default batch_ratio: 1')
-        batch_size = 1
-    return batch_size
+    try:
+        import lmdeploy
+        return "lmdeploy"
+    except ImportError:
+        pass
+
+    logger.warning("No VLM engine found (vLLM, MLX, LMDeploy). Defaulting to vllm.")
+    return "vllm"
 
 
 def _get_device_config(device_type: str) -> dict | None:

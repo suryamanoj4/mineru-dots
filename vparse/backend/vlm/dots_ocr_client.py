@@ -30,10 +30,9 @@ DOTS_TO_VPARSE_TYPE = {
 class DotsOCRClient:
     def __init__(
         self,
-        backend: str = "transformers",
+        backend: str = "vllm-async-engine",
         model_path: Optional[str] = None,
         server_url: Optional[str] = None,
-        use_hf: bool = False,
         temperature: float = 0.1,
         top_p: float = 1.0,
         max_completion_tokens: int = 32768,
@@ -49,7 +48,6 @@ class DotsOCRClient:
         self.backend = backend
         self.model_path = model_path
         self.server_url = server_url
-        self.use_hf = use_hf
         self.temperature = temperature
         self.top_p = top_p
         self.max_completion_tokens = max_completion_tokens
@@ -64,7 +62,7 @@ class DotsOCRClient:
         self._client = self._create_client()
 
     def _create_client(self) -> VParseClient:
-        if self.backend == "http-client":
+        if self.server_url:
             logger.info(f"Using HTTP client with server_url: {self.server_url}")
             return VParseClient(
                 backend="http-client",
@@ -75,56 +73,7 @@ class DotsOCRClient:
                 http_timeout=self.http_timeout,
             )
 
-        if self.use_hf or self.backend == "transformers":
-            return self._create_hf_client()
-        elif self.backend in ["vllm-engine", "vllm-async-engine"]:
-            return self._create_vllm_client()
-        else:
-            raise ValueError(f"Unsupported backend: {self.backend}")
-
-    def _create_hf_client(self) -> VParseClient:
-        try:
-            import torch
-            from transformers import AutoModelForCausalLM, AutoProcessor
-        except ImportError as e:
-            raise ImportError(
-                f"Please install required packages for HuggingFace backend: {e}"
-            )
-
-        if not self.model_path:
-            raise ValueError("model_path is required for HuggingFace backend")
-
-        logger.info(f"Loading dots.ocr model from: {self.model_path}")
-
-        from transformers import __version__ as transformers_version
-        from packaging import version
-
-        dtype_key = (
-            "dtype"
-            if version.parse(transformers_version) >= version.parse("4.56.0")
-            else "torch_dtype"
-        )
-
-        model = AutoModelForCausalLM.from_pretrained(
-            self.model_path,
-            attn_implementation="flash_attention_2",
-            **{dtype_key: torch.bfloat16},
-            device_map="auto",
-            trust_remote_code=True,
-        )
-        processor = AutoProcessor.from_pretrained(
-            self.model_path, trust_remote_code=True, use_fast=True
-        )
-
-        logger.info("dots.ocr model loaded successfully")
-
-        return VParseClient(
-            backend="transformers",
-            model=model,
-            processor=processor,
-            model_path=self.model_path,
-            batch_size=self.batch_size,
-        )
+        return self._create_vllm_client()
 
     def _create_vllm_client(self) -> VParseClient:
         try:
@@ -169,38 +118,27 @@ class DotsOCRClient:
             max_model_len=self.max_model_len,
         )
 
-        backend_type = (
-            "vllm-async-engine"
-            if self.backend == "vllm-async-engine"
-            else "vllm-engine"
-        )
-
         logger.info("dots.ocr vLLM model loaded successfully")
 
-        # Create VParseClient - prompts are passed directly in batch_two_step_extract
         vparse_client = VParseClient(
-            backend=backend_type,
+            backend="vllm-async-engine",
             vllm_llm=vllm_llm,
             model_path=self.model_path,
             batch_size=self.batch_size,
             max_concurrency=self.max_concurrency,
         )
-        
-        # Patch the internal VLLM client's build_messages method for dots.ocr compatibility
-        # dots.ocr's chat template expects string content, not OpenAI list format
+
         def build_messages_string(prompt: str, _num_images: int) -> list[dict]:
             prompt = prompt or vparse_client.client.prompt
             messages = []
             if vparse_client.client.system_prompt:
                 messages.append({"role": "system", "content": vparse_client.client.system_prompt})
-            # Use string content format for chat template compatibility
-            # Image is passed separately via multi_modal_data in vLLM
             user_content = prompt if prompt else ""
             messages.append({"role": "user", "content": user_content})
             return messages
-        
+
         vparse_client.client.build_messages = build_messages_string
-        
+
         return vparse_client
 
     def _get_prompt(self, prompt_mode: str = "prompt_layout_all_en") -> str:
@@ -436,40 +374,7 @@ class DotsOCRClient:
 
         return results
 
-    def batch_two_step_extract(
-        self,
-        images: List,
-        prompt_mode: str = "prompt_layout_all_en",
-        not_extract_list: list = None,
-    ) -> List[List[ContentBlock]]:
-        total = len(images)
-        logger.info(
-            f"Processing {total} images with dots.ocr (prompt_mode: {prompt_mode})"
-        )
-
-        prompt = self._build_model_prompt(prompt_mode)
-        sampling_params = self._build_sampling_params(
-            self._get_retry_max_new_tokens(prompt_mode)
-        )
-
-        start_time = time.time()
-        # Access internal client's batch_predict for raw text output
-        # dots.ocr returns JSON with both layout and content in one pass
-        # Pass prompt as a list to avoid chat template issues
-        outputs = self._client.client.batch_predict(
-            images=images,
-            prompts=[prompt] * len(images),
-            sampling_params=[sampling_params] * len(images),
-        )
-        elapsed = time.time() - start_time
-        logger.debug(
-            f"Inference done in {elapsed:.2f}s, speed: {round(total / elapsed, 3)} page/s"
-        )
-
-        results = self._process_outputs(images, outputs, prompt_mode, not_extract_list)
-        return results
-
-    async def aio_batch_two_step_extract(
+    async def batch_two_step_extract(
         self,
         images: List,
         prompt_mode: str = "prompt_layout_all_en",
@@ -486,8 +391,6 @@ class DotsOCRClient:
         )
 
         start_time = time.time()
-        # Access internal client's aio_batch_predict for raw text output
-        # Pass prompt as a list to avoid chat template issues
         outputs = await self._client.client.aio_batch_predict(
             images=images,
             prompts=[prompt] * len(images),
@@ -520,7 +423,7 @@ class DotsOCRClient:
 
 
 def create_dots_ocr_client(
-    backend: str = "transformers",
+    backend: str = "vllm-async-engine",
     model_path: Optional[str] = None,
     server_url: Optional[str] = None,
     **kwargs,
