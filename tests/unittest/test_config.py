@@ -9,16 +9,13 @@ from unittest import mock
 
 
 def install_import_stubs() -> None:
-    if "loguru" not in sys.modules:
-        loguru = types.ModuleType("loguru")
-        loguru.logger = types.SimpleNamespace(
-            debug=lambda *a, **k: None,
-            info=lambda *a, **k: None,
-            warning=lambda *a, **k: None,
-            error=lambda *a, **k: None,
-            exception=lambda *a, **k: None,
-        )
-        sys.modules["loguru"] = loguru
+    loguru = sys.modules.get("loguru") or types.ModuleType("loguru")
+    logger = getattr(loguru, "logger", types.SimpleNamespace())
+    for name in ("debug", "info", "warning", "error", "exception"):
+        if not hasattr(logger, name):
+            setattr(logger, name, lambda *a, **k: None)
+    loguru.logger = logger
+    sys.modules["loguru"] = loguru
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -59,6 +56,12 @@ def test_config_load_from_file_supports_phase_three_fields():
     assert final_config.lang == "japan"
     assert final_config.batch_size == 16
     assert final_config.models_dir == "/models"
+
+def test_config_load_from_file_accepts_template_models_dir_mapping():
+    """Test that the project template's per-backend models-dir shape validates."""
+    final_config = Config().load_from_file(str(PROJECT_ROOT / "vparse.template.json")).build()
+
+    assert final_config.models_dir == {"pipeline": "", "vlm": ""}
 
 def test_config_hierarchy_file_env_programmatic():
     """Test defaults < file < env < programmatic precedence."""
@@ -132,6 +135,7 @@ def test_config_freeze_blocks_further_mutation():
 if __name__ == "__main__":
     test_config_builder_fluent_api()
     test_config_load_from_file_supports_phase_three_fields()
+    test_config_load_from_file_accepts_template_models_dir_mapping()
     test_config_hierarchy_file_env_programmatic()
     test_config_validation_error()
     test_config_to_dict()

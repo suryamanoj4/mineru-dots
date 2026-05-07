@@ -8,20 +8,13 @@ from types import TracebackType
 from typing import Any, Callable
 
 from .config import Config
+from .constants import AVAILABLE_BACKENDS
 from .exceptions import ConfigurationError, InputError, ProcessingError
 from .result import OCRResult
 from .utils.enum_class import MakeMode
 from .version import __version__
 
 
-_AVAILABLE_BACKENDS = [
-    "pipeline",
-    "lite",
-    "vlm-http-client",
-    "hybrid-http-client",
-    "vlm-auto-engine",
-    "hybrid-auto-engine",
-]
 _SUPPORTED_METHODS = {"auto", "txt", "ocr"}
 _SUPPORTED_OUTPUT_FORMATS = {
     MakeMode.MM_MD,
@@ -154,9 +147,9 @@ class VParse:
         resolved["output_format"] = normalized_output_format
 
         backend_name = resolved.get("backend", "pipeline")
-        if backend_name not in _AVAILABLE_BACKENDS:
+        if backend_name not in AVAILABLE_BACKENDS:
             raise ConfigurationError(
-                f"backend must be one of {sorted(_AVAILABLE_BACKENDS)}"
+                f"backend must be one of {sorted(AVAILABLE_BACKENDS)}"
             )
 
         return resolved
@@ -272,12 +265,12 @@ class VParse:
             default_markdown_mode=self._default_markdown_mode(),
         )
 
-    def _run_parse(
+    def _run_do_parse(
         self,
         *,
         output_root: Path,
-        pdf_file_name: str,
-        pdf_bytes: bytes,
+        pdf_file_names: list[str],
+        pdf_bytes_list: list[bytes],
         method: str,
         draw_layout_bbox: bool,
         draw_span_bbox: bool,
@@ -286,7 +279,7 @@ class VParse:
         dump_middle_json: bool,
         dump_model_output: bool,
         dump_orig_pdf: bool,
-    ) -> OCRResult:
+    ) -> None:
         from vparse.cli.common import do_parse, temporary_env
 
         parse_kwargs = dict(self._default_parse_kwargs)
@@ -299,9 +292,9 @@ class VParse:
             with temporary_env(**env_updates):
                 do_parse(
                     output_dir=str(output_root),
-                    pdf_file_names=[pdf_file_name],
-                    pdf_bytes_list=[pdf_bytes],
-                    p_lang_list=[self.lang],
+                    pdf_file_names=pdf_file_names,
+                    pdf_bytes_list=pdf_bytes_list,
+                    p_lang_list=[self.lang] * len(pdf_file_names),
                     backend=self.backend,
                     parse_method=method,
                     formula_enable=self.formula_enable,
@@ -320,9 +313,37 @@ class VParse:
             raise
         except Exception as exc:
             raise ProcessingError(
-                f"Failed to process '{pdf_file_name}' with backend '{self.backend}': {exc}"
+                f"Failed to process batch with backend '{self.backend}': {exc}"
             ) from exc
 
+    def _run_parse(
+        self,
+        *,
+        output_root: Path,
+        pdf_file_name: str,
+        pdf_bytes: bytes,
+        method: str,
+        draw_layout_bbox: bool,
+        draw_span_bbox: bool,
+        dump_md: bool,
+        dump_content_list: bool,
+        dump_middle_json: bool,
+        dump_model_output: bool,
+        dump_orig_pdf: bool,
+    ) -> OCRResult:
+        self._run_do_parse(
+            output_root=output_root,
+            pdf_file_names=[pdf_file_name],
+            pdf_bytes_list=[pdf_bytes],
+            method=method,
+            draw_layout_bbox=draw_layout_bbox,
+            draw_span_bbox=draw_span_bbox,
+            dump_md=dump_md,
+            dump_content_list=dump_content_list,
+            dump_middle_json=dump_middle_json,
+            dump_model_output=dump_model_output,
+            dump_orig_pdf=dump_orig_pdf,
+        )
         return self._read_result(output_root, pdf_file_name, method, dump_middle_json)
 
     def _unique_name(self, base_name: str, used_names: set[str]) -> str:
@@ -414,14 +435,18 @@ class VParse:
         progress_callback: Callable[[int, int], None] | None = None,
     ) -> list[OCRResult]:
         normalized_method = self._normalize_method(method)
+        if not input_paths:
+            return []
+
         output_root = self._ensure_output_root(output_dir)
         progress = self._resolve_progress_callback(callback, progress_callback)
         try:
             total = len(input_paths)
             used_names: set[str] = set()
-            results: list[OCRResult] = []
+            pdf_file_names: list[str] = []
+            pdf_bytes_list: list[bytes] = []
 
-            for index, input_path in enumerate(input_paths, start=1):
+            for input_path in input_paths:
                 base_name = "document"
                 if isinstance(input_path, (str, Path)):
                     path_name = Path(input_path).stem
@@ -429,18 +454,30 @@ class VParse:
                         base_name = path_name
                 pdf_file_name = self._unique_name(base_name, used_names)
                 _, pdf_bytes = self._normalize_input(input_path, pdf_file_name)
-                result = self._run_parse(
-                    output_root=output_root,
-                    pdf_file_name=pdf_file_name,
-                    pdf_bytes=pdf_bytes,
-                    method=normalized_method,
-                    draw_layout_bbox=draw_layout_bbox,
-                    draw_span_bbox=draw_span_bbox,
-                    dump_md=dump_md,
-                    dump_content_list=dump_content_list,
-                    dump_middle_json=dump_middle_json,
-                    dump_model_output=dump_model_output,
-                    dump_orig_pdf=dump_orig_pdf,
+                pdf_file_names.append(pdf_file_name)
+                pdf_bytes_list.append(pdf_bytes)
+
+            self._run_do_parse(
+                output_root=output_root,
+                pdf_file_names=pdf_file_names,
+                pdf_bytes_list=pdf_bytes_list,
+                method=normalized_method,
+                draw_layout_bbox=draw_layout_bbox,
+                draw_span_bbox=draw_span_bbox,
+                dump_md=dump_md,
+                dump_content_list=dump_content_list,
+                dump_middle_json=dump_middle_json,
+                dump_model_output=dump_model_output,
+                dump_orig_pdf=dump_orig_pdf,
+            )
+
+            results: list[OCRResult] = []
+            for index, pdf_file_name in enumerate(pdf_file_names, start=1):
+                result = self._read_result(
+                    output_root,
+                    pdf_file_name,
+                    normalized_method,
+                    dump_middle_json,
                 )
                 results.append(result)
 
@@ -454,7 +491,7 @@ class VParse:
             raise
 
     def get_available_backends(self) -> list[str]:
-        return list(_AVAILABLE_BACKENDS)
+        return list(AVAILABLE_BACKENDS)
 
     def get_version(self) -> str:
         return __version__

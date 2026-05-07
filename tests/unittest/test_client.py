@@ -13,18 +13,13 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 
 def install_import_stubs() -> None:
-    if "loguru" not in sys.modules:
-        loguru = types.ModuleType("loguru")
-        loguru.logger = types.SimpleNamespace(
-            debug=lambda *a, **k: None,
-            info=lambda *a, **k: None,
-            warning=lambda *a, **k: None,
-            error=lambda *a, **k: None,
-            exception=lambda *a, **k: None,
-            remove=lambda *a, **k: None,
-            add=lambda *a, **k: None,
-        )
-        sys.modules["loguru"] = loguru
+    loguru = sys.modules.get("loguru") or types.ModuleType("loguru")
+    logger = getattr(loguru, "logger", types.SimpleNamespace())
+    for name in ("debug", "info", "warning", "error", "exception", "remove", "add"):
+        if not hasattr(logger, name):
+            setattr(logger, name, lambda *a, **k: None)
+    loguru.logger = logger
+    sys.modules["loguru"] = loguru
 
 
 def build_fake_cli_common(calls: list[dict]) -> types.ModuleType:
@@ -332,8 +327,9 @@ class VParseClientTests(unittest.TestCase):
 
         self.assertEqual(len(results), 2)
         self.assertEqual(progress_updates, [(1, 2), (2, 2)])
-        self.assertEqual(calls[0]["pdf_file_names"], ["test"])
-        self.assertEqual(calls[1]["pdf_file_names"], ["test_2"])
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["pdf_file_names"], ["test", "test_2"])
+        self.assertEqual(calls[0]["p_lang_list"], ["en", "en"])
         self.assertEqual(results[0].output_dir.parent.name, "test")
         self.assertEqual(results[1].output_dir.parent.name, "test_2")
 

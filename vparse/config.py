@@ -34,7 +34,10 @@ class VParseConfigModel(BaseModel):
     output_format: str = Field(default=MakeMode.MM_MD, description="Default output format")
     formula_enable: bool = Field(default=True, description="Enable formula recognition")
     table_enable: bool = Field(default=True, description="Enable table recognition")
-    models_dir: Optional[str] = Field(default=None, description="Directory containing model weights")
+    models_dir: str | Dict[str, str] | None = Field(
+        default=None,
+        description="Model directory path or per-backend model directory mapping",
+    )
     batch_size: int = Field(default=8, description="Batch size for processing")
     
     # Advanced configs from JSON
@@ -120,7 +123,7 @@ class Config:
         self._programmatic_overrides["batch_size"] = size
         return self
 
-    def set_models_dir(self, path: str) -> "Config":
+    def set_models_dir(self, path: str | Dict[str, str]) -> "Config":
         """Set the directory where models are stored."""
         self._ensure_mutable()
         self._programmatic_overrides["models_dir"] = path

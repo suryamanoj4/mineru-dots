@@ -6,16 +6,13 @@ from unittest import mock
 
 
 def install_import_stubs() -> None:
-    if "loguru" not in sys.modules:
-        loguru = types.ModuleType("loguru")
-        loguru.logger = types.SimpleNamespace(
-            debug=lambda *a, **k: None,
-            info=lambda *a, **k: None,
-            warning=lambda *a, **k: None,
-            error=lambda *a, **k: None,
-            exception=lambda *a, **k: None,
-        )
-        sys.modules["loguru"] = loguru
+    loguru = sys.modules.get("loguru") or types.ModuleType("loguru")
+    logger = getattr(loguru, "logger", types.SimpleNamespace())
+    for name in ("debug", "info", "warning", "error", "exception"):
+        if not hasattr(logger, name):
+            setattr(logger, name, lambda *a, **k: None)
+    loguru.logger = logger
+    sys.modules["loguru"] = loguru
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]

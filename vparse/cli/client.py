@@ -7,6 +7,7 @@ import sys
 import click
 from pathlib import Path
 from loguru import logger
+from vparse.constants import AVAILABLE_BACKENDS
 from vparse.utils.compat import get_env_with_legacy
 
 log_level = get_env_with_legacy("VPARSE_LOG_LEVEL", "MINERU_LOG_LEVEL", "INFO").upper()
@@ -81,16 +82,7 @@ def save_checkpoint(checkpoint_path: Path, checkpoint: dict):
     "-b",
     "--backend",
     "backend",
-    type=click.Choice(
-        [
-            "pipeline",
-            "lite",
-            "vlm-http-client",
-            "hybrid-http-client",
-            "vlm-auto-engine",
-            "hybrid-auto-engine",
-        ]
-    ),
+    type=click.Choice(list(AVAILABLE_BACKENDS)),
     help="""\b
     the backend for parsing pdf:
       pipeline: More general.
