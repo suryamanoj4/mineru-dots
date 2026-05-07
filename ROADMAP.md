@@ -65,7 +65,22 @@ hybrid:
 
 ---
 
-## v2 — Performance & Memory Optimization
+## v2 — Bulk Processing & Job Management
+
+**Theme**: High-throughput batch processing with queues, progress tracking, and resilience.
+
+| Area | What |
+|------|------|
+| **Bulk Processing API** | BulkProcessor.submit, Job status/progress tracking, async iteration over results. Batch pages across books to amortize overhead |
+| **Redis/Celery Queue** | Celery workers, Redis broker, horizontal scaling, result backend |
+| **Priority Queues** | Critical/high/normal/low tiers, separate queues per priority |
+| **Progress & ETA** | Per-job progress events, throughput tracking, estimated completion time |
+| **Checkpoint/Resume** | API-level checkpointing, resume interrupted bulk jobs from failure point |
+| **Rate Limiting** | Throttle submission rate, backpressure when queue is full |
+
+---
+
+## v3 — Performance & Memory Optimization
 
 **Theme**: Reduce memory footprint, prevent OOM, speed up inference with mixed precision.
 
@@ -81,7 +96,7 @@ hybrid:
 
 ---
 
-## v3 — KV Cache Optimization
+## v4 — KV Cache Optimization
 
 **Theme**: Reduce redundant VLM computation through KV cache sharing and tuning.
 
@@ -93,21 +108,6 @@ hybrid:
 | **Cache Eviction** | Configurable LRU/LFU/priority-based eviction policies |
 | **Cache Metrics** | Hit/miss ratio, utilization, fragmentation, eviction rate, Prometheus export |
 | **Batch-Aware Management** | Allocate/release cache per batch, overlap cache load with inference |
-
----
-
-## v4 — Bulk Processing & Job Management
-
-**Theme**: High-throughput batch processing with queues, progress tracking, and resilience.
-
-| Area | What |
-|------|------|
-| **Bulk Processing API** | BulkProcessor.submit, Job status/progress tracking, async iteration over results |
-| **Redis/Celery Queue** | Celery workers, Redis broker, horizontal scaling, result backend |
-| **Priority Queues** | Critical/high/normal/low tiers, separate queues per priority |
-| **Progress & ETA** | Per-job progress events, throughput tracking, estimated completion time |
-| **Checkpoint/Resume** | API-level checkpointing, resume interrupted bulk jobs from failure point |
-| **Rate Limiting** | Throttle submission rate, backpressure when queue is full |
 
 ---
 
@@ -171,9 +171,9 @@ hybrid:
 | Version | Theme | Focus |
 |---------|-------|-------|
 | v1 | Async Inference & Mode Consolidation | 15 → 5 modes, async-first VLM/Remote, unified API, streaming |
-| v2 | Performance & Memory Optimization | Mixed precision, memory pooling, dynamic batching, OOM prevention |
-| v3 | KV Cache Optimization | Prefix sharing, page similarity, cache tuning, metrics |
-| v4 | Bulk Processing & Job Management | Queues, progress, checkpoint/resume, rate limiting |
+| v2 | Bulk Processing & Job Management | Batch API, queues, progress, checkpoint/resume |
+| v3 | Performance & Memory Optimization | Mixed precision, memory pooling, dynamic batching, OOM prevention |
+| v4 | KV Cache Optimization | Prefix sharing, page similarity, cache tuning, metrics |
 | v5 | Multi-Model VLM & More Engines | Qwen2-VL, InternVL2, Nougat, Ollama, TGI, auto-selection |
 | v6 | Output Formats, Docker & API Server | DOCX, searchable PDF, K8s, auth, multi-backend API |
 | v7 | Testing, Monitoring & Docs | Coverage >85%, Prometheus, Grafana, tutorials |
