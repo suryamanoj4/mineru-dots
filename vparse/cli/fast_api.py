@@ -484,14 +484,15 @@ async def parse_pdf(
 """,
     ),
     backend: str = Form(
-        "hybrid-auto-engine",
+        "hybrid",
         description="""The backend for parsing:
-- pipeline: More general, supports multiple languages, hallucination-free.
-- lite: Lightweight direct-Tesseract backend. Does not use the full pipeline.
-- vlm-auto-engine: High accuracy via local computing power, supports Chinese and English documents only.
-- vlm-http-client: High accuracy via remote computing power(client suitable for openai-compatible servers), supports Chinese and English documents only.
-- hybrid-auto-engine: Next-generation high accuracy solution via local computing power, supports multiple languages.
-- hybrid-http-client: High accuracy via remote computing power but requires a little local computing power(client suitable for openai-compatible servers), supports multiple languages.""",
+- pipeline: Multi-model pipeline with layout detection, OCR, table/formula extraction.
+- lite: Lightweight Tesseract-only backend for CPU fast path.
+- vlm: VLM with auto-optimized engine (vLLM for CUDA, MLX for Apple Silicon).
+- vlm-lmdeploy: VLM using LMDeploy engine explicitly.
+- hybrid: VLM for layout + pipeline OCR, supports multiple languages.
+- hybrid-lmdeploy: Hybrid using LMDeploy engine explicitly.
+- remote: Point at any OpenAI-compatible server via --server_url.""",
     ),
     parse_method: str = Form(
         "auto",

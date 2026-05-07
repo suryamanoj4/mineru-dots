@@ -73,19 +73,23 @@ def do_parse(
     else:
         f_draw_span_bbox = False
 
-        if backend.startswith("vlm-"):
-            backend = backend[4:]
+        _BACKEND_ALIASES = {
+            "vlm-auto-engine": "vlm", "vlm-vllm-engine": "vlm",
+            "vlm-transformers": "vlm", "hybrid-auto-engine": "hybrid",
+            "vlm-http-client": "vlm", "hybrid-http-client": "hybrid",
+        }
+        backend = _BACKEND_ALIASES.get(backend, backend)
+        is_lmdeploy = backend.endswith("-lmdeploy")
+        engine = "lmdeploy" if is_lmdeploy else get_vlm_engine("auto")
 
-            if backend == "auto-engine":
-                backend = get_vlm_engine(inference_engine='auto', is_async=False)
-
+        if backend in ("vlm", "vlm-lmdeploy") or backend.startswith("vlm"):
             parse_method = "vlm"
             for idx, pdf_bytes in enumerate(pdf_bytes_list):
                 pdf_file_name = pdf_file_names[idx]
                 pdf_bytes = convert_pdf_bytes_to_bytes_by_pypdfium2(pdf_bytes, start_page_id, end_page_id)
                 local_image_dir, local_md_dir = prepare_env(output_dir, pdf_file_name, parse_method)
                 image_writer, md_writer = FileBasedDataWriter(local_image_dir), FileBasedDataWriter(local_md_dir)
-                middle_json, infer_result = vlm_doc_analyze(pdf_bytes, image_writer=image_writer, backend=backend, server_url=server_url)
+                middle_json, infer_result = vlm_doc_analyze(pdf_bytes, image_writer=image_writer, backend=engine, server_url=server_url)
 
                 pdf_info = middle_json["pdf_info"]
 
@@ -95,12 +99,7 @@ def do_parse(
                     f_dump_md, f_dump_content_list, f_dump_middle_json, f_dump_model_output,
                     f_make_md_mode, middle_json, infer_result, is_pipeline=False
                 )
-        elif backend.startswith("hybrid-"):
-            backend = backend[7:]
-
-            if backend == "auto-engine":
-                backend = get_vlm_engine(inference_engine='auto', is_async=False)
-
+        elif backend in ("hybrid", "hybrid-lmdeploy") or backend.startswith("hybrid"):
             parse_method = f"hybrid_{parse_method}"
             for idx, pdf_bytes in enumerate(pdf_bytes_list):
                 pdf_file_name = pdf_file_names[idx]
@@ -110,7 +109,7 @@ def do_parse(
                 middle_json, infer_result, _vlm_ocr_enable = hybrid_doc_analyze(
                     pdf_bytes,
                     image_writer=image_writer,
-                    backend=backend,
+                    backend=engine,
                     parse_method=parse_method,
                     language=p_lang_list[idx],
                     inline_formula_enable=formula_enable,
@@ -210,12 +209,13 @@ def parse_doc(
             Input the languages in the pdf (if known) to improve OCR accuracy.  Optional.
             Adapted only for the case where the backend is set to 'pipeline' and 'hybrid-*'
         backend: the backend for parsing pdf:
-            pipeline: More general.
-            vlm-auto-engine: High accuracy via local computing power.
-            vlm-http-client: High accuracy via remote computing power(client suitable for openai-compatible servers).
-            hybrid-auto-engine: Next-generation high accuracy solution via local computing power.
-            hybrid-http-client: High accuracy but requires a little local computing power(client suitable for openai-compatible servers).
-            Without method specified, hybrid-auto-engine will be used by default.
+            pipeline: Multi-model pipeline with layout detection, OCR, table/formula extraction.
+            lite: Lightweight Tesseract-only backend for CPU fast path.
+            vlm: VLM with auto-optimized engine (vLLM for CUDA, MLX for Apple Silicon).
+            vlm-lmdeploy: VLM using LMDeploy engine explicitly.
+            hybrid: VLM for layout + pipeline OCR, supports multiple languages.
+            hybrid-lmdeploy: Hybrid using LMDeploy engine explicitly.
+            Without method specified, hybrid will be used by default.
         method: the method for parsing pdf:
             auto: Automatically determine the method based on the file type.
             txt: Use text extraction method.
@@ -268,10 +268,10 @@ if __name__ == '__main__':
     # os.environ['VPARSE_MODEL_SOURCE'] = "modelscope"
 
     """Use hybrid mode and local computing power to parse documents"""
-    parse_doc(doc_path_list, output_dir, backend="hybrid-auto-engine")
+    parse_doc(doc_path_list, output_dir, backend="hybrid")
 
     """Other backends for parsing documents, you can uncomment and try"""
-    # parse_doc(doc_path_list, output_dir, backend="pipeline")  # more general.
-    # parse_doc(doc_path_list, output_dir, backend="vlm-auto-engine")  # high accuracy via local computing power.
-    # parse_doc(doc_path_list, output_dir, backend="vlm-http-client", server_url="http://127.0.0.1:30000")  # high accuracy via remote computing power(client suitable for openai-compatible servers).
-    # parse_doc(doc_path_list, output_dir, backend="hybrid-http-client", server_url="http://127.0.0.1:30000")  # high accuracy but requires a little local computing power(client suitable for openai-compatible servers).
+    # parse_doc(doc_path_list, output_dir, backend="pipeline")
+    # parse_doc(doc_path_list, output_dir, backend="vlm")
+    # parse_doc(doc_path_list, output_dir, backend="vlm-lmdeploy")
+    # parse_doc(doc_path_list, output_dir, backend="remote", server_url="http://127.0.0.1:30000")

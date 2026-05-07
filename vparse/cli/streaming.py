@@ -14,9 +14,9 @@ STREAM_DIR_NAME = "stream_preview"
 
 
 def get_stream_env_name(backend: str, parse_method: str) -> str:
-    if backend.startswith("vlm-"):
+    if backend in ("vlm", "vlm-lmdeploy") or backend.startswith("vlm-"):
         return "vlm"
-    if backend.startswith("hybrid-"):
+    if backend in ("hybrid", "hybrid-lmdeploy") or backend.startswith("hybrid-"):
         return f"hybrid_{parse_method}"
     if backend == "lite":
         return f"lite_{parse_method}"
