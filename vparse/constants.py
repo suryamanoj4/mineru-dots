@@ -4,8 +4,9 @@
 AVAILABLE_BACKENDS: tuple[str, ...] = (
     "pipeline",
     "lite",
-    "vlm-http-client",
-    "hybrid-http-client",
-    "vlm-auto-engine",
-    "hybrid-auto-engine",
+    "vlm",
+    "vlm-lmdeploy",
+    "hybrid",
+    "hybrid-lmdeploy",
+    "remote",
 )

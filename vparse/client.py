@@ -189,9 +189,9 @@ class VParse:
             from vparse.cli.common import get_pipeline_subdir
 
             return get_pipeline_subdir(self.backend, method)
-        if self.backend.startswith("vlm-"):
+        if self.backend in ("vlm", "vlm-lmdeploy") or self.backend.startswith("vlm-"):
             return "vlm"
-        if self.backend.startswith("hybrid-"):
+        if self.backend in ("hybrid", "hybrid-lmdeploy") or self.backend.startswith("hybrid-"):
             return f"hybrid_{method}"
         return method
 

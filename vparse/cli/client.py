@@ -123,14 +123,14 @@ def build_vparse_client(
     type=click.Choice(list(AVAILABLE_BACKENDS)),
     help="""\b
     the backend for parsing pdf:
-      pipeline: More general.
-      lite: Lightweight direct-Tesseract backend. Does not use the full pipeline.
-      vlm-auto-engine: High accuracy via local computing power (uses dots.ocr).
-      vlm-http-client: High accuracy via remote computing power (client suitable for openai-compatible servers).
-      hybrid-auto-engine: Next-generation high accuracy solution via local computing power (uses dots.ocr for layout).
-      hybrid-http-client: High accuracy but requires a little local computing power (client suitable for openai-compatible servers).
-    Without method specified, vlm-auto-engine will be used by default.""",
-    default="vlm-auto-engine",
+      pipeline: Layout detection + PaddleOCR/Tesseract + table/formula extraction.
+      lite: Lightweight Tesseract-only backend for CPU fast path.
+      vlm: VLM with auto-optimized engine (vLLM for CUDA, MLX for Apple Silicon).
+      vlm-lmdeploy: VLM using LMDeploy engine explicitly.
+      hybrid: VLM for layout + pipeline OCR, supports multiple languages.
+      hybrid-lmdeploy: Hybrid using LMDeploy engine explicitly.
+      remote: Point at any OpenAI-compatible server via --server-url.""",
+    default="hybrid",
 )
 @click.option(
     "-l",
@@ -170,7 +170,7 @@ def build_vparse_client(
     "server_url",
     type=str,
     help="""
-    When the backend is `<vlm/hybrid>-http-client`, you need to specify the server_url, for example:`http://127.0.0.1:30000`
+    When the backend is `remote`, you need to specify the server_url, for example:`http://127.0.0.1:30000`
     """,
     default=None,
 )
@@ -274,7 +274,7 @@ def main(
 
     kwargs.update(arg_parse(ctx))
 
-    if not backend.endswith("-client"):
+    if backend != "remote":
 
         def get_device_mode() -> str:
             if device_mode is not None:
