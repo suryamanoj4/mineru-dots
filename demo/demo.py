@@ -11,7 +11,7 @@ from vparse.data.data_reader_writer import FileBasedDataWriter
 from vparse.utils.draw_bbox import draw_layout_bbox, draw_span_bbox
 from vparse.utils.engine_utils import get_vlm_engine
 from vparse.utils.enum_class import MakeMode
-from vparse.backend.vlm.vlm_analyze import doc_analyze as vlm_doc_analyze
+from vparse.backend.vlm.vlm_analyze import sync_doc_analyze as vlm_doc_analyze
 from vparse.backend.pipeline.pipeline_analyze import doc_analyze as pipeline_doc_analyze
 from vparse.backend.pipeline.pipeline_middle_json_mkcontent import union_make as pipeline_union_make
 from vparse.backend.pipeline.model_json_to_middle_json import result_to_middle_json as pipeline_result_to_middle_json

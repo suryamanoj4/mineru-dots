@@ -1,4 +1,5 @@
 # Copyright (c) Opendatalab. All rights reserved.
+import asyncio
 import os
 import time
 import json
@@ -211,3 +212,28 @@ async def doc_analyze(
 
     middle_json = result_to_middle_json(results, images_list, pdf_doc, image_writer)
     return middle_json, results
+
+
+def sync_doc_analyze(
+    pdf_bytes,
+    image_writer=None,
+    backend="vllm",
+    model_path: str | None = None,
+    server_url: str | None = None,
+    prompt_mode: str = "prompt_layout_all_en",
+    **kwargs,
+):
+    return asyncio.run(
+        doc_analyze(
+            pdf_bytes,
+            image_writer=image_writer,
+            backend=backend,
+            model_path=model_path,
+            server_url=server_url,
+            prompt_mode=prompt_mode,
+            **kwargs,
+        )
+    )
+
+
+aio_doc_analyze = doc_analyze
