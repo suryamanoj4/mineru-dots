@@ -10,6 +10,7 @@ from .utils import (
     set_default_gpu_memory_utilization,
     set_lmdeploy_backend,
     mod_kwargs_by_device_type,
+    estimate_vlm_batch_size,
 )
 from .model_output_to_middle_json import result_to_middle_json
 from ...data.data_reader_writer import DataWriter
@@ -301,7 +302,7 @@ async def batch_doc_analyze(
         image_writers = [None] * len(pdf_bytes_list)
 
     if batch_size <= 0:
-        batch_size = 32
+        batch_size = estimate_vlm_batch_size()
 
     load_start = time.time()
 
