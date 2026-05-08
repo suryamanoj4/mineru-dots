@@ -16,8 +16,9 @@ from vparse.utils.enum_class import MakeMode
 from vparse.utils.guess_suffix_or_lang import guess_suffix_by_bytes
 from vparse.utils.compat import get_env_with_legacy
 from vparse.utils.pdf_image_tools import images_bytes_to_pdf_bytes
+from vparse.backend.registry import resolve_backend_name
 from vparse.backend.vlm.vlm_middle_json_mkcontent import union_make as vlm_union_make
-from vparse.backend.vlm.vlm_analyze import doc_analyze as vlm_doc_analyze
+from vparse.backend.vlm.vlm_analyze import sync_doc_analyze as vlm_doc_analyze
 from vparse.backend.vlm.vlm_analyze import aio_doc_analyze as aio_vlm_doc_analyze
 from vparse.utils.pdf_page_id import get_end_page_id
 
@@ -301,6 +302,10 @@ def _process_lite(
             f_make_md_mode, middle_json, infer_result, is_pipeline=True
         )
 
+
+def _should_use_remote_server(backend: str, server_url: str | None) -> bool:
+    return bool(server_url) and backend in {"remote", "http-client"}
+
 async def _async_process_vlm(
         output_dir,
         pdf_file_names,
@@ -321,7 +326,7 @@ async def _async_process_vlm(
 
     parse_method = "vlm"
     f_draw_span_bbox = False
-    if not backend.endswith("client"):
+    if not _should_use_remote_server(backend, server_url):
         server_url = None
 
     for idx, pdf_bytes in enumerate(pdf_bytes_list):
@@ -362,7 +367,7 @@ def _process_vlm(
 
     parse_method = "vlm"
     f_draw_span_bbox = False
-    if not backend.endswith("client"):
+    if not _should_use_remote_server(backend, server_url):
         server_url = None
 
     for idx, pdf_bytes in enumerate(pdf_bytes_list):
@@ -405,7 +410,7 @@ def _process_hybrid(
 ):
     from vparse.backend.hybrid.hybrid_analyze import doc_analyze as hybrid_doc_analyze
     """Handle hybrid backend logic synchronously"""
-    if not backend.endswith("client"):
+    if not _should_use_remote_server(backend, server_url):
         server_url = None
 
     for idx, (pdf_bytes, lang) in enumerate(zip(pdf_bytes_list, h_lang_list)):
@@ -458,7 +463,7 @@ async def _async_process_hybrid(
 ):
     from vparse.backend.hybrid.hybrid_analyze import aio_doc_analyze as aio_hybrid_doc_analyze
     """Handle hybrid backend logic asynchronously"""
-    if not backend.endswith("client"):
+    if not _should_use_remote_server(backend, server_url):
         server_url = None
 
     for idx, (pdf_bytes, lang) in enumerate(zip(pdf_bytes_list, h_lang_list)):
@@ -489,6 +494,17 @@ async def _async_process_hybrid(
             f_make_md_mode, middle_json, infer_result, is_pipeline=False
         )
 
+def _resolve_backend(backend: str) -> str:
+    return resolve_backend_name(backend)
+
+
+def _is_vlm_backend(backend: str) -> bool:
+    return backend in ("vlm", "vlm-lmdeploy") or backend.startswith("vlm-")
+
+
+def _is_hybrid_backend(backend: str) -> bool:
+    return backend in ("hybrid", "hybrid-lmdeploy") or backend.startswith("hybrid-")
+
 
 def do_parse(
         output_dir,
@@ -512,7 +528,8 @@ def do_parse(
         end_page_id=None,
         **kwargs,
 ):
-    # Preprocess PDF byte data
+    backend = _resolve_backend(backend)
+
     pdf_bytes_list = _prepare_pdf_bytes(pdf_bytes_list, start_page_id, end_page_id)
 
     if backend == "pipeline":
@@ -529,44 +546,40 @@ def do_parse(
             f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
             f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode
         )
-    else:
-        if backend.startswith("vlm-"):
-            backend = backend[4:]
+    elif _is_vlm_backend(backend):
+        vlm_engine = "lmdeploy" if backend == "vlm-lmdeploy" else get_vlm_engine("auto")
 
-            if backend == "vllm-async-engine":
-                raise Exception("vlm-vllm-async-engine backend is not supported in sync mode, please use vlm-vllm-engine backend")
+        os.environ['VPARSE_VLM_FORMULA_ENABLE'] = str(formula_enable)
+        os.environ['VPARSE_VLM_TABLE_ENABLE'] = str(table_enable)
 
-            if backend == "auto-engine":
-                backend = get_vlm_engine(inference_engine='auto', is_async=False)
+        _process_vlm(
+            output_dir, pdf_file_names, pdf_bytes_list, vlm_engine,
+            f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
+            f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode,
+            server_url, **kwargs,
+        )
+    elif _is_hybrid_backend(backend):
+        vlm_engine = "lmdeploy" if backend == "hybrid-lmdeploy" else get_vlm_engine("auto")
 
-            os.environ['VPARSE_VLM_FORMULA_ENABLE'] = str(formula_enable)
-            os.environ['VPARSE_VLM_TABLE_ENABLE'] = str(table_enable)
+        os.environ['VPARSE_VLM_TABLE_ENABLE'] = str(table_enable)
+        os.environ['VPARSE_VLM_FORMULA_ENABLE'] = "true"
 
-            _process_vlm(
-                output_dir, pdf_file_names, pdf_bytes_list, backend,
-                f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
-                f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode,
-                server_url, **kwargs,
-            )
-        elif backend.startswith("hybrid-"):
-            backend = backend[7:]
+        _process_hybrid(
+            output_dir, pdf_file_names, pdf_bytes_list, p_lang_list, parse_method, formula_enable, vlm_engine,
+            f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
+            f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode,
+            server_url, **kwargs,
+        )
+    elif backend == "remote":
+        os.environ['VPARSE_VLM_FORMULA_ENABLE'] = str(formula_enable)
+        os.environ['VPARSE_VLM_TABLE_ENABLE'] = str(table_enable)
 
-            if backend == "vllm-async-engine":
-                raise Exception(
-                    "hybrid-vllm-async-engine backend is not supported in sync mode, please use hybrid-vllm-engine backend")
-
-            if backend == "auto-engine":
-                backend = get_vlm_engine(inference_engine='auto', is_async=False)
-
-            os.environ['VPARSE_VLM_TABLE_ENABLE'] = str(table_enable)
-            os.environ['VPARSE_VLM_FORMULA_ENABLE'] = "true"
-
-            _process_hybrid(
-                output_dir, pdf_file_names, pdf_bytes_list, p_lang_list, parse_method, formula_enable, backend,
-                f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
-                f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode,
-                server_url, **kwargs,
-            )
+        _process_vlm(
+            output_dir, pdf_file_names, pdf_bytes_list, "remote",
+            f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
+            f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode,
+            server_url, **kwargs,
+        )
 
 
 async def aio_do_parse(
@@ -591,11 +604,11 @@ async def aio_do_parse(
         end_page_id=None,
         **kwargs,
 ):
-    # Preprocess PDF byte data
+    backend = _resolve_backend(backend)
+
     pdf_bytes_list = _prepare_pdf_bytes(pdf_bytes_list, start_page_id, end_page_id)
 
     if backend == "pipeline":
-        # pipeline mode does not support async yet; using synchronous processing
         _process_pipeline(
             output_dir, pdf_file_names, pdf_bytes_list, p_lang_list,
             backend, parse_method, formula_enable, table_enable,
@@ -609,54 +622,47 @@ async def aio_do_parse(
             f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
             f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode
         )
-    else:
-        if backend.startswith("vlm-"):
-            backend = backend[4:]
+    elif _is_vlm_backend(backend):
+        vlm_engine = "lmdeploy" if backend == "vlm-lmdeploy" else get_vlm_engine("auto")
 
-            if backend == "vllm-engine":
-                raise Exception("vlm-vllm-engine backend is not supported in async mode, please use vlm-vllm-async-engine backend")
+        os.environ['VPARSE_VLM_FORMULA_ENABLE'] = str(formula_enable)
+        os.environ['VPARSE_VLM_TABLE_ENABLE'] = str(table_enable)
 
-            if backend == "auto-engine":
-                backend = get_vlm_engine(inference_engine='auto', is_async=True)
+        await _async_process_vlm(
+            output_dir, pdf_file_names, pdf_bytes_list, vlm_engine,
+            f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
+            f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode,
+            server_url, **kwargs,
+        )
+    elif _is_hybrid_backend(backend):
+        vlm_engine = "lmdeploy" if backend == "hybrid-lmdeploy" else get_vlm_engine("auto")
 
-            os.environ['VPARSE_VLM_FORMULA_ENABLE'] = str(formula_enable)
-            os.environ['VPARSE_VLM_TABLE_ENABLE'] = str(table_enable)
+        os.environ['VPARSE_VLM_TABLE_ENABLE'] = str(table_enable)
+        os.environ['VPARSE_VLM_FORMULA_ENABLE'] = "true"
 
-            await _async_process_vlm(
-                output_dir, pdf_file_names, pdf_bytes_list, backend,
-                f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
-                f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode,
-                server_url, **kwargs,
-            )
-        elif backend.startswith("hybrid-"):
-            backend = backend[7:]
+        await _async_process_hybrid(
+            output_dir, pdf_file_names, pdf_bytes_list, p_lang_list, parse_method, formula_enable, vlm_engine,
+            f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
+            f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode,
+            server_url, **kwargs,
+        )
+    elif backend == "remote":
+        os.environ['VPARSE_VLM_FORMULA_ENABLE'] = str(formula_enable)
+        os.environ['VPARSE_VLM_TABLE_ENABLE'] = str(table_enable)
 
-            if backend == "vllm-engine":
-                raise Exception("hybrid-vllm-engine backend is not supported in async mode, please use hybrid-vllm-async-engine backend")
-
-            if backend == "auto-engine":
-                backend = get_vlm_engine(inference_engine='auto', is_async=True)
-
-            os.environ['VPARSE_VLM_TABLE_ENABLE'] = str(table_enable)
-            os.environ['VPARSE_VLM_FORMULA_ENABLE'] = "true"
-
-            await _async_process_hybrid(
-                output_dir, pdf_file_names, pdf_bytes_list, p_lang_list, parse_method, formula_enable, backend,
-                f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
-                f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode,
-                server_url, **kwargs,
-            )
+        await _async_process_vlm(
+            output_dir, pdf_file_names, pdf_bytes_list, "remote",
+            f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
+            f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode,
+            server_url, **kwargs,
+        )
 
 
 if __name__ == "__main__":
-    # pdf_path = "../../demo/pdfs/demo3.pdf"
-    pdf_path = "C:/Users/zhaoxiaomeng/Downloads/4546d0e2-ba60-40a5-a17e-b68555cec741.pdf"
-
     try:
-       do_parse("./output", [Path(pdf_path).stem], [read_fn(Path(pdf_path))],["ch"],
+       do_parse("./output", ["demo"], [b"dummy"], ["ch"],
                 end_page_id=10,
-                backend='vlm-huggingface'
-                # backend = 'pipeline'
+                backend="vlm",
                 )
     except Exception as e:
         logger.exception(e)

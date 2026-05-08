@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import shutil
 import tempfile
@@ -24,35 +25,8 @@ _SUPPORTED_OUTPUT_FORMATS = {
 }
 
 
-def _guess_input_suffix(file_bytes: bytes) -> str:
-    from vparse.utils.guess_suffix_or_lang import guess_suffix_by_bytes
-
-    return guess_suffix_by_bytes(file_bytes)
-
-
-def _convert_image_bytes_to_pdf(file_bytes: bytes) -> bytes:
-    from vparse.utils.pdf_image_tools import images_bytes_to_pdf_bytes
-
-    return images_bytes_to_pdf_bytes(file_bytes)
-
-
-def _cleanup_device_memory(device: str | None) -> None:
-    if not device:
-        return
-
-    try:
-        from vparse.utils.model_utils import clean_memory
-    except Exception:
-        return
-
-    try:
-        clean_memory(device)
-    except Exception:
-        return
-
-
-class VParse:
-    """High-level synchronous OCR processor built on top of ``do_parse()``."""
+class AsyncVParse:
+    """High-level asynchronous OCR processor built on top of ``aio_do_parse()``."""
 
     def __init__(
         self,
@@ -85,8 +59,7 @@ class VParse:
         self._default_parse_kwargs = dict(kwargs)
         self._owned_temp_dirs: set[Path] = set()
 
-    @staticmethod
-    def _extract_config_overrides(config: Config) -> dict[str, Any]:
+    def _extract_config_overrides(self, config: Config) -> dict[str, Any]:
         built = config.build()
         overrides = built.model_dump(exclude_defaults=True)
         programmatic_overrides = getattr(config, "_programmatic_overrides", None)
@@ -168,7 +141,6 @@ class VParse:
             temp_root = Path(tempfile.mkdtemp(prefix="vparse-"))
             self._owned_temp_dirs.add(temp_root)
             return temp_root
-
         output_root = Path(output_dir)
         output_root.mkdir(parents=True, exist_ok=True)
         return output_root
@@ -189,7 +161,6 @@ class VParse:
     def _resolve_parse_subdir(self, method: str) -> str:
         if self.backend in {"pipeline", "lite"}:
             from vparse.cli.common import get_pipeline_subdir
-
             return get_pipeline_subdir(self.backend, method)
         if self.backend in ("vlm", "vlm-lmdeploy") or self.backend.startswith("vlm-"):
             return "vlm"
@@ -203,6 +174,7 @@ class VParse:
         default_name: str,
     ) -> tuple[str, bytes]:
         from vparse.cli.common import image_suffixes, pdf_suffixes, read_fn
+        from vparse.utils.guess_suffix_or_lang import guess_suffix_by_bytes
 
         if isinstance(input_path, (str, Path)):
             source_path = Path(input_path)
@@ -216,19 +188,19 @@ class VParse:
         if isinstance(input_path, (bytes, bytearray)):
             raw_bytes = bytes(input_path)
             try:
-                suffix = _guess_input_suffix(raw_bytes)
+                suffix = guess_suffix_by_bytes(raw_bytes)
             except Exception as exc:
                 raise InputError(f"Failed to detect input type from bytes: {exc}") from exc
 
+            if suffix in image_suffixes:
+                from vparse.utils.pdf_image_tools import images_bytes_to_pdf_bytes
+                try:
+                    return default_name, images_bytes_to_pdf_bytes(raw_bytes)
+                except Exception as exc:
+                    raise InputError(f"Failed to convert image bytes: {exc}") from exc
+
             if suffix in pdf_suffixes:
                 return default_name, raw_bytes
-            if suffix in image_suffixes:
-                try:
-                    return default_name, _convert_image_bytes_to_pdf(raw_bytes)
-                except Exception as exc:
-                    raise InputError(
-                        f"Failed to convert image bytes to PDF bytes: {exc}"
-                    ) from exc
 
             raise InputError(f"Unsupported input bytes type: {suffix}")
 
@@ -249,7 +221,6 @@ class VParse:
             raise ProcessingError(
                 f"Expected result file was not created: {middle_json_path}"
             )
-
         try:
             with open(middle_json_path, "r", encoding="utf-8") as handle:
                 middle_json = json.load(handle)
@@ -267,7 +238,7 @@ class VParse:
             default_markdown_mode=self._default_markdown_mode(),
         )
 
-    def _run_do_parse(
+    async def _run_aio_do_parse(
         self,
         *,
         output_root: Path,
@@ -282,7 +253,7 @@ class VParse:
         dump_model_output: bool,
         dump_orig_pdf: bool,
     ) -> None:
-        from vparse.cli.common import do_parse, temporary_env
+        from vparse.cli.common import aio_do_parse, temporary_env
 
         parse_kwargs = dict(self._default_parse_kwargs)
         env_updates: dict[str, str] = {}
@@ -292,7 +263,7 @@ class VParse:
 
         try:
             with temporary_env(**env_updates):
-                do_parse(
+                await aio_do_parse(
                     output_dir=str(output_root),
                     pdf_file_names=pdf_file_names,
                     pdf_bytes_list=pdf_bytes_list,
@@ -318,66 +289,7 @@ class VParse:
                 f"Failed to process batch with backend '{self.backend}': {exc}"
             ) from exc
 
-    def _run_parse(
-        self,
-        *,
-        output_root: Path,
-        pdf_file_name: str,
-        pdf_bytes: bytes,
-        method: str,
-        draw_layout_bbox: bool,
-        draw_span_bbox: bool,
-        dump_md: bool,
-        dump_content_list: bool,
-        dump_middle_json: bool,
-        dump_model_output: bool,
-        dump_orig_pdf: bool,
-    ) -> OCRResult:
-        self._run_do_parse(
-            output_root=output_root,
-            pdf_file_names=[pdf_file_name],
-            pdf_bytes_list=[pdf_bytes],
-            method=method,
-            draw_layout_bbox=draw_layout_bbox,
-            draw_span_bbox=draw_span_bbox,
-            dump_md=dump_md,
-            dump_content_list=dump_content_list,
-            dump_middle_json=dump_middle_json,
-            dump_model_output=dump_model_output,
-            dump_orig_pdf=dump_orig_pdf,
-        )
-        return self._read_result(output_root, pdf_file_name, method, dump_middle_json)
-
-    def _unique_name(self, base_name: str, used_names: set[str]) -> str:
-        candidate = base_name or "document"
-        if candidate not in used_names:
-            used_names.add(candidate)
-            return candidate
-
-        suffix = 2
-        while True:
-            deduped = f"{candidate}_{suffix}"
-            if deduped not in used_names:
-                used_names.add(deduped)
-                return deduped
-            suffix += 1
-
-    def _resolve_progress_callback(
-        self,
-        callback: Callable[[int, int], None] | None,
-        progress_callback: Callable[[int, int], None] | None,
-    ) -> Callable[[int, int], None] | None:
-        if (
-            callback is not None
-            and progress_callback is not None
-            and callback is not progress_callback
-        ):
-            raise ConfigurationError(
-                "Use only one of callback or progress_callback"
-            )
-        return progress_callback if progress_callback is not None else callback
-
-    def process(
+    async def process(
         self,
         input_path: str | Path | bytes,
         output_dir: str | Path | None = None,
@@ -398,10 +310,10 @@ class VParse:
 
         try:
             pdf_file_name, pdf_bytes = self._normalize_input(input_path, "document")
-            result = self._run_parse(
+            await self._run_aio_do_parse(
                 output_root=output_root,
-                pdf_file_name=pdf_file_name,
-                pdf_bytes=pdf_bytes,
+                pdf_file_names=[pdf_file_name],
+                pdf_bytes_list=[pdf_bytes],
                 method=normalized_method,
                 draw_layout_bbox=draw_layout_bbox,
                 draw_span_bbox=draw_span_bbox,
@@ -416,12 +328,14 @@ class VParse:
                 self._discard_temp_root(output_root)
             raise
 
+        result = self._read_result(output_root, pdf_file_name, normalized_method, dump_middle_json)
+
         if progress is not None:
             progress(1, 1)
 
         return result
 
-    def process_batch(
+    async def process_batch(
         self,
         input_paths: list[str | Path | bytes],
         output_dir: str | Path | None = None,
@@ -442,6 +356,7 @@ class VParse:
 
         output_root = self._ensure_output_root(output_dir)
         progress = self._resolve_progress_callback(callback, progress_callback)
+
         try:
             total = len(input_paths)
             used_names: set[str] = set()
@@ -459,7 +374,7 @@ class VParse:
                 pdf_file_names.append(pdf_file_name)
                 pdf_bytes_list.append(pdf_bytes)
 
-            self._run_do_parse(
+            await self._run_aio_do_parse(
                 output_root=output_root,
                 pdf_file_names=pdf_file_names,
                 pdf_bytes_list=pdf_bytes_list,
@@ -476,13 +391,9 @@ class VParse:
             results: list[OCRResult] = []
             for index, pdf_file_name in enumerate(pdf_file_names, start=1):
                 result = self._read_result(
-                    output_root,
-                    pdf_file_name,
-                    normalized_method,
-                    dump_middle_json,
+                    output_root, pdf_file_name, normalized_method, dump_middle_json,
                 )
                 results.append(result)
-
                 if progress is not None:
                     progress(index, total)
 
@@ -491,6 +402,28 @@ class VParse:
             if output_dir is None:
                 self._discard_temp_root(output_root)
             raise
+
+    def _unique_name(self, base_name: str, used_names: set[str]) -> str:
+        candidate = base_name or "document"
+        if candidate not in used_names:
+            used_names.add(candidate)
+            return candidate
+        suffix = 2
+        while True:
+            deduped = f"{candidate}_{suffix}"
+            if deduped not in used_names:
+                used_names.add(deduped)
+                return deduped
+            suffix += 1
+
+    def _resolve_progress_callback(
+        self,
+        callback: Callable[[int, int], None] | None,
+        progress_callback: Callable[[int, int], None] | None,
+    ) -> Callable[[int, int], None] | None:
+        if callback is not None and progress_callback is not None and callback is not progress_callback:
+            raise ConfigurationError("Use only one of callback or progress_callback")
+        return progress_callback if progress_callback is not None else callback
 
     def get_available_backends(self) -> list[str]:
         return list(AVAILABLE_BACKENDS)
@@ -502,12 +435,11 @@ class VParse:
         for temp_root in list(self._owned_temp_dirs):
             shutil.rmtree(temp_root, ignore_errors=True)
             self._owned_temp_dirs.discard(temp_root)
-        _cleanup_device_memory(self.device)
 
-    def __enter__(self) -> "VParse":
+    async def __aenter__(self) -> "AsyncVParse":
         return self
 
-    def __exit__(
+    async def __aexit__(
         self,
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,

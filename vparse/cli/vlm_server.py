@@ -21,7 +21,7 @@ def lmdeploy_server():
     'inference_engine',
     type=click.Choice(['auto', 'vllm', 'lmdeploy']),
     default='auto',
-    help='Select the inference engine used to accelerate VLM inference, default is "auto".',
+    help='Engine for remote serving: auto (detect), vllm, or lmdeploy.',
 )
 @click.pass_context
 def openai_server(ctx, inference_engine):

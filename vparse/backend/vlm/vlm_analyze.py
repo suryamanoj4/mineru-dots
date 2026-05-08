@@ -1,14 +1,13 @@
 # Copyright (c) Opendatalab. All rights reserved.
+import asyncio
 import os
 import time
-import json
 
 from loguru import logger
 
 from .utils import (
     enable_custom_logits_processors,
     set_default_gpu_memory_utilization,
-    set_default_batch_size,
     set_lmdeploy_backend,
     mod_kwargs_by_device_type,
 )
@@ -21,8 +20,6 @@ from ...utils.config_reader import get_device
 
 from ...utils.enum_class import ImageType
 from ...utils.models_download_utils import auto_download_and_get_model_root_path
-
-from packaging import version
 
 
 class ModelSingleton:
@@ -48,19 +45,17 @@ class ModelSingleton:
             if not model_path:
                 model_path = auto_download_and_get_model_root_path("/", "vlm")
 
-            if backend == "dots-ocr-hf" or backend == "dots-ocr-vllm":
+            if backend in ("vllm", "dots-ocr-vllm", "remote"):
                 from .dots_ocr_client import DotsOCRClient
 
-                use_hf = backend == "dots-ocr-hf"
                 self._models[key] = DotsOCRClient(
-                    backend="transformers" if use_hf else "vllm-engine",
+                    backend="vllm-async-engine",
                     model_path=model_path,
                     server_url=server_url,
-                    use_hf=use_hf,
                     **kwargs,
                 )
                 elapsed = round(time.time() - start_time, 2)
-                logger.info(f"get {backend} predictor cost: {elapsed}s")
+                logger.info(f"get vllm predictor cost: {elapsed}s")
                 return self._models[key]
 
             from mineru_vl_utils import MinerUClient as VParseClient
@@ -88,135 +83,30 @@ class ModelSingleton:
                 if param in kwargs:
                     del kwargs[param]
 
-            if backend == "transformers":
-                try:
-                    from transformers import (
-                        AutoProcessor,
-                        Qwen2VLForConditionalGeneration,
-                    )
-                    from transformers import __version__ as transformers_version
-                except ImportError:
-                    raise ImportError(
-                        "Please install transformers to use the transformers backend."
-                    )
-
-                if version.parse(transformers_version) >= version.parse("4.56.0"):
-                    dtype_key = "dtype"
-                else:
-                    dtype_key = "torch_dtype"
-                device = get_device()
-                model = Qwen2VLForConditionalGeneration.from_pretrained(
-                    model_path,
-                    device_map={"": device},
-                    **{dtype_key: "auto"},
-                )
-                processor = AutoProcessor.from_pretrained(
-                    model_path,
-                    use_fast=True,
-                )
-                if batch_size == 0:
-                    batch_size = set_default_batch_size()
-            elif backend == "mlx-engine":
+            if backend == "mlx":
                 mlx_supported = is_mac_os_version_supported()
                 if not mlx_supported:
                     raise EnvironmentError(
-                        "mlx-engine backend is only supported on macOS 13.5+ with Apple Silicon."
+                        "mlx backend is only supported on macOS 13.5+ with Apple Silicon."
                     )
                 try:
                     from mlx_vlm import load as mlx_load
                 except ImportError:
                     raise ImportError(
-                        "Please install mlx-vlm to use the mlx-engine backend."
+                        "Please install mlx-vlm to use the mlx backend."
                     )
                 model, processor = mlx_load(model_path)
             else:
                 if os.getenv("OMP_NUM_THREADS") is None:
                     os.environ["OMP_NUM_THREADS"] = "1"
 
-                if backend == "vllm-engine":
-                    try:
-                        import vllm
-                    except ImportError:
-                        raise ImportError(
-                            "Please install vllm to use the vllm-engine backend."
-                        )
-
-                    kwargs = mod_kwargs_by_device_type(kwargs, vllm_mode="sync_engine")
-
-                    if "compilation_config" in kwargs:
-                        if isinstance(kwargs["compilation_config"], str):
-                            try:
-                                kwargs["compilation_config"] = json.loads(
-                                    kwargs["compilation_config"]
-                                )
-                            except json.JSONDecodeError:
-                                logger.warning(
-                                    f"Failed to parse compilation_config as JSON: {kwargs['compilation_config']}"
-                                )
-                                del kwargs["compilation_config"]
-                    if "gpu_memory_utilization" not in kwargs:
-                        kwargs["gpu_memory_utilization"] = (
-                            set_default_gpu_memory_utilization()
-                        )
-                    if "model" not in kwargs:
-                        kwargs["model"] = model_path
-                    if enable_custom_logits_processors() and (
-                        "logits_processors" not in kwargs
-                    ):
-                        from mineru_vl_utils import MinerULogitsProcessor as VParseLogitsProcessor
-
-                        kwargs["logits_processors"] = [VParseLogitsProcessor]
-                    vllm_llm = vllm.LLM(**kwargs)
-                elif backend == "vllm-async-engine":
-                    try:
-                        from vllm.engine.arg_utils import AsyncEngineArgs
-                        from vllm.v1.engine.async_llm import AsyncLLM
-                        from vllm.config import CompilationConfig
-                    except ImportError:
-                        raise ImportError(
-                            "Please install vllm to use the vllm-async-engine backend."
-                        )
-
-                    kwargs = mod_kwargs_by_device_type(kwargs, vllm_mode="async_engine")
-
-                    if "compilation_config" in kwargs:
-                        if isinstance(kwargs["compilation_config"], dict):
-                            kwargs["compilation_config"] = CompilationConfig(
-                                **kwargs["compilation_config"]
-                            )
-                        elif isinstance(kwargs["compilation_config"], str):
-                            try:
-                                config_dict = json.loads(kwargs["compilation_config"])
-                                kwargs["compilation_config"] = CompilationConfig(
-                                    **config_dict
-                                )
-                            except (json.JSONDecodeError, TypeError) as e:
-                                logger.warning(
-                                    f"Failed to parse compilation_config: {kwargs['compilation_config']}, error: {e}"
-                                )
-                                del kwargs["compilation_config"]
-                    if "gpu_memory_utilization" not in kwargs:
-                        kwargs["gpu_memory_utilization"] = (
-                            set_default_gpu_memory_utilization()
-                        )
-                    if "model" not in kwargs:
-                        kwargs["model"] = model_path
-                    if enable_custom_logits_processors() and (
-                        "logits_processors" not in kwargs
-                    ):
-                        from mineru_vl_utils import MinerULogitsProcessor as VParseLogitsProcessor
-
-                        kwargs["logits_processors"] = [VParseLogitsProcessor]
-                    vllm_async_llm = AsyncLLM.from_engine_args(
-                        AsyncEngineArgs(**kwargs)
-                    )
-                elif backend == "lmdeploy-engine":
+                if backend == "lmdeploy":
                     try:
                         from lmdeploy import PytorchEngineConfig, TurbomindEngineConfig
                         from lmdeploy.serve.vl_async_engine import VLAsyncEngine
                     except ImportError:
                         raise ImportError(
-                            "Please install lmdeploy to use the lmdeploy-engine backend."
+                            "Please install lmdeploy to use the lmdeploy backend."
                         )
                     if "cache_max_entry_count" not in kwargs:
                         kwargs["cache_max_entry_count"] = 0.5
@@ -287,47 +177,11 @@ class ModelSingleton:
         return self._models[key]
 
 
-def doc_analyze(
+async def _aio_doc_analyze(
     pdf_bytes,
     image_writer: DataWriter | None,
     predictor=None,
-    backend="transformers",
-    model_path: str | None = None,
-    server_url: str | None = None,
-    prompt_mode: str = "prompt_layout_all_en",
-    **kwargs,
-):
-    if predictor is None:
-        predictor = ModelSingleton().get_model(
-            backend, model_path, server_url, **kwargs
-        )
-
-    load_images_start = time.time()
-    images_list, pdf_doc = load_images_from_pdf(pdf_bytes, image_type=ImageType.PIL)
-    images_pil_list = [image_dict["img_pil"] for image_dict in images_list]
-    load_images_time = round(time.time() - load_images_start, 2)
-    logger.debug(
-        f"load images cost: {load_images_time}, speed: {round(len(images_pil_list) / load_images_time, 3)} images/s"
-    )
-
-    infer_start = time.time()
-    results = predictor.batch_two_step_extract(
-        images=images_pil_list, prompt_mode=prompt_mode
-    )
-    infer_time = round(time.time() - infer_start, 2)
-    logger.debug(
-        f"infer finished, cost: {infer_time}, speed: {round(len(results) / infer_time, 3)} page/s"
-    )
-
-    middle_json = result_to_middle_json(results, images_list, pdf_doc, image_writer)
-    return middle_json, results
-
-
-async def aio_doc_analyze(
-    pdf_bytes,
-    image_writer: DataWriter | None,
-    predictor=None,
-    backend="transformers",
+    backend="vllm",
     model_path: str | None = None,
     server_url: str | None = None,
     prompt_mode: str = "prompt_layout_all_en",
@@ -354,5 +208,74 @@ async def aio_doc_analyze(
     logger.debug(
         f"infer finished, cost: {infer_time}, speed: {round(len(results) / infer_time, 3)} page/s"
     )
+
     middle_json = result_to_middle_json(results, images_list, pdf_doc, image_writer)
     return middle_json, results
+
+
+def sync_doc_analyze(
+    pdf_bytes,
+    image_writer: DataWriter | None,
+    predictor=None,
+    backend="vllm",
+    model_path: str | None = None,
+    server_url: str | None = None,
+    prompt_mode: str = "prompt_layout_all_en",
+    **kwargs,
+):
+    return asyncio.run(
+        _aio_doc_analyze(
+            pdf_bytes,
+            image_writer=image_writer,
+            predictor=predictor,
+            backend=backend,
+            model_path=model_path,
+            server_url=server_url,
+            prompt_mode=prompt_mode,
+            **kwargs,
+        )
+    )
+
+
+async def aio_doc_analyze(
+    pdf_bytes,
+    image_writer: DataWriter | None,
+    predictor=None,
+    backend="vllm",
+    model_path: str | None = None,
+    server_url: str | None = None,
+    prompt_mode: str = "prompt_layout_all_en",
+    **kwargs,
+):
+    return await _aio_doc_analyze(
+        pdf_bytes,
+        image_writer=image_writer,
+        predictor=predictor,
+        backend=backend,
+        model_path=model_path,
+        server_url=server_url,
+        prompt_mode=prompt_mode,
+        **kwargs,
+    )
+
+
+def doc_analyze(
+    pdf_bytes,
+    image_writer: DataWriter | None,
+    predictor=None,
+    backend="vllm",
+    model_path: str | None = None,
+    server_url: str | None = None,
+    prompt_mode: str = "prompt_layout_all_en",
+    **kwargs,
+):
+    return sync_doc_analyze(
+        pdf_bytes,
+        image_writer=image_writer,
+        predictor=predictor,
+        backend=backend,
+        model_path=model_path,
+        server_url=server_url,
+        prompt_mode=prompt_mode,
+        **kwargs,
+    )

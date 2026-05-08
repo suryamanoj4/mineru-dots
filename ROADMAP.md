@@ -7,26 +7,80 @@
 
 ---
 
-## v1 — Async Inference & Library Foundation
+## v1 — Async Inference & Mode Consolidation
 
-**Theme**: Async-first inference, unified library API, pluggable backend architecture.
+**Theme**: Slim down 15 fragmented modes to 5, async-first VLM/Remote, unified library API, pluggable backends.
+
+### Mode Consolidation
+
+**Before (15 modes)**: `pipeline`, `lite`, `vlm-auto-engine`, `vlm-transformers`, `vlm-vllm-engine`, `vlm-vllm-async-engine`, `vlm-lmdeploy-engine`, `vlm-mlx-engine`, `vlm-http-client`, `vlm-dots-ocr-hf`, `vlm-dots-ocr-vllm`, `hybrid-auto-engine`, `hybrid-vllm-engine`, `hybrid-lmdeploy-engine`, `hybrid-http-client`
+
+**After (5 modes)**:
+
+| Mode | Execution | What |
+|------|-----------|------|
+| `pipeline` | sync | Layout detection + PaddleOCR/Tesseract + table/formula extraction |
+| `lite` | sync | Tesseract-only, CPU fast path |
+| `vlm` | **always async** | VLM with auto-optimized engine: vLLM (CUDA, default) → MLX (Apple Silicon) → LMDeploy (if `vlm-lmdeploy` explicitly) |
+| `hybrid` | sync | VLM for layout + pipeline for dense OCR |
+| `remote` | **always async** | HTTP client for any OpenAI-compatible server. User provides URL |
+
+### What's Removed
+
+- **All engine permutations removed** — no `vllm-engine` / `vllm-async-engine` / `transformers` / `lmdeploy-engine` / `mlx-engine` / `http-client` variants. The system autodetects the optimal engine for the hardware
+- **Sync/async split removed from mode strings** — execution context (`VParse` vs `AsyncVParse`) determines sync vs async, not the mode name. vLLM `AsyncLLM` is always used (no performance penalty vs sync)
+- **Hybrid engine variants removed** — hybrid always auto-selects the best VLM engine internally
+- **`dots-ocr-*` variants removed** — dots.mocr is the only VLM model, no need to encode it in mode names
+
+### Backend Auto-Selection
+
+```
+vlm:
+  CUDA + vLLM available → AsyncLLM (in-process)  
+  Apple Silicon + MLX  → asyncio.to_thread(mlx_vlm.predict)
+  LMDeploy specified    → VLAsyncEngine (in-process)
+  
+remote:
+  User provides URL     → httpx client, always async
+  
+hybrid:
+  VLM engine autodetected same as vlm mode above
+  Pipeline OCR always runs locally
+```
+
+### Deliverables
 
 | Area | What |
 |------|------|
-| **Unified Public API** | `VParse` sync + `AsyncVParse` async classes with context manager support. `vparse/__init__.py` exports |
+| **Mode Slimming** | Remove all engine variants, consolidate dispatch, ensure backward compat aliases |
+| **BackendProtocol** | Async-first interface for all 5 modes (doc_analyze, initialize, shutdown) |
+| **BackendRegistry** | Register 5 backends, auto-select engine for vlm/hybrid based on hardware |
+| **Unified Public API** | `VParse` and `AsyncVParse` classes. `AsyncVParse` auto-selects async-native engines |
 | **Configuration System** | Pydantic-based config with hierarchical merge (defaults < file < env < programmatic) |
 | **Exception Hierarchy** | `VParseError` base with `BackendError`, `ModelLoadError`, `OCRProcessingError`, `ConfigurationError`, `TimeoutError` |
 | **Type Hints & Stubs** | `py.typed` marker, full type annotations on all public APIs |
-| **BackendProtocol** | Async-first protocol interface for all backends (doc_analyze, initialize, shutdown) |
-| **BackendRegistry** | Pluggable backend discovery with register, get, list_available, auto_select |
-| **Pipeline Async Support** | Convert pipeline and lite backends to async (remove the sync fallback that blocks the event loop) |
-| **True Streaming Inference** | Async generator yielding pages as they complete. SSE endpoint in FastAPI. No double-pass |
-| **Model Warmup** | Preload models and run dummy inference on server startup. /ready endpoint |
+| **True Streaming** | Async generator yielding pages as they complete. SSE endpoint. No double-pass |
+| **Model Warmup** | Preload models on startup, dummy inference to warm GPU caches. /ready endpoint |
 | **PyPI Packaging** | py.typed in package data, python -m build in CI |
 
 ---
 
-## v2 — Performance & Memory Optimization
+## v2 — Bulk Processing & Job Management
+
+**Theme**: High-throughput batch processing with queues, progress tracking, and resilience.
+
+| Area | What |
+|------|------|
+| **Bulk Processing API** | BulkProcessor.submit, Job status/progress tracking, async iteration over results. Batch pages across books to amortize overhead |
+| **Redis/Celery Queue** | Celery workers, Redis broker, horizontal scaling, result backend |
+| **Priority Queues** | Critical/high/normal/low tiers, separate queues per priority |
+| **Progress & ETA** | Per-job progress events, throughput tracking, estimated completion time |
+| **Checkpoint/Resume** | API-level checkpointing, resume interrupted bulk jobs from failure point |
+| **Rate Limiting** | Throttle submission rate, backpressure when queue is full |
+
+---
+
+## v3 — Performance & Memory Optimization
 
 **Theme**: Reduce memory footprint, prevent OOM, speed up inference with mixed precision.
 
@@ -42,7 +96,7 @@
 
 ---
 
-## v3 — KV Cache Optimization
+## v4 — KV Cache Optimization
 
 **Theme**: Reduce redundant VLM computation through KV cache sharing and tuning.
 
@@ -54,21 +108,6 @@
 | **Cache Eviction** | Configurable LRU/LFU/priority-based eviction policies |
 | **Cache Metrics** | Hit/miss ratio, utilization, fragmentation, eviction rate, Prometheus export |
 | **Batch-Aware Management** | Allocate/release cache per batch, overlap cache load with inference |
-
----
-
-## v4 — Bulk Processing & Job Management
-
-**Theme**: High-throughput batch processing with queues, progress tracking, and resilience.
-
-| Area | What |
-|------|------|
-| **Bulk Processing API** | BulkProcessor.submit, Job status/progress tracking, async iteration over results |
-| **Redis/Celery Queue** | Celery workers, Redis broker, horizontal scaling, result backend |
-| **Priority Queues** | Critical/high/normal/low tiers, separate queues per priority |
-| **Progress & ETA** | Per-job progress events, throughput tracking, estimated completion time |
-| **Checkpoint/Resume** | API-level checkpointing, resume interrupted bulk jobs from failure point |
-| **Rate Limiting** | Throttle submission rate, backpressure when queue is full |
 
 ---
 
@@ -131,10 +170,10 @@
 
 | Version | Theme | Focus |
 |---------|-------|-------|
-| v1 | Async Inference & Library Foundation | Async-first pipeline, unified API, streaming, warmup |
-| v2 | Performance & Memory Optimization | Mixed precision, memory pooling, dynamic batching, OOM prevention |
-| v3 | KV Cache Optimization | Prefix sharing, page similarity, cache tuning, metrics |
-| v4 | Bulk Processing & Job Management | Queues, progress, checkpoint/resume, rate limiting |
+| v1 | Async Inference & Mode Consolidation | 15 → 5 modes, async-first VLM/Remote, unified API, streaming |
+| v2 | Bulk Processing & Job Management | Batch API, queues, progress, checkpoint/resume |
+| v3 | Performance & Memory Optimization | Mixed precision, memory pooling, dynamic batching, OOM prevention |
+| v4 | KV Cache Optimization | Prefix sharing, page similarity, cache tuning, metrics |
 | v5 | Multi-Model VLM & More Engines | Qwen2-VL, InternVL2, Nougat, Ollama, TGI, auto-selection |
 | v6 | Output Formats, Docker & API Server | DOCX, searchable PDF, K8s, auth, multi-backend API |
 | v7 | Testing, Monitoring & Docs | Coverage >85%, Prometheus, Grafana, tutorials |
