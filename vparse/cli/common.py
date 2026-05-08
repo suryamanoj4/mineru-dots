@@ -16,9 +16,10 @@ from vparse.utils.enum_class import MakeMode
 from vparse.utils.guess_suffix_or_lang import guess_suffix_by_bytes
 from vparse.utils.compat import get_env_with_legacy
 from vparse.utils.pdf_image_tools import images_bytes_to_pdf_bytes
+from vparse.backend.registry import resolve_backend_name
 from vparse.backend.vlm.vlm_middle_json_mkcontent import union_make as vlm_union_make
 from vparse.backend.vlm.vlm_analyze import sync_doc_analyze as vlm_doc_analyze
-from vparse.backend.vlm.vlm_analyze import doc_analyze as aio_vlm_doc_analyze
+from vparse.backend.vlm.vlm_analyze import aio_doc_analyze as aio_vlm_doc_analyze
 from vparse.utils.pdf_page_id import get_end_page_id
 
 if get_env_with_legacy("VPARSE_LMDEPLOY_DEVICE", "MINERU_LMDEPLOY_DEVICE", "") == "maca":
@@ -301,6 +302,10 @@ def _process_lite(
             f_make_md_mode, middle_json, infer_result, is_pipeline=True
         )
 
+
+def _should_use_remote_server(backend: str, server_url: str | None) -> bool:
+    return bool(server_url) and backend in {"remote", "http-client"}
+
 async def _async_process_vlm(
         output_dir,
         pdf_file_names,
@@ -321,7 +326,7 @@ async def _async_process_vlm(
 
     parse_method = "vlm"
     f_draw_span_bbox = False
-    if not backend.endswith("client"):
+    if not _should_use_remote_server(backend, server_url):
         server_url = None
 
     for idx, pdf_bytes in enumerate(pdf_bytes_list):
@@ -362,7 +367,7 @@ def _process_vlm(
 
     parse_method = "vlm"
     f_draw_span_bbox = False
-    if not backend.endswith("client"):
+    if not _should_use_remote_server(backend, server_url):
         server_url = None
 
     for idx, pdf_bytes in enumerate(pdf_bytes_list):
@@ -405,7 +410,7 @@ def _process_hybrid(
 ):
     from vparse.backend.hybrid.hybrid_analyze import doc_analyze as hybrid_doc_analyze
     """Handle hybrid backend logic synchronously"""
-    if not backend.endswith("client"):
+    if not _should_use_remote_server(backend, server_url):
         server_url = None
 
     for idx, (pdf_bytes, lang) in enumerate(zip(pdf_bytes_list, h_lang_list)):
@@ -458,7 +463,7 @@ async def _async_process_hybrid(
 ):
     from vparse.backend.hybrid.hybrid_analyze import aio_doc_analyze as aio_hybrid_doc_analyze
     """Handle hybrid backend logic asynchronously"""
-    if not backend.endswith("client"):
+    if not _should_use_remote_server(backend, server_url):
         server_url = None
 
     for idx, (pdf_bytes, lang) in enumerate(zip(pdf_bytes_list, h_lang_list)):
@@ -489,28 +494,8 @@ async def _async_process_hybrid(
             f_make_md_mode, middle_json, infer_result, is_pipeline=False
         )
 
-
-_BACKEND_ALIASES = {
-    "vlm-auto-engine": "vlm",
-    "vlm-vllm-engine": "vlm",
-    "vlm-vllm-async-engine": "vlm",
-    "vlm-dots-ocr-hf": "vlm",
-    "vlm-dots-ocr-vllm": "vlm",
-    "vlm-transformers": "vlm",
-    "vlm-mlx-engine": "vlm",
-    "vlm-lmdeploy-engine": "vlm-lmdeploy",
-    "hybrid-auto-engine": "hybrid",
-    "hybrid-vllm-engine": "hybrid",
-    "hybrid-vllm-async-engine": "hybrid",
-    "hybrid-lmdeploy-engine": "hybrid-lmdeploy",
-    "hybrid-http-client": "hybrid",
-    "vlm-http-client": "remote",
-}
-
-
 def _resolve_backend(backend: str) -> str:
-    backend = _BACKEND_ALIASES.get(backend, backend)
-    return backend
+    return resolve_backend_name(backend)
 
 
 def _is_vlm_backend(backend: str) -> bool:
@@ -590,7 +575,7 @@ def do_parse(
         os.environ['VPARSE_VLM_TABLE_ENABLE'] = str(table_enable)
 
         _process_vlm(
-            output_dir, pdf_file_names, pdf_bytes_list, "vllm",
+            output_dir, pdf_file_names, pdf_bytes_list, "remote",
             f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
             f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode,
             server_url, **kwargs,
@@ -666,7 +651,7 @@ async def aio_do_parse(
         os.environ['VPARSE_VLM_TABLE_ENABLE'] = str(table_enable)
 
         await _async_process_vlm(
-            output_dir, pdf_file_names, pdf_bytes_list, "vllm",
+            output_dir, pdf_file_names, pdf_bytes_list, "remote",
             f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
             f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode,
             server_url, **kwargs,

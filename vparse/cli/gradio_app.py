@@ -746,9 +746,10 @@ def main(ctx,
         backend_info_update = gr.update(info=get_backend_info(backend_choice))
         if "http-client" in backend_choice or backend_choice == "remote":
             client_options_update = gr.update(visible=True)
-            ocr_options_update = gr.update(visible=True)
         else:
             client_options_update = gr.update(visible=False)
+
+        if backend_choice.startswith("vlm"):
             ocr_options_update = gr.update(visible=False)
         else:
             ocr_options_update = gr.update(visible=True)

@@ -6,9 +6,12 @@ from typing import Any
 from loguru import logger
 
 from vparse.backend.base import BackendProtocol
-from vparse.backend.vlm.vlm_analyze import doc_analyze as vlm_doc_analyze
+from vparse.backend.vlm.vlm_analyze import aio_doc_analyze as aio_vlm_doc_analyze
 from vparse.backend.hybrid.hybrid_analyze import aio_doc_analyze as hybrid_doc_analyze
 from vparse.backend.pipeline.pipeline_analyze import doc_analyze as pipeline_doc_analyze
+from vparse.backend.pipeline.model_json_to_middle_json import (
+    result_to_middle_json as pipeline_result_to_middle_json,
+)
 from vparse.backend.lite.lite_analyze import doc_analyze as lite_doc_analyze
 from vparse.backend.vlm.utils import resolve_vlm_engine
 from vparse.data.data_reader_writer import DataWriter
@@ -27,11 +30,22 @@ class PipelineBackend:
         image_writer: DataWriter | None = None,
         **kwargs,
     ) -> tuple[dict, dict]:
-        middle_json, model_output = pipeline_doc_analyze(
+        infer_results, all_image_lists, all_pdf_docs, lang_list, ocr_enabled_list = pipeline_doc_analyze(
             [pdf_bytes], [lang],
             parse_method=parse_method,
             formula_enable=formula_enable,
             table_enable=table_enable,
+        )
+        model_output = infer_results[0]
+        middle_json = pipeline_result_to_middle_json(
+            model_output,
+            all_image_lists[0],
+            all_pdf_docs[0],
+            image_writer,
+            lang_list[0],
+            ocr_enabled_list[0],
+            formula_enable,
+            kwargs.get("ocr_engine"),
         )
         return middle_json, model_output
 
@@ -61,10 +75,10 @@ class LiteBackend:
         image_writer: DataWriter | None = None,
         **kwargs,
     ) -> tuple[dict, dict]:
-        middle_json = lite_doc_analyze(
+        middle_json, model_output = lite_doc_analyze(
             pdf_bytes, image_writer=image_writer, lang=lang, **kwargs
         )
-        return middle_json, {}
+        return middle_json, model_output or {}
 
     async def initialize(self) -> None:
         pass
@@ -96,7 +110,7 @@ class VLMBackend:
         **kwargs,
     ) -> tuple[dict, dict]:
         engine = kwargs.pop("engine", self._resolve_engine())
-        return await vlm_doc_analyze(
+        return await aio_vlm_doc_analyze(
             pdf_bytes, image_writer=image_writer, backend=engine, **kwargs
         )
 
@@ -203,10 +217,10 @@ class RemoteBackend:
         **kwargs,
     ) -> tuple[dict, dict]:
         server_url = kwargs.pop("server_url", None)
-        return await vlm_doc_analyze(
+        return await aio_vlm_doc_analyze(
             pdf_bytes,
             image_writer=image_writer,
-            backend="vllm",
+            backend="remote",
             server_url=server_url,
             **kwargs,
         )
@@ -236,7 +250,7 @@ class BackendRegistry:
 
     @classmethod
     def get(cls, name: str) -> BackendProtocol:
-        name = _BACKEND_ALIASES.get(name, name)
+        name = resolve_backend_name(name)
         if name not in cls._instances:
             if name not in cls._backends:
                 raise ValueError(
@@ -264,7 +278,7 @@ class BackendRegistry:
         return sorted(cls._backends)
 
 
-_BACKEND_ALIASES: dict[str, str] = {
+BACKEND_ALIASES: dict[str, str] = {
     "vlm-auto-engine": "vlm",
     "vlm-vllm-engine": "vlm",
     "vlm-vllm-async-engine": "vlm",
@@ -280,6 +294,10 @@ _BACKEND_ALIASES: dict[str, str] = {
     "hybrid-http-client": "hybrid",
     "vlm-http-client": "remote",
 }
+
+
+def resolve_backend_name(name: str) -> str:
+    return BACKEND_ALIASES.get(name, name)
 
 
 BackendRegistry.register(PipelineBackend)

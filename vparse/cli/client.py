@@ -8,7 +8,7 @@ import click
 from pathlib import Path
 from loguru import logger
 from vparse import VParse
-from vparse.constants import AVAILABLE_BACKENDS
+from vparse.constants import ACCEPTED_BACKENDS, AVAILABLE_BACKENDS
 from vparse.utils.compat import get_env_with_legacy
 
 log_level = get_env_with_legacy("VPARSE_LOG_LEVEL", "MINERU_LOG_LEVEL", "INFO").upper()
@@ -120,7 +120,7 @@ def build_vparse_client(
     "-b",
     "--backend",
     "backend",
-    type=click.Choice(list(AVAILABLE_BACKENDS)),
+    type=click.Choice(list(ACCEPTED_BACKENDS)),
     help="""\b
     the backend for parsing pdf:
       pipeline: Layout detection + PaddleOCR/Tesseract + table/formula extraction.
@@ -129,7 +129,8 @@ def build_vparse_client(
       vlm-lmdeploy: VLM using LMDeploy engine explicitly.
       hybrid: VLM for layout + pipeline OCR, supports multiple languages.
       hybrid-lmdeploy: Hybrid using LMDeploy engine explicitly.
-      remote: Point at any OpenAI-compatible server via --server-url.""",
+      remote: Point at any OpenAI-compatible server via --server-url.
+    Legacy aliases such as vlm-auto-engine and hybrid-auto-engine are also accepted.""",
     default="hybrid",
 )
 @click.option(

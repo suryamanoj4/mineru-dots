@@ -74,7 +74,7 @@ class Config:
             raise ConfigurationError("Config is frozen and cannot be modified")
 
     def set_backend(self, backend: str) -> "Config":
-        """Set the OCR backend (e.g., 'pipeline', 'vlm-auto-engine')."""
+        """Set the OCR backend using a canonical name or a supported legacy alias."""
         self._ensure_mutable()
         self._programmatic_overrides["backend"] = backend
         return self

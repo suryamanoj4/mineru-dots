@@ -8,6 +8,7 @@ from types import TracebackType
 from typing import Any, Callable
 
 from .config import Config
+from .backend.registry import resolve_backend_name
 from .constants import AVAILABLE_BACKENDS
 from .exceptions import ConfigurationError, InputError, ProcessingError
 from .result import OCRResult
@@ -146,11 +147,12 @@ class VParse:
             )
         resolved["output_format"] = normalized_output_format
 
-        backend_name = resolved.get("backend", "pipeline")
+        backend_name = resolve_backend_name(resolved.get("backend", "pipeline"))
         if backend_name not in AVAILABLE_BACKENDS:
             raise ConfigurationError(
                 f"backend must be one of {sorted(AVAILABLE_BACKENDS)}"
             )
+        resolved["backend"] = backend_name
 
         return resolved
 

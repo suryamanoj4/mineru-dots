@@ -2,7 +2,6 @@
 import asyncio
 import os
 import time
-import json
 
 from loguru import logger
 
@@ -46,7 +45,7 @@ class ModelSingleton:
             if not model_path:
                 model_path = auto_download_and_get_model_root_path("/", "vlm")
 
-            if backend in ("vllm", "dots-ocr-vllm"):
+            if backend in ("vllm", "dots-ocr-vllm", "remote"):
                 from .dots_ocr_client import DotsOCRClient
 
                 self._models[key] = DotsOCRClient(
@@ -178,7 +177,7 @@ class ModelSingleton:
         return self._models[key]
 
 
-async def doc_analyze(
+async def _aio_doc_analyze(
     pdf_bytes,
     image_writer: DataWriter | None,
     predictor=None,
@@ -216,7 +215,8 @@ async def doc_analyze(
 
 def sync_doc_analyze(
     pdf_bytes,
-    image_writer=None,
+    image_writer: DataWriter | None,
+    predictor=None,
     backend="vllm",
     model_path: str | None = None,
     server_url: str | None = None,
@@ -224,9 +224,10 @@ def sync_doc_analyze(
     **kwargs,
 ):
     return asyncio.run(
-        doc_analyze(
+        _aio_doc_analyze(
             pdf_bytes,
             image_writer=image_writer,
+            predictor=predictor,
             backend=backend,
             model_path=model_path,
             server_url=server_url,
@@ -236,4 +237,45 @@ def sync_doc_analyze(
     )
 
 
-aio_doc_analyze = doc_analyze
+async def aio_doc_analyze(
+    pdf_bytes,
+    image_writer: DataWriter | None,
+    predictor=None,
+    backend="vllm",
+    model_path: str | None = None,
+    server_url: str | None = None,
+    prompt_mode: str = "prompt_layout_all_en",
+    **kwargs,
+):
+    return await _aio_doc_analyze(
+        pdf_bytes,
+        image_writer=image_writer,
+        predictor=predictor,
+        backend=backend,
+        model_path=model_path,
+        server_url=server_url,
+        prompt_mode=prompt_mode,
+        **kwargs,
+    )
+
+
+def doc_analyze(
+    pdf_bytes,
+    image_writer: DataWriter | None,
+    predictor=None,
+    backend="vllm",
+    model_path: str | None = None,
+    server_url: str | None = None,
+    prompt_mode: str = "prompt_layout_all_en",
+    **kwargs,
+):
+    return sync_doc_analyze(
+        pdf_bytes,
+        image_writer=image_writer,
+        predictor=predictor,
+        backend=backend,
+        model_path=model_path,
+        server_url=server_url,
+        prompt_mode=prompt_mode,
+        **kwargs,
+    )

@@ -374,7 +374,36 @@ class DotsOCRClient:
 
         return results
 
-    async def batch_two_step_extract(
+    def batch_two_step_extract(
+        self,
+        images: List,
+        prompt_mode: str = "prompt_layout_all_en",
+        not_extract_list: list = None,
+    ) -> List[List[ContentBlock]]:
+        total = len(images)
+        logger.info(
+            f"Processing {total} images with dots.ocr (prompt_mode: {prompt_mode})"
+        )
+
+        prompt = self._build_model_prompt(prompt_mode)
+        sampling_params = self._build_sampling_params(
+            self._get_retry_max_new_tokens(prompt_mode)
+        )
+
+        start_time = time.time()
+        outputs = self._client.client.batch_predict(
+            images=images,
+            prompts=[prompt] * len(images),
+            sampling_params=[sampling_params] * len(images),
+        )
+        elapsed = time.time() - start_time
+        logger.debug(
+            f"Inference done in {elapsed:.2f}s, speed: {round(total / elapsed, 3)} page/s"
+        )
+
+        return self._process_outputs(images, outputs, prompt_mode, not_extract_list)
+
+    async def aio_batch_two_step_extract(
         self,
         images: List,
         prompt_mode: str = "prompt_layout_all_en",
