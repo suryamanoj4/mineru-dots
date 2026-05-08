@@ -96,7 +96,7 @@ class TestBatchDocAnalyze(unittest.TestCase):
 
         self.predictor = mock.AsyncMock()
         self.predictor.aio_batch_two_step_extract = mock.AsyncMock(
-            return_value=[[{"type": "text", "content": f"page_{i}"}] for i in range(3)]
+            side_effect=lambda images, **kw: [[{"type": "text", "content": f"p_{i}"}] for i in range(len(images))]
         )
 
         self.model_patch = mock.patch(
@@ -160,13 +160,13 @@ class TestBatchDocAnalyze(unittest.TestCase):
     def test_books_with_uneven_page_counts(self):
         from vparse.backend.vlm.vlm_analyze import batch_doc_analyze
 
-        def side_effect(b, image_type=None):
+        def load_side_effect(b, image_type=None):
             pages = 1 if len(b) > 20 else 3
             return ([{"img_pil": f"p_{i}"} for i in range(pages)], mock.MagicMock())
 
-        self.mock_load.side_effect = side_effect
+        self.mock_load.side_effect = load_side_effect
         self.predictor.aio_batch_two_step_extract = mock.AsyncMock(
-            return_value=[[{"type": "text"}]] * 3
+            side_effect=lambda images, **kw: [[{"type": "text"}]] * len(images)
         )
 
         results = self._run(batch_doc_analyze, [b"small", b"medium" * 30], batch_size=4)
