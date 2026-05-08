@@ -320,9 +320,10 @@ async def batch_doc_analyze(
         total_pages += len(pil_list)
 
     load_time = round(time.time() - load_start, 2)
+    speed = round(total_pages / load_time, 3) if load_time > 0 else 0
     logger.info(
         f"loaded {total_pages} pages from {len(pdf_bytes_list)} docs in {load_time}s, "
-        f"speed: {round(total_pages / load_time, 3)} pages/s"
+        f"speed: {speed} pages/s"
     )
 
     book_page_ranges = []
@@ -353,9 +354,10 @@ async def batch_doc_analyze(
         )
 
     infer_time = round(time.time() - infer_start, 2)
+    infer_speed = round(total_pages / infer_time, 3) if infer_time > 0 else 0
     logger.info(
         f"inference done in {infer_time}s, "
-        f"speed: {round(total_pages / infer_time, 3)} pages/s"
+        f"speed: {infer_speed} pages/s"
     )
 
     post_start = time.time()
@@ -380,12 +382,11 @@ async def batch_doc_analyze(
 
     middle_jsons = await asyncio.gather(*post_tasks)
 
-    post_time = round(time.time() - post_start, 2)
+    post_time = round(time.time() - post_start, 2) or 0.001
     logger.info(f"post-processing done in {post_time}s")
 
     for idx, mj in enumerate(middle_jsons):
-        _, _, end = book_page_ranges[idx]
-        start = book_page_ranges[idx][0]
+        start, end = book_page_ranges[idx]
         model_outputs.append(all_blocks[start:end])
 
     return list(zip(middle_jsons, model_outputs))
