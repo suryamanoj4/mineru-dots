@@ -7,6 +7,7 @@ from loguru import logger
 
 from vparse.backend.base import BackendProtocol
 from vparse.backend.vlm.vlm_analyze import aio_doc_analyze as aio_vlm_doc_analyze
+from vparse.backend.vlm.vlm_analyze import batch_doc_analyze as batch_vlm_doc_analyze
 from vparse.backend.hybrid.hybrid_analyze import aio_doc_analyze as hybrid_doc_analyze
 from vparse.backend.pipeline.pipeline_analyze import doc_analyze as pipeline_doc_analyze
 from vparse.backend.pipeline.model_json_to_middle_json import (
@@ -114,6 +115,24 @@ class VLMBackend:
             pdf_bytes, image_writer=image_writer, backend=engine, **kwargs
         )
 
+    async def batch_analyze(
+        self,
+        pdf_bytes_list: list[bytes],
+        langs: list[str] | None = None,
+        parse_method: str = "auto",
+        formula_enable: bool = True,
+        table_enable: bool = True,
+        image_writers: list[DataWriter | None] | None = None,
+        **kwargs,
+    ) -> list[tuple[dict, dict]]:
+        engine = kwargs.pop("engine", self._resolve_engine())
+        return await batch_vlm_doc_analyze(
+            pdf_bytes_list,
+            image_writers=image_writers,
+            backend=engine,
+            **kwargs,
+        )
+
     def _resolve_engine(self) -> str:
         if self._engine:
             return self._engine
@@ -135,6 +154,28 @@ class VLMBackend:
 
 class VLMLmdeployBackend(VLMBackend):
     name = "vlm-lmdeploy"
+
+    async def batch_analyze(
+        self,
+        pdf_bytes_list: list[bytes],
+        langs: list[str] | None = None,
+        parse_method: str = "auto",
+        formula_enable: bool = True,
+        table_enable: bool = True,
+        image_writers: list[DataWriter | None] | None = None,
+        **kwargs,
+    ) -> list[tuple[dict, dict]]:
+        if "engine" not in kwargs:
+            kwargs["engine"] = "lmdeploy"
+        return await super().batch_analyze(
+            pdf_bytes_list,
+            langs=langs,
+            parse_method=parse_method,
+            formula_enable=formula_enable,
+            table_enable=table_enable,
+            image_writers=image_writers,
+            **kwargs,
+        )
 
     def _resolve_engine(self) -> str:
         return "lmdeploy"

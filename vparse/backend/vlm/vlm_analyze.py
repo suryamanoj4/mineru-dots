@@ -279,3 +279,112 @@ def doc_analyze(
         prompt_mode=prompt_mode,
         **kwargs,
     )
+
+
+async def batch_doc_analyze(
+    pdf_bytes_list: list[bytes],
+    image_writers: list[DataWriter | None] | None = None,
+    predictor=None,
+    backend="vllm",
+    model_path: str | None = None,
+    server_url: str | None = None,
+    prompt_mode: str = "prompt_layout_all_en",
+    batch_size: int = 0,
+    **kwargs,
+):
+    if predictor is None:
+        predictor = ModelSingleton().get_model(
+            backend, model_path, server_url, **kwargs
+        )
+
+    if image_writers is None:
+        image_writers = [None] * len(pdf_bytes_list)
+
+    if batch_size <= 0:
+        batch_size = 32
+
+    load_start = time.time()
+
+    page_tasks = [
+        asyncio.to_thread(load_images_from_pdf, b, ImageType.PIL)
+        for b in pdf_bytes_list
+    ]
+    all_results = await asyncio.gather(*page_tasks)
+
+    books = []
+    total_pages = 0
+    for images_list, pdf_doc in all_results:
+        pil_list = [d["img_pil"] for d in images_list]
+        books.append((pil_list, images_list, pdf_doc))
+        total_pages += len(pil_list)
+
+    load_time = round(time.time() - load_start, 2)
+    logger.info(
+        f"loaded {total_pages} pages from {len(pdf_bytes_list)} docs in {load_time}s, "
+        f"speed: {round(total_pages / load_time, 3)} pages/s"
+    )
+
+    book_page_ranges = []
+    all_images = []
+    offset = 0
+    for pil_list, _, _ in books:
+        book_page_ranges.append((offset, offset + len(pil_list)))
+        all_images.extend(pil_list)
+        offset += len(pil_list)
+
+    infer_start = time.time()
+    logger.info(
+        f"batch inference: {total_pages} pages across {len(pdf_bytes_list)} docs, "
+        f"batch_size={batch_size}"
+    )
+
+    all_blocks = []
+    for batch_start in range(0, total_pages, batch_size):
+        batch_end = min(batch_start + batch_size, total_pages)
+        batch_images = all_images[batch_start:batch_end]
+        batch_results = await predictor.aio_batch_two_step_extract(
+            images=batch_images, prompt_mode=prompt_mode
+        )
+        all_blocks.extend(batch_results)
+        logger.debug(
+            f"batch [{batch_start}:{batch_end}] done, "
+            f"speed: {round(len(batch_images) / (time.time() - infer_start + 0.001), 3)} pages/s"
+        )
+
+    infer_time = round(time.time() - infer_start, 2)
+    logger.info(
+        f"inference done in {infer_time}s, "
+        f"speed: {round(total_pages / infer_time, 3)} pages/s"
+    )
+
+    post_start = time.time()
+    middle_jsons = []
+    model_outputs = []
+
+    post_tasks = []
+    for book_idx, (start, end) in enumerate(book_page_ranges):
+        book_blocks = all_blocks[start:end]
+        pil_list, images_list, pdf_doc = books[book_idx]
+        writer = image_writers[book_idx] if image_writers and book_idx < len(image_writers) else None
+
+        post_tasks.append(
+            asyncio.to_thread(
+                result_to_middle_json,
+                book_blocks,
+                images_list,
+                pdf_doc,
+                writer,
+            )
+        )
+
+    middle_jsons = await asyncio.gather(*post_tasks)
+
+    post_time = round(time.time() - post_start, 2)
+    logger.info(f"post-processing done in {post_time}s")
+
+    for idx, mj in enumerate(middle_jsons):
+        _, _, end = book_page_ranges[idx]
+        start = book_page_ranges[idx][0]
+        model_outputs.append(all_blocks[start:end])
+
+    return list(zip(middle_jsons, model_outputs))
