@@ -283,14 +283,19 @@ class TestBulkProcessor(unittest.TestCase):
             results = self._run(p.process_books([]))
             self.assertEqual(len(results), 0)
 
-    def test_progress_api_accepts_callback(self):
+    def test_progress_events_fire(self):
         import tempfile
-        from vparse.bulk import BulkProcessor
+        events = []
         with tempfile.TemporaryDirectory() as tmp:
-            p = BulkProcessor(page_batch_size=8, checkpoint_dir=tmp)
-            called = []
-            def cb(e): called.append(True)
-            self._run(p.process_books([b"a"], on_progress=cb))
+            from vparse.bulk import BulkProcessor
+            p = BulkProcessor(page_batch_size=2, checkpoint_dir=tmp)
+            self._run(p.process_books(
+                [b"a", b"b"],
+                on_progress=lambda e: events.append(e),
+            ))
+            self.assertGreater(len(events), 0)
+            self.assertGreater(events[0].total_pages, 0)
+            self.assertIsInstance(events[0].pages_per_sec, float)
 
     def test_checkpoint_skips_done_books(self):
         import tempfile

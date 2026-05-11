@@ -124,8 +124,6 @@ class BulkProcessor:
                 pps = done / elapsed if elapsed > 0 else 0
                 eta = (total_pages - done) / pps if pps > 0 else 0
                 on_progress(ProgressEvent(
-                    completed_books=len(done_set) + len(remaining_indices) - (out_of - done // max(1, total_pages // max(len(remaining_indices), 1))),
-                    total_books=len(pdf_bytes_list),
                     pages_done=done,
                     total_pages=total_pages,
                     elapsed_seconds=elapsed,
@@ -137,6 +135,7 @@ class BulkProcessor:
             remaining_bytes,
             image_writers=remaining_writers,
             batch_size=self.page_batch_size,
+            progress_callback=wrapped_on_progress,
             **kwargs,
         )
 

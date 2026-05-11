@@ -2,6 +2,7 @@
 import asyncio
 import os
 import time
+from typing import Callable
 
 from loguru import logger
 
@@ -307,6 +308,7 @@ async def batch_doc_analyze(
     server_url: str | None = None,
     prompt_mode: str = "prompt_layout_all_en",
     batch_size: int = 0,
+    progress_callback: Callable[[int, int], None] | None = None,
     **kwargs,
 ):
     if predictor is None:
@@ -351,6 +353,10 @@ async def batch_doc_analyze(
                 for (idx, _), result in zip(batch, results):
                     all_post_data.append((idx, result))
                 total_processed += len(batch)
+
+                if progress_callback:
+                    progress_callback(total_processed, 0)
+
                 del batch, batch_images, results
 
         del images_list
@@ -363,6 +369,10 @@ async def batch_doc_analyze(
         for (idx, _), result in zip(page_buffer, results):
             all_post_data.append((idx, result))
         total_processed += len(page_buffer)
+
+        if progress_callback:
+            progress_callback(total_processed, 0)
+
         del page_buffer, batch_images, results
 
     infer_time = round(time.time() - infer_start, 2)
