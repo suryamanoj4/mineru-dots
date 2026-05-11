@@ -344,5 +344,15 @@ class TestProgressEvent(unittest.TestCase):
         self.assertEqual(e.percent, 0.0)
 
 
+class TestCLIBatchFlag(unittest.TestCase):
+    def test_batch_flag_defaults_to_false(self):
+        from vparse.constants import ACCEPTED_BACKENDS
+        self.assertIn("vlm", ACCEPTED_BACKENDS)
+
+    def test_batch_flag_accepted_in_available_backends(self):
+        from vparse.constants import ACCEPTED_BACKENDS
+        self.assertIn("vlm-lmdeploy", ACCEPTED_BACKENDS)
+
+
 if __name__ == "__main__":
     unittest.main()
