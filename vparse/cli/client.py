@@ -20,7 +20,7 @@ from vparse.utils.config_reader import get_device
 from vparse.utils.guess_suffix_or_lang import guess_suffix_by_path
 from vparse.utils.model_utils import get_vram
 from ..version import __version__
-from .common import do_parse, read_fn, pdf_suffixes, image_suffixes
+from .common import do_parse, read_fn, pdf_suffixes, image_suffixes, _process_output, prepare_env
 from .streaming import stream_parse
 
 CLI_DRAW_LAYOUT_BBOX = True
@@ -252,6 +252,13 @@ def build_vparse_client(
     help="Write staged per-page streaming outputs instead of waiting for the full document to finish.",
     default=False,
 )
+@click.option(
+    "--batch/--no-batch",
+    "batch_flag",
+    help="Batch multiple documents across GPU calls for VLM/hybrid backends. "
+         "Reduces overhead for many small documents.",
+    default=False,
+)
 def main(
     ctx,
     input_path,
@@ -270,6 +277,7 @@ def main(
     batch_size,
     resume,
     stream,
+    batch_flag,
     **kwargs,
 ):
 
@@ -492,8 +500,99 @@ def main(
         except Exception as e:
             logger.exception(e)
 
+    async def _run_batch(path_list: list[Path]):
+        from vparse.backend.registry import BackendRegistry, resolve_backend_name
+        from vparse.data.data_reader_writer import FileBasedDataWriter
+        from vparse.utils.enum_class import MakeMode
+
+        resolved = resolve_backend_name(backend)
+        is_lmdeploy = resolved == "vlm-lmdeploy"
+
+        engine = "lmdeploy" if is_lmdeploy else "auto"
+        vlm = BackendRegistry.get(resolved)
+
+        logger.info(f"Batch processing {len(path_list)} files via {resolved}")
+
+        file_names = []
+        pdf_bytes_list = []
+        load_errors = []
+
+        for path in path_list:
+            try:
+                pdf_bytes = read_fn(path)
+                file_names.append(path.stem)
+                pdf_bytes_list.append(pdf_bytes)
+            except Exception as e:
+                logger.error(f"Failed to read {path.name}: {e}")
+                load_errors.append(path.name)
+
+        if not pdf_bytes_list:
+            logger.error("No files could be read")
+            return
+
+        total_pages_est = 0
+        for b in pdf_bytes_list:
+            import pypdfium2 as pdfium
+            try:
+                doc = pdfium.PdfDocument(b)
+                total_pages_est += len(doc)
+                doc.close()
+            except Exception:
+                total_pages_est += 10
+
+        last_progress = 0
+        def on_progress(e):
+            nonlocal last_progress
+            if e.pages_done - last_progress >= 10 or e.pages_done == e.total_pages:
+                logger.info(
+                    f"batch progress: {e.pages_done}/{e.total_pages} pages "
+                    f"({e.pages_per_sec:.1f} p/s, ETA {e.eta_seconds:.0f}s)"
+                )
+                last_progress = e.pages_done
+
+        from vparse.bulk import BulkProcessor
+        proc = BulkProcessor()
+        results = await proc.process_books(
+            pdf_bytes_list,
+            job_id=f"vparse_batch_{Path(input_path).stem}",
+            on_progress=on_progress,
+            engine=engine,
+        )
+
+        logger.info(f"Writing output for {len(results)} files")
+
+        for idx, result in enumerate(results):
+            file_name = file_names[result.book_index]
+            local_image_dir, local_md_dir = prepare_env(
+                output_dir, file_name, "vlm"
+            )
+            md_writer = FileBasedDataWriter(local_md_dir)
+            pdf_info = result.middle_json.get("pdf_info", [])
+
+            _process_output(
+                pdf_info,
+                pdf_bytes_list[result.book_index],
+                file_name,
+                local_md_dir,
+                local_image_dir,
+                md_writer,
+                CLI_DRAW_LAYOUT_BBOX,
+                CLI_DRAW_SPAN_BBOX,
+                CLI_DUMP_ORIG_PDF,
+                CLI_DUMP_MD,
+                CLI_DUMP_CONTENT_LIST,
+                CLI_DUMP_MIDDLE_JSON,
+                CLI_DUMP_MODEL_OUTPUT,
+                MakeMode.MM_MD,
+                result.middle_json,
+                result.model_output,
+                is_pipeline=False,
+            )
+
+        if load_errors:
+            logger.warning(f"Failed to read {len(load_errors)} files: {load_errors}")
+
     if os.path.isdir(input_path):
-        # Fast file scanning - just check extension, don't read file content
         doc_path_list = []
         pdf_extensions = {'.pdf'}
         image_extensions = {'.png', '.jpeg', '.jpg', '.jp2', '.webp', '.gif', '.bmp', '.tiff'}
@@ -508,9 +607,17 @@ def main(
         
         scan_time = round(time.time() - scan_start, 2)
         logger.info(f"Found {len(doc_path_list)} files in {scan_time}s")
-        
-        input_folder_name = Path(input_path).stem
-        parse_doc_with_batching(doc_path_list, input_folder_name)
+
+        batch_enabled = batch_flag and (
+            backend in ("vlm", "vlm-lmdeploy") or backend.startswith("vlm-")
+            or backend in ("hybrid", "hybrid-lmdeploy") or backend.startswith("hybrid-")
+        )
+
+        if batch_enabled and len(doc_path_list) > 1:
+            _run_batch(doc_path_list)
+        else:
+            input_folder_name = Path(input_path).stem
+            parse_doc_with_batching(doc_path_list, input_folder_name)
     else:
         parse_doc([Path(input_path)])
 
