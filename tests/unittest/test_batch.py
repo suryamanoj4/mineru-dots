@@ -228,5 +228,116 @@ class TestLmdeployBackendBatch(unittest.TestCase):
         self.assertEqual(kwargs["backend"], "lmdeploy")
 
 
+class TestBulkProcessor(unittest.TestCase):
+    def setUp(self):
+        self.load_patch = mock.patch("vparse.backend.vlm.vlm_analyze.load_images_from_pdf")
+        self.mock_load = self.load_patch.start()
+        self.mock_load.return_value = (
+            [{"img_pil": f"page_{i}"} for i in range(3)],
+            mock.MagicMock(),
+        )
+        self.predictor = mock.AsyncMock()
+        self.predictor.aio_batch_two_step_extract = mock.AsyncMock(
+            side_effect=lambda images, **kw: [[{"type": "text", "content": f"p_{i}"}] for i in range(len(images))]
+        )
+        self.singleton_patch = mock.patch("vparse.backend.vlm.vlm_analyze.ModelSingleton")
+        self.mock_singleton = self.singleton_patch.start()
+        self.mock_singleton.return_value.get_model.return_value = self.predictor
+        self.mj_patch = mock.patch("vparse.backend.vlm.vlm_analyze.result_to_middle_json")
+        self.mock_mj = self.mj_patch.start()
+        self.mock_mj.return_value = {"pdf_info": [{"page_idx": 0}]}
+
+    def tearDown(self):
+        self.load_patch.stop()
+        self.singleton_patch.stop()
+        self.mj_patch.stop()
+
+    def _run(self, coro):
+        import asyncio
+        return asyncio.run(coro)
+
+    def test_returns_job_results(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            from vparse.bulk import BulkProcessor
+            p = BulkProcessor(page_batch_size=8, checkpoint_dir=tmp)
+            results = self._run(p.process_books([b"a"]))
+            self.assertEqual(len(results), 1)
+            self.assertIsInstance(results[0].middle_json, dict)
+            self.assertIsInstance(results[0].model_output, list)
+
+    def test_multiple_books(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            from vparse.bulk import BulkProcessor
+            p = BulkProcessor(page_batch_size=8, checkpoint_dir=tmp)
+            results = self._run(p.process_books([b"a", b"b", b"c"]))
+            self.assertEqual(len(results), 3)
+            self.assertEqual([r.book_index for r in results], [0, 1, 2])
+
+    def test_empty_input(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            from vparse.bulk import BulkProcessor
+            p = BulkProcessor(checkpoint_dir=tmp)
+            results = self._run(p.process_books([]))
+            self.assertEqual(len(results), 0)
+
+    def test_progress_api_accepts_callback(self):
+        import tempfile
+        from vparse.bulk import BulkProcessor
+        with tempfile.TemporaryDirectory() as tmp:
+            p = BulkProcessor(page_batch_size=8, checkpoint_dir=tmp)
+            called = []
+            def cb(e): called.append(True)
+            self._run(p.process_books([b"a"], on_progress=cb))
+
+    def test_checkpoint_skips_done_books(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as tmp:
+            from vparse.bulk import BulkProcessor
+            p = BulkProcessor(page_batch_size=8, checkpoint_dir=tmp)
+            self._run(p.process_books([b"a", b"b", b"c"], job_id="test-checkpoint"))
+            results = self._run(p.process_books(
+                [b"a", b"b", b"c"], job_id="test-checkpoint"
+            ))
+            self.assertEqual(len(results), 0)
+
+    def test_checkpoint_resumes_partial(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as tmp:
+            from vparse.bulk import BulkProcessor
+            p = BulkProcessor(page_batch_size=8, checkpoint_dir=tmp)
+            self._run(p.process_books([b"a", b"b"], job_id="test-resume"))
+            results = self._run(p.process_books(
+                [b"a", b"b", b"c"], job_id="test-resume"
+            ))
+            self.assertEqual(len(results), 1)
+            self.assertEqual(results[0].book_index, 2)
+
+    def test_checkpoint_dir_created(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as tmp:
+            from vparse.bulk import BulkProcessor
+            p = BulkProcessor(checkpoint_dir=tmp)
+            self._run(p.process_books([b"a"], job_id="test-dir"))
+            self.assertTrue((Path(tmp) / "test-dir.json").exists())
+
+
+class TestProgressEvent(unittest.TestCase):
+    def test_percent_calculation(self):
+        from vparse.bulk import ProgressEvent
+        e = ProgressEvent(pages_done=25, total_pages=100)
+        self.assertEqual(e.percent, 25.0)
+
+    def test_zero_pages_does_not_divide_by_zero(self):
+        from vparse.bulk import ProgressEvent
+        e = ProgressEvent(pages_done=0, total_pages=0)
+        self.assertEqual(e.percent, 0.0)
+
+
 if __name__ == "__main__":
     unittest.main()
