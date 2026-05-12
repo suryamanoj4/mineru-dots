@@ -511,23 +511,9 @@ def main(
 
         logger.info(f"Batch processing {len(path_list)} files via {resolved}")
 
-        file_names = []
-        pdf_bytes_list = []
-        load_errors = []
-
-        for path in path_list:
-            try:
-                pdf_bytes = read_fn(path)
-                file_names.append(path.stem)
-                pdf_bytes_list.append(pdf_bytes)
-            except Exception as e:
-                logger.error(f"Failed to read {path.name}: {e}")
-                load_errors.append(path.name)
-
-        if not pdf_bytes_list:
-            logger.error("No files could be read")
-            return
-
+        # Derive file names and track load errors lazily
+        file_names = {i: path.stem for i, path in enumerate(path_list)}
+        
         last_progress = 0
         def on_progress(e):
             nonlocal last_progress
@@ -545,26 +531,40 @@ def main(
         from vparse.bulk import BulkProcessor
         proc = BulkProcessor()
         results = await proc.process_books(
-            pdf_bytes_list,
+            path_list,
             job_id=f"vparse_batch_{Path(input_path).stem}",
             on_progress=on_progress,
             backend=resolved,
             **kwargs,
         )
 
+        # Subdir for output files
+        output_subdir = "vlm"
+        if resolved.startswith("hybrid"):
+            output_subdir = f"hybrid_{method}"
+
         logger.info(f"Writing output for {len(results)} files")
 
         for idx, result in enumerate(results):
-            file_name = file_names[result.book_index]
+            book_idx = result.book_index
+            file_name = file_names[book_idx]
+            path = path_list[book_idx]
+            
+            try:
+                pdf_bytes = read_fn(path)
+            except Exception as e:
+                logger.error(f"Failed to re-read {path.name} for output: {e}")
+                continue
+
             local_image_dir, local_md_dir = prepare_env(
-                output_dir, file_name, "vlm"
+                output_dir, file_name, output_subdir
             )
             md_writer = FileBasedDataWriter(local_md_dir)
             pdf_info = result.middle_json.get("pdf_info", [])
 
             _process_output(
                 pdf_info,
-                pdf_bytes_list[result.book_index],
+                pdf_bytes,
                 file_name,
                 local_md_dir,
                 local_image_dir,
@@ -581,9 +581,11 @@ def main(
                 result.model_output,
                 is_pipeline=False,
             )
-
-        if load_errors:
-            logger.warning(f"Failed to read {len(load_errors)} files: {load_errors}")
+            
+            # Explicitly clear memory after writing output for this book
+            del pdf_bytes
+            import gc
+            gc.collect()
 
     if os.path.isdir(input_path):
         doc_path_list = []

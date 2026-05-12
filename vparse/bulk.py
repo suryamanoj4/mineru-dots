@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import gc
 import json
 import os
 import time
@@ -10,6 +11,7 @@ from typing import Any, Callable
 
 from vparse.backend.vlm.utils import estimate_vlm_batch_size
 from vparse.data.data_reader_writer import DataWriter
+from vparse.cli.common import read_fn
 
 
 @dataclass
@@ -70,12 +72,15 @@ class BulkProcessor:
             json.dump({"done": sorted(done)}, f)
         tmp.replace(path)
 
-    def _estimate_total_pages(self, pdf_bytes_list: list[bytes]) -> int:
+    def _estimate_total_pages(self, pdf_bytes_list: list[bytes] | list[Path]) -> int:
         import pypdfium2 as pdfium
         total = 0
-        for b in pdf_bytes_list:
+        for item in pdf_bytes_list:
             try:
-                doc = pdfium.PdfDocument(b)
+                if isinstance(item, Path):
+                    doc = pdfium.PdfDocument(str(item))
+                else:
+                    doc = pdfium.PdfDocument(item)
                 total += len(doc)
                 doc.close()
             except Exception:
@@ -84,7 +89,7 @@ class BulkProcessor:
 
     async def process_books(
         self,
-        pdf_bytes_list: list[bytes],
+        pdf_bytes_list: list[bytes] | list[Path],
         image_writers: list[DataWriter | None] | None = None,
         job_id: str | None = None,
         on_progress: ProgressCallback | None = None,
@@ -132,10 +137,19 @@ class BulkProcessor:
 
         all_results: list[JobResult] = []
 
-        # Process in chunks to ensure checkpoints are saved incrementally
+        # Process in chunks to ensure checkpoints are saved incrementally and memory is saved
         for i in range(0, len(remaining_indices), chunk_size):
             chunk_indices = remaining_indices[i:i+chunk_size]
-            chunk_bytes = [pdf_bytes_list[idx] for idx in chunk_indices]
+            
+            # Lazy load bytes only for the current chunk
+            chunk_bytes = []
+            for idx in chunk_indices:
+                item = pdf_bytes_list[idx]
+                if isinstance(item, Path):
+                    chunk_bytes.append(read_fn(item))
+                else:
+                    chunk_bytes.append(item)
+
             chunk_writers = None
             if image_writers:
                 chunk_writers = [image_writers[idx] for idx in chunk_indices]
@@ -165,6 +179,12 @@ class BulkProcessor:
                 self._save_checkpoint(job_id, done_set)
 
             self._completed_pages += chunk_pages_done
+            
+            # Explicitly clear memory for the processed chunk
+            del chunk_bytes
+            if chunk_writers:
+                del chunk_writers
+            gc.collect()
 
         return all_results
 

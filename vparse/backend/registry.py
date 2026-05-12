@@ -8,7 +8,10 @@ from loguru import logger
 from vparse.backend.base import BackendProtocol
 from vparse.backend.vlm.vlm_analyze import aio_doc_analyze as aio_vlm_doc_analyze
 from vparse.backend.vlm.vlm_analyze import batch_doc_analyze as batch_vlm_doc_analyze
-from vparse.backend.hybrid.hybrid_analyze import aio_doc_analyze as hybrid_doc_analyze
+from vparse.backend.hybrid.hybrid_analyze import (
+    aio_doc_analyze as hybrid_doc_analyze,
+    batch_doc_analyze as batch_hybrid_doc_analyze,
+)
 from vparse.backend.pipeline.pipeline_analyze import doc_analyze as pipeline_doc_analyze
 from vparse.backend.pipeline.model_json_to_middle_json import (
     result_to_middle_json as pipeline_result_to_middle_json,
@@ -205,6 +208,26 @@ class HybridBackend:
         )
         return middle_json, model_output
 
+    async def batch_analyze(
+        self,
+        pdf_bytes_list: list[bytes],
+        langs: list[str] | None = None,
+        parse_method: str = "auto",
+        formula_enable: bool = True,
+        table_enable: bool = True,
+        image_writers: list[DataWriter | None] | None = None,
+        **kwargs,
+    ) -> list[tuple[dict, dict]]:
+        return await batch_hybrid_doc_analyze(
+            pdf_bytes_list,
+            image_writers=image_writers,
+            backend=kwargs.pop("engine", resolve_vlm_engine()),
+            parse_method=parse_method,
+            languages=langs,
+            inline_formula_enable=formula_enable,
+            **kwargs,
+        )
+
     async def initialize(self) -> None:
         pass
 
@@ -240,6 +263,28 @@ class HybridLmdeployBackend(HybridBackend):
             formula_enable=formula_enable,
             table_enable=table_enable,
             image_writer=image_writer,
+            **kwargs,
+        )
+
+    async def batch_analyze(
+        self,
+        pdf_bytes_list: list[bytes],
+        langs: list[str] | None = None,
+        parse_method: str = "auto",
+        formula_enable: bool = True,
+        table_enable: bool = True,
+        image_writers: list[DataWriter | None] | None = None,
+        **kwargs,
+    ) -> list[tuple[dict, dict]]:
+        if "engine" not in kwargs:
+            kwargs["engine"] = "lmdeploy"
+        return await super().batch_analyze(
+            pdf_bytes_list,
+            langs=langs,
+            parse_method=parse_method,
+            formula_enable=formula_enable,
+            table_enable=table_enable,
+            image_writers=image_writers,
             **kwargs,
         )
 

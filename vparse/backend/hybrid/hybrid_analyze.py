@@ -1,4 +1,5 @@
 #  Copyright (c) Opendatalab. All rights reserved.
+import asyncio
 import os
 import time
 from collections import defaultdict
@@ -653,3 +654,152 @@ async def aio_doc_analyze(
 
     clean_memory(device)
     return middle_json, results, _vlm_ocr_enable
+
+
+async def batch_doc_analyze(
+    pdf_bytes_list: list[bytes],
+    image_writers: list[DataWriter | None] | None = None,
+    predictor=None,
+    backend="vllm",
+    parse_method: str = "auto",
+    languages: list[str] | None = None,
+    inline_formula_enable: bool = True,
+    model_path: str | None = None,
+    server_url: str | None = None,
+    prompt_mode: str = "prompt_layout_all_en",
+    **kwargs,
+):
+    if predictor is None:
+        predictor = ModelSingleton().get_model(
+            backend, model_path, server_url, **kwargs
+        )
+
+    if languages is None:
+        languages = ["ch"] * len(pdf_bytes_list)
+
+    if image_writers is None:
+        image_writers = [None] * len(pdf_bytes_list)
+
+    # 1. Load images for all docs and determine settings
+    all_docs_images = []
+    doc_metadata = []
+    doc_settings = []
+    
+    for idx, pdf_bytes in enumerate(pdf_bytes_list):
+        images_list, pdf_doc = await asyncio.to_thread(
+            load_images_from_pdf, pdf_bytes, image_type=ImageType.PIL
+        )
+        images_pil_list = [image_dict["img_pil"] for image_dict in images_list]
+        all_docs_images.append(images_pil_list)
+        doc_metadata.append((images_list, pdf_doc))
+        
+        lang = languages[idx]
+        _ocr_enable = ocr_classify(pdf_bytes, parse_method=parse_method)
+        _vlm_ocr_enable = _should_enable_vlm_ocr(
+            _ocr_enable, lang, inline_formula_enable
+        )
+        doc_settings.append({
+            "lang": lang,
+            "ocr_enable": _ocr_enable,
+            "vlm_ocr_enable": _vlm_ocr_enable,
+        })
+
+    device = get_device()
+    batch_ratio = get_batch_ratio(device)
+
+    # 2. VLM Pass for all pages (Cross-document batching)
+    flat_images = []
+    page_to_doc_map = []
+    for doc_idx, images in enumerate(all_docs_images):
+        for page_idx in range(len(images)):
+            flat_images.append(images[page_idx])
+            page_to_doc_map.append(doc_idx)
+
+    # VLM extraction for all flat images
+    all_vlm_results = await predictor.aio_batch_two_step_extract(
+        images=flat_images, prompt_mode=prompt_mode, not_extract_list=not_extract_list
+    )
+
+    # Re-group VLM results by doc
+    doc_vlm_results = [[] for _ in range(len(pdf_bytes_list))]
+    for result, doc_idx in zip(all_vlm_results, page_to_doc_map):
+        doc_vlm_results[doc_idx].append(result)
+
+    # 3. Pipeline Pass (MFD/MFR/OCR) with grouping by settings
+    # To truly batch across documents, we group docs by their language and settings
+    groups = defaultdict(list)
+    for doc_idx, settings in enumerate(doc_settings):
+        # We only group if NOT using VLM OCR (since VLM OCR was already batched in step 2)
+        if not settings["vlm_ocr_enable"]:
+            key = (settings["lang"], inline_formula_enable, settings["ocr_enable"])
+            groups[key].append(doc_idx)
+
+    # Results buffers
+    doc_inline_formulas = [None] * len(pdf_bytes_list)
+    doc_ocr_res = [None] * len(pdf_bytes_list)
+    doc_pipeline_models = [None] * len(pdf_bytes_list)
+
+    for (lang, formula_en, ocr_en), doc_indices in groups.items():
+        group_images = []
+        group_vlm_results = []
+        group_page_counts = []
+        
+        for d_idx in doc_indices:
+            group_images.extend(all_docs_images[d_idx])
+            group_vlm_results.extend(doc_vlm_results[d_idx])
+            group_page_counts.append(len(all_docs_images[d_idx]))
+
+        # Single call for the whole group (cross-document)
+        g_inline_formulas, g_ocr_res, g_pipeline_model = (
+            _process_ocr_and_formulas(
+                group_images,
+                group_vlm_results,
+                lang,
+                formula_en,
+                ocr_en,
+                batch_radio=batch_ratio,
+            )
+        )
+        _normalize_bbox(g_inline_formulas, g_ocr_res, group_images)
+
+        # Distribute results back to documents
+        cursor = 0
+        for i, d_idx in enumerate(doc_indices):
+            count = group_page_counts[i]
+            doc_inline_formulas[d_idx] = g_inline_formulas[cursor : cursor + count]
+            doc_ocr_res[d_idx] = g_ocr_res[cursor : cursor + count]
+            doc_pipeline_models[d_idx] = g_pipeline_model
+            cursor += count
+
+    # 4. Final Reassembly
+    final_results = []
+    for doc_idx in range(len(pdf_bytes_list)):
+        settings = doc_settings[doc_idx]
+        images_list, pdf_doc = doc_metadata[doc_idx]
+        vlm_results = doc_vlm_results[doc_idx]
+        writer = image_writers[doc_idx]
+
+        if settings["vlm_ocr_enable"]:
+            inline_formula_list = [[] for _ in all_docs_images[doc_idx]]
+            ocr_res_list = [[] for _ in all_docs_images[doc_idx]]
+            hybrid_pipeline_model = None
+        else:
+            inline_formula_list = doc_inline_formulas[doc_idx]
+            ocr_res_list = doc_ocr_res[doc_idx]
+            hybrid_pipeline_model = doc_pipeline_models[doc_idx]
+
+        middle_json = result_to_middle_json(
+            vlm_results,
+            inline_formula_list,
+            ocr_res_list,
+            images_list,
+            pdf_doc,
+            writer,
+            settings["ocr_enable"],
+            settings["vlm_ocr_enable"],
+            hybrid_pipeline_model,
+        )
+        final_results.append((middle_json, vlm_results))
+
+    clean_memory(device)
+    return final_results
