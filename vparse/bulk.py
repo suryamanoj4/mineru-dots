@@ -8,7 +8,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
-from vparse.backend.vlm.vlm_analyze import batch_doc_analyze
 from vparse.backend.vlm.utils import estimate_vlm_batch_size
 from vparse.data.data_reader_writer import DataWriter
 
@@ -89,6 +88,7 @@ class BulkProcessor:
         image_writers: list[DataWriter | None] | None = None,
         job_id: str | None = None,
         on_progress: ProgressCallback | None = None,
+        chunk_size: int = 10,
         **kwargs,
     ) -> list[JobResult]:
         job_id = job_id or f"bulk_{int(time.time())}"
@@ -100,11 +100,6 @@ class BulkProcessor:
 
         if not remaining_indices:
             return []
-
-        remaining_bytes = [pdf_bytes_list[i] for i in remaining_indices]
-        remaining_writers = None
-        if image_writers:
-            remaining_writers = [image_writers[i] for i in remaining_indices]
 
         self._start_time = time.time()
         self._completed_pages = 0
@@ -118,42 +113,60 @@ class BulkProcessor:
         self._total_pages_est = total_pages
 
         def wrapped_on_progress(done: int, out_of: int) -> None:
-            self._completed_pages = done
+            accumulated_done = self._completed_pages + done
             if on_progress:
                 elapsed = time.time() - self._start_time
-                pps = done / elapsed if elapsed > 0 else 0
-                eta = (total_pages - done) / pps if pps > 0 else 0
+                pps = accumulated_done / elapsed if elapsed > 0 else 0
+                eta = (total_pages - accumulated_done) / pps if pps > 0 else 0
                 on_progress(ProgressEvent(
-                    pages_done=done,
+                    pages_done=accumulated_done,
                     total_pages=total_pages,
                     elapsed_seconds=elapsed,
                     pages_per_sec=pps,
                     eta_seconds=eta,
                 ))
 
-        raw_results = await batch_doc_analyze(
-            remaining_bytes,
-            image_writers=remaining_writers,
-            batch_size=self.page_batch_size,
-            progress_callback=wrapped_on_progress,
-            **kwargs,
-        )
+        from vparse.backend.registry import BackendRegistry
+        backend_name = kwargs.pop("backend", "vlm")
+        backend_instance = BackendRegistry.get(backend_name)
 
-        results: list[JobResult] = []
-        for offset, (mj, mo) in enumerate(raw_results):
-            book_idx = remaining_indices[offset]
-            results.append(JobResult(
-                book_index=book_idx,
-                middle_json=mj,
-                model_output=mo,
-            ))
+        all_results: list[JobResult] = []
 
-            new_done = set(done_set)
-            new_done.add(book_idx)
-            self._save_checkpoint(job_id, new_done)
-            done_set.add(book_idx)
+        # Process in chunks to ensure checkpoints are saved incrementally
+        for i in range(0, len(remaining_indices), chunk_size):
+            chunk_indices = remaining_indices[i:i+chunk_size]
+            chunk_bytes = [pdf_bytes_list[idx] for idx in chunk_indices]
+            chunk_writers = None
+            if image_writers:
+                chunk_writers = [image_writers[idx] for idx in chunk_indices]
 
-        return results
+            raw_results = await backend_instance.batch_analyze(
+                chunk_bytes,
+                image_writers=chunk_writers,
+                batch_size=self.page_batch_size,
+                progress_callback=wrapped_on_progress,
+                **kwargs,
+            )
+
+            chunk_pages_done = 0
+            for offset, (mj, mo) in enumerate(raw_results):
+                book_idx = chunk_indices[offset]
+                all_results.append(JobResult(
+                    book_index=book_idx,
+                    middle_json=mj,
+                    model_output=mo,
+                ))
+
+                # Update completed pages for progress tracking
+                pdf_info = mj.get("pdf_info", [])
+                chunk_pages_done += len(pdf_info)
+
+                done_set.add(book_idx)
+                self._save_checkpoint(job_id, done_set)
+
+            self._completed_pages += chunk_pages_done
+
+        return all_results
 
     async def process_with_progress(
         self,

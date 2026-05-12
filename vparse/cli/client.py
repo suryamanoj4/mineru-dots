@@ -3,6 +3,7 @@ import json
 import os
 import time
 import sys
+import asyncio
 
 import click
 from pathlib import Path
@@ -508,9 +509,6 @@ def main(
         resolved = resolve_backend_name(backend)
         is_lmdeploy = resolved == "vlm-lmdeploy"
 
-        engine = "lmdeploy" if is_lmdeploy else "auto"
-        vlm = BackendRegistry.get(resolved)
-
         logger.info(f"Batch processing {len(path_list)} files via {resolved}")
 
         file_names = []
@@ -530,16 +528,6 @@ def main(
             logger.error("No files could be read")
             return
 
-        total_pages_est = 0
-        for b in pdf_bytes_list:
-            import pypdfium2 as pdfium
-            try:
-                doc = pdfium.PdfDocument(b)
-                total_pages_est += len(doc)
-                doc.close()
-            except Exception:
-                total_pages_est += 10
-
         last_progress = 0
         def on_progress(e):
             nonlocal last_progress
@@ -550,13 +538,18 @@ def main(
                 )
                 last_progress = e.pages_done
 
+        kwargs.pop("engine", None)
+        if is_lmdeploy:
+            kwargs["engine"] = "lmdeploy"
+
         from vparse.bulk import BulkProcessor
         proc = BulkProcessor()
         results = await proc.process_books(
             pdf_bytes_list,
             job_id=f"vparse_batch_{Path(input_path).stem}",
             on_progress=on_progress,
-            engine=engine,
+            backend=resolved,
+            **kwargs,
         )
 
         logger.info(f"Writing output for {len(results)} files")
@@ -614,7 +607,7 @@ def main(
         )
 
         if batch_enabled and len(doc_path_list) > 1:
-            _run_batch(doc_path_list)
+            asyncio.run(_run_batch(doc_path_list))
         else:
             input_folder_name = Path(input_path).stem
             parse_doc_with_batching(doc_path_list, input_folder_name)
