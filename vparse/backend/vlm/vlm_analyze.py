@@ -159,8 +159,9 @@ class ModelSingleton:
                         backend_config=backend_config,
                     )
 
+            upstream_backend = {"mlx": "mlx-engine", "lmdeploy": "lmdeploy-engine"}.get(backend, backend)
             self._models[key] = VParseClient(
-                backend=backend,
+                backend=upstream_backend,
                 model=model,
                 processor=processor,
                 lmdeploy_engine=lmdeploy_engine,
