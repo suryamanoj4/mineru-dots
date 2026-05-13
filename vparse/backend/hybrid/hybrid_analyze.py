@@ -3,6 +3,7 @@ import asyncio
 import os
 import time
 from collections import defaultdict
+from typing import Callable
 
 import cv2
 import numpy as np
@@ -667,12 +668,18 @@ async def batch_doc_analyze(
     model_path: str | None = None,
     server_url: str | None = None,
     prompt_mode: str = "prompt_layout_all_en",
+    batch_size: int = 0,
+    progress_callback: Callable[[int, int], None] | None = None,
     **kwargs,
 ):
     if predictor is None:
         predictor = ModelSingleton().get_model(
             backend, model_path, server_url, **kwargs
         )
+
+    from vparse.backend.vlm.utils import estimate_vlm_batch_size
+    if batch_size <= 0:
+        batch_size = estimate_vlm_batch_size()
 
     if languages is None:
         languages = ["ch"] * len(pdf_bytes_list)
@@ -708,22 +715,58 @@ async def batch_doc_analyze(
     batch_ratio = get_batch_ratio(device)
 
     # 2. VLM Pass for all pages (Cross-document batching)
-    flat_images = []
-    page_to_doc_map = []
+    # Split pages into two groups: full VLM extraction vs layout-only
+    # Track (doc_idx, page_idx) for correct ordering during merge
+    vlm_full_pages = []
+    vlm_layout_pages = []
+    full_page_map: list[tuple[int, int]] = []
+    layout_page_map: list[tuple[int, int]] = []
     for doc_idx, images in enumerate(all_docs_images):
+        settings = doc_settings[doc_idx]
         for page_idx in range(len(images)):
-            flat_images.append(images[page_idx])
-            page_to_doc_map.append(doc_idx)
+            if settings["vlm_ocr_enable"]:
+                vlm_full_pages.append(images[page_idx])
+                full_page_map.append((doc_idx, page_idx))
+            else:
+                vlm_layout_pages.append(images[page_idx])
+                layout_page_map.append((doc_idx, page_idx))
 
-    # VLM extraction for all flat images
-    all_vlm_results = await predictor.aio_batch_two_step_extract(
-        images=flat_images, prompt_mode=prompt_mode, not_extract_list=not_extract_list
-    )
+    total_pages = len(vlm_full_pages) + len(vlm_layout_pages)
+    total_processed = 0
 
-    # Re-group VLM results by doc
+    # Helper: process a page list in chunks
+    async def _process_page_chunk(pages, page_map, extract_needed):
+        nonlocal total_processed
+        results_by_doc: dict[int, list[tuple[int, object]]] = {}
+        for chunk_start in range(0, len(pages), batch_size):
+            chunk = pages[chunk_start:chunk_start + batch_size]
+            if extract_needed:
+                chunk_results = await predictor.aio_batch_two_step_extract(
+                    images=chunk, prompt_mode=prompt_mode
+                )
+            else:
+                chunk_results = await predictor.aio_batch_two_step_extract(
+                    images=chunk, prompt_mode=prompt_mode, not_extract_list=not_extract_list
+                )
+            for offset, result in enumerate(chunk_results):
+                doc_idx, page_idx = page_map[chunk_start + offset]
+                results_by_doc.setdefault(doc_idx, []).append((page_idx, result))
+            total_processed += len(chunk)
+            if progress_callback:
+                progress_callback(total_processed, total_pages)
+            del chunk, chunk_results
+        return results_by_doc
+
+    full_results = await _process_page_chunk(vlm_full_pages, full_page_map, extract_needed=True)
+    layout_results = await _process_page_chunk(vlm_layout_pages, layout_page_map, extract_needed=False)
+
+    # Merge and re-group by doc, sorted by page_idx for correct order
     doc_vlm_results = [[] for _ in range(len(pdf_bytes_list))]
-    for result, doc_idx in zip(all_vlm_results, page_to_doc_map):
-        doc_vlm_results[doc_idx].append(result)
+    for doc_idx in range(len(pdf_bytes_list)):
+        entries = full_results.get(doc_idx, []) + layout_results.get(doc_idx, [])
+        entries.sort(key=lambda x: x[0])
+        doc_vlm_results[doc_idx] = [result for _, result in entries]
+    del full_results, layout_results, vlm_full_pages, vlm_layout_pages
 
     # 3. Pipeline Pass (MFD/MFR/OCR) with grouping by settings
     # To truly batch across documents, we group docs by their language and settings

@@ -203,24 +203,22 @@ async def _aio_doc_analyze(
     images_list, pdf_doc = await asyncio.to_thread(
         load_images_from_pdf, pdf_bytes, ImageType.PIL
     )
-    images_pil_list = [image_dict["img_pil"] for image_dict in images_list]
     load_time = round(time.time() - load_start, 2)
-    load_speed = round(len(images_pil_list) / load_time, 3) if load_time > 0 else 0
+    load_speed = round(len(images_list) / load_time, 3) if load_time > 0 else 0
     logger.debug(
         f"load images cost: {load_time}s, speed: {load_speed} images/s"
     )
 
     infer_start = time.time()
     all_results = []
-    for batch_start in range(0, len(images_pil_list), batch_size):
-        batch = images_pil_list[batch_start:batch_start + batch_size]
+    for batch_start in range(0, len(images_list), batch_size):
+        batch_dicts = images_list[batch_start:batch_start + batch_size]
+        batch_pil = [d["img_pil"] for d in batch_dicts]
         batch_results = await predictor.aio_batch_two_step_extract(
-            images=batch, prompt_mode=prompt_mode
+            images=batch_pil, prompt_mode=prompt_mode
         )
         all_results.extend(batch_results)
-        del batch, batch_results
-
-    del images_pil_list
+        del batch_pil, batch_results, batch_dicts
 
     infer_time = round(time.time() - infer_start, 2)
     infer_speed = round(len(all_results) / infer_time, 3) if infer_time > 0 else 0
