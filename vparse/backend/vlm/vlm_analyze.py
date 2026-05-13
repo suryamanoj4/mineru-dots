@@ -201,7 +201,7 @@ async def _aio_doc_analyze(
 
     load_start = time.time()
     images_list, pdf_doc = await asyncio.to_thread(
-        load_images_from_pdf, pdf_bytes, ImageType.PIL
+        lambda: load_images_from_pdf(pdf_bytes, image_type=ImageType.PIL)
     )
     load_time = round(time.time() - load_start, 2)
     load_speed = round(len(images_list) / load_time, 3) if load_time > 0 else 0
@@ -331,7 +331,7 @@ async def batch_doc_analyze(
 
     for book_idx, pdf_bytes in enumerate(pdf_bytes_list):
         images_list, pdf_doc = await asyncio.to_thread(
-            load_images_from_pdf, pdf_bytes, ImageType.PIL
+            lambda: load_images_from_pdf(pdf_bytes, image_type=ImageType.PIL)
         )
 
         total_pages += len(images_list)
