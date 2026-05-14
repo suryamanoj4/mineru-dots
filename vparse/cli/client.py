@@ -1,4 +1,5 @@
 # Copyright (c) Opendatalab. All rights reserved.
+import gc
 import json
 import os
 import time
@@ -529,32 +530,20 @@ def main(
             kwargs["engine"] = "lmdeploy"
 
         from vparse.bulk import BulkProcessor
-        proc = BulkProcessor()
-        results = await proc.process_books(
-            path_list,
-            job_id=f"vparse_batch_{Path(input_path).stem}",
-            on_progress=on_progress,
-            backend=resolved,
-            **kwargs,
-        )
 
-        # Subdir for output files
         output_subdir = "vlm"
         if resolved.startswith("hybrid"):
             output_subdir = f"hybrid_{method}"
 
-        logger.info(f"Writing output for {len(results)} files")
-
-        for idx, result in enumerate(results):
+        async def on_result(result):
             book_idx = result.book_index
             file_name = file_names[book_idx]
             path = path_list[book_idx]
-            
             try:
                 pdf_bytes = read_fn(path)
             except Exception as e:
-                logger.error(f"Failed to re-read {path.name} for output: {e}")
-                continue
+                logger.error(f"Failed to read {path.name}: {e}")
+                return
 
             local_image_dir, local_md_dir = prepare_env(
                 output_dir, file_name, output_subdir
@@ -563,29 +552,25 @@ def main(
             pdf_info = result.middle_json.get("pdf_info", [])
 
             _process_output(
-                pdf_info,
-                pdf_bytes,
-                file_name,
-                local_md_dir,
-                local_image_dir,
-                md_writer,
-                CLI_DRAW_LAYOUT_BBOX,
-                CLI_DRAW_SPAN_BBOX,
-                CLI_DUMP_ORIG_PDF,
-                CLI_DUMP_MD,
-                CLI_DUMP_CONTENT_LIST,
-                CLI_DUMP_MIDDLE_JSON,
-                CLI_DUMP_MODEL_OUTPUT,
-                MakeMode.MM_MD,
-                result.middle_json,
-                result.model_output,
+                pdf_info, pdf_bytes, file_name, local_md_dir, local_image_dir,
+                md_writer, CLI_DRAW_LAYOUT_BBOX, CLI_DRAW_SPAN_BBOX,
+                CLI_DUMP_ORIG_PDF, CLI_DUMP_MD, CLI_DUMP_CONTENT_LIST,
+                CLI_DUMP_MIDDLE_JSON, CLI_DUMP_MODEL_OUTPUT,
+                MakeMode.MM_MD, result.middle_json, result.model_output,
                 is_pipeline=False,
             )
-            
-            # Explicitly clear memory after writing output for this book
             del pdf_bytes
-            import gc
             gc.collect()
+
+        proc = BulkProcessor()
+        await proc.process_books(
+            path_list,
+            job_id=f"vparse_batch_{Path(input_path).stem}",
+            on_progress=on_progress,
+            on_result=on_result,
+            backend=resolved,
+            **kwargs,
+        )
 
     if os.path.isdir(input_path):
         doc_path_list = []

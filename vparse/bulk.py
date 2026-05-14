@@ -7,7 +7,7 @@ import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Awaitable, Callable
 
 from vparse.data.data_reader_writer import DataWriter
 from vparse.cli.common import read_fn
@@ -92,6 +92,7 @@ class BulkProcessor:
         image_writers: list[DataWriter | None] | None = None,
         job_id: str | None = None,
         on_progress: ProgressCallback | None = None,
+        on_result: Callable[[JobResult], Awaitable[None]] | None = None,
         chunk_size: int = 10,
         **kwargs,
     ) -> list[JobResult]:
@@ -134,7 +135,7 @@ class BulkProcessor:
         backend_name = kwargs.pop("backend", "vlm")
         backend_instance = BackendRegistry.get(backend_name)
 
-        all_results: list[JobResult] = []
+        all_results = [] if on_result is None else None
 
         # Process in chunks to ensure checkpoints are saved incrementally and memory is saved
         for i in range(0, len(remaining_indices), chunk_size):
@@ -164,11 +165,12 @@ class BulkProcessor:
             chunk_pages_done = 0
             for offset, (mj, mo) in enumerate(raw_results):
                 book_idx = chunk_indices[offset]
-                all_results.append(JobResult(
-                    book_index=book_idx,
-                    middle_json=mj,
-                    model_output=mo,
-                ))
+                jr = JobResult(book_index=book_idx, middle_json=mj, model_output=mo)
+
+                if on_result:
+                    await on_result(jr)
+                else:
+                    all_results.append(jr)
 
                 # Update completed pages for progress tracking
                 pdf_info = mj.get("pdf_info", [])
@@ -185,7 +187,7 @@ class BulkProcessor:
                 del chunk_writers
             gc.collect()
 
-        return all_results
+        return all_results if all_results is not None else []
 
     async def process_with_progress(
         self,
