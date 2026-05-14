@@ -133,7 +133,7 @@ class DotsOCRClient:
             max_concurrency=self.max_concurrency,
         )
 
-        def build_messages_string(prompt: str, _num_images: int) -> list[dict]:
+        def build_messages_string(prompt: str, _num_images: int = 0) -> list[dict]:
             prompt = prompt or vparse_client.client.prompt
             messages = []
             if vparse_client.client.system_prompt:
