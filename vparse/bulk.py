@@ -9,7 +9,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
-from vparse.backend.vlm.utils import estimate_vlm_batch_size
 from vparse.data.data_reader_writer import DataWriter
 from vparse.cli.common import read_fn
 
@@ -49,7 +48,7 @@ class BulkProcessor:
     ):
         self.checkpoint_dir = Path(checkpoint_dir or ".vparse_checkpoints")
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
-        self.page_batch_size = page_batch_size or estimate_vlm_batch_size()
+        self.page_batch_size = page_batch_size
         self._start_time: float = 0.0
         self._completed_pages = 0
         self._total_pages_est = 0
