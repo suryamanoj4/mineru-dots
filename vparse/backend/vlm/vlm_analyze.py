@@ -22,6 +22,7 @@ from ...utils.config_reader import get_device
 
 from ...utils.enum_class import ImageType
 from ...utils.models_download_utils import auto_download_and_get_model_root_path
+from vparse.utils.pdf_reader import page_to_image
 
 
 class ModelSingleton:
@@ -213,7 +214,7 @@ async def _aio_doc_analyze(
     all_results = []
     for batch_start in range(0, len(images_list), batch_size):
         batch_dicts = images_list[batch_start:batch_start + batch_size]
-        batch_pil = [d["img_pil"] for d in batch_dicts]
+        batch_pil = [d.pop("img_pil") for d in batch_dicts]
         batch_results = await predictor.aio_batch_two_step_extract(
             images=batch_pil, prompt_mode=prompt_mode
         )
@@ -226,6 +227,7 @@ async def _aio_doc_analyze(
         f"infer finished, cost: {infer_time}s, speed: {infer_speed} page/s"
     )
 
+    _restore_images(images_list, pdf_doc)
     middle_json = result_to_middle_json(all_results, images_list, pdf_doc, image_writer)
     return middle_json, all_results
 
@@ -298,6 +300,14 @@ def doc_analyze(
     )
 
 
+def _restore_images(images_list: list, pdf_doc) -> None:
+    for idx, d in enumerate(images_list):
+        if d.get("img_pil") is None:
+            page = pdf_doc[idx]
+            pil_img, _ = page_to_image(page)
+            d["img_pil"] = pil_img
+
+
 async def batch_doc_analyze(
     pdf_bytes_list: list[bytes],
     image_writers: list[DataWriter | None] | None = None,
@@ -338,7 +348,7 @@ async def batch_doc_analyze(
         book_metadata[book_idx] = (images_list, pdf_doc)
 
         for img_dict in images_list:
-            page_buffer.append((book_idx, img_dict["img_pil"]))
+            page_buffer.append((book_idx, img_dict.pop("img_pil")))
 
             if len(page_buffer) >= batch_size:
                 batch = page_buffer[:batch_size]
@@ -395,6 +405,7 @@ async def batch_doc_analyze(
         images_list, pdf_doc = book_metadata[book_idx]
         writer = image_writers[book_idx] if image_writers and book_idx < len(image_writers) else None
 
+        _restore_images(images_list, pdf_doc)
         post_tasks.append(
             asyncio.to_thread(result_to_middle_json, blocks, images_list, pdf_doc, writer)
         )
