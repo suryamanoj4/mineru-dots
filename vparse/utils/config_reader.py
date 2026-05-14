@@ -7,12 +7,14 @@ from vparse.utils.compat import get_config_file_path, get_env_with_legacy
 
 try:
     import torch
-    import torch_npu
-
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
     torch = None
+
+try:
+    import torch_npu
+except ImportError:
     torch_npu = None
 
 
