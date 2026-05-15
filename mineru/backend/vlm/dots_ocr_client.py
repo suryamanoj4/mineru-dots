@@ -134,11 +134,16 @@ class DotsOCRClient:
         gpu_memory_utilization = set_default_gpu_memory_utilization()
         logger.info(f"Using GPU memory utilization: {gpu_memory_utilization}")
 
-        vllm_llm = vllm.LLM(
-            model=self.model_path,
-            trust_remote_code=True,
-            gpu_memory_utilization=gpu_memory_utilization,
-            max_model_len=32768,
+        from vllm.engine.arg_utils import AsyncEngineArgs
+        from vllm.v1.engine.async_llm import AsyncLLM
+
+        vllm_async_llm = AsyncLLM.from_engine_args(
+            AsyncEngineArgs(
+                model=self.model_path,
+                gpu_memory_utilization=gpu_memory_utilization,
+                max_model_len=32768,
+                trust_remote_code=True,
+            )
         )
 
         backend_type = (
@@ -149,10 +154,9 @@ class DotsOCRClient:
 
         logger.info("dots.ocr vLLM model loaded successfully")
 
-        # Create MinerUClient - prompts are passed directly in batch_two_step_extract
         mineru_client = MinerUClient(
             backend=backend_type,
-            vllm_llm=vllm_llm,
+            vllm_async_llm=vllm_async_llm,
             model_path=self.model_path,
             batch_size=self.batch_size,
             max_concurrency=self.max_concurrency,
