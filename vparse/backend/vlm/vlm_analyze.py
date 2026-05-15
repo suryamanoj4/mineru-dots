@@ -197,39 +197,32 @@ async def _aio_doc_analyze(
             backend, model_path, server_url, **kwargs
         )
 
-    if batch_size <= 0:
-        batch_size = estimate_vlm_batch_size()
-
     load_start = time.time()
     images_list, pdf_doc = await asyncio.to_thread(
         lambda: load_images_from_pdf(pdf_bytes, image_type=ImageType.PIL)
     )
+    images_pil_list = [d.pop("img_pil") for d in images_list]
     load_time = round(time.time() - load_start, 2)
-    load_speed = round(len(images_list) / load_time, 3) if load_time > 0 else 0
+    load_speed = round(len(images_pil_list) / load_time, 3) if load_time > 0 else 0
     logger.debug(
         f"load images cost: {load_time}s, speed: {load_speed} images/s"
     )
 
     infer_start = time.time()
-    all_results = []
-    for batch_start in range(0, len(images_list), batch_size):
-        batch_dicts = images_list[batch_start:batch_start + batch_size]
-        batch_pil = [d.pop("img_pil") for d in batch_dicts]
-        batch_results = await predictor.aio_batch_two_step_extract(
-            images=batch_pil, prompt_mode=prompt_mode
-        )
-        all_results.extend(batch_results)
-        del batch_pil, batch_results, batch_dicts
+    results = await predictor.aio_batch_two_step_extract(
+        images=images_pil_list, prompt_mode=prompt_mode
+    )
+    del images_pil_list
 
     infer_time = round(time.time() - infer_start, 2)
-    infer_speed = round(len(all_results) / infer_time, 3) if infer_time > 0 else 0
+    infer_speed = round(len(results) / infer_time, 3) if infer_time > 0 else 0
     logger.debug(
         f"infer finished, cost: {infer_time}s, speed: {infer_speed} page/s"
     )
 
     _restore_images(images_list, pdf_doc)
-    middle_json = result_to_middle_json(all_results, images_list, pdf_doc, image_writer)
-    return middle_json, all_results
+    middle_json = result_to_middle_json(results, images_list, pdf_doc, image_writer)
+    return middle_json, results
 
 
 def sync_doc_analyze(

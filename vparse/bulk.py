@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
+from loguru import logger
+
 from vparse.data.data_reader_writer import DataWriter
 from vparse.cli.common import read_fn
 
@@ -117,23 +119,7 @@ class BulkProcessor:
         total_pages = self._estimate_total_pages(pdf_bytes_list)
         self._total_pages_est = total_pages
 
-        def wrapped_on_progress(done: int, out_of: int) -> None:
-            accumulated_done = self._completed_pages + done
-            if on_progress:
-                elapsed = time.time() - self._start_time
-                pps = accumulated_done / elapsed if elapsed > 0 else 0
-                eta = (total_pages - accumulated_done) / pps if pps > 0 else 0
-                on_progress(ProgressEvent(
-                    pages_done=accumulated_done,
-                    total_pages=total_pages,
-                    elapsed_seconds=elapsed,
-                    pages_per_sec=pps,
-                    eta_seconds=eta,
-                ))
-
-        from vparse.backend.registry import BackendRegistry
         backend_name = kwargs.pop("backend", "vlm")
-        backend_instance = BackendRegistry.get(backend_name)
 
         all_results = [] if on_result is None else None
 
@@ -154,25 +140,42 @@ class BulkProcessor:
             if image_writers:
                 chunk_writers = [image_writers[idx] for idx in chunk_indices]
 
-            raw_results = await backend_instance.batch_analyze(
-                chunk_bytes,
-                image_writers=chunk_writers,
-                batch_size=self.page_batch_size,
-                progress_callback=wrapped_on_progress,
-                **kwargs,
-            )
+            from vparse.backend.vlm.vlm_analyze import _aio_doc_analyze
+
+            tasks = []
+            task_map = {}
+            for offset, (idx, pdf_bytes) in enumerate(zip(chunk_indices, chunk_bytes)):
+                writer = chunk_writers[offset] if chunk_writers else None
+                task = _aio_doc_analyze(
+                    pdf_bytes,
+                    image_writer=writer,
+                    predictor=None,
+                    backend=backend_name,
+                    **kwargs,
+                )
+                tasks.append(task)
+                task_map[id(task)] = (offset, idx)
+
+            raw_results = await asyncio.gather(*tasks, return_exceptions=True)
 
             chunk_pages_done = 0
-            for offset, (mj, mo) in enumerate(raw_results):
-                book_idx = chunk_indices[offset]
+            for offset_task, result in enumerate(raw_results):
+                offset, book_idx = task_map[id(tasks[offset_task])]
+
+                if isinstance(result, Exception):
+                    logger.error(f"Error processing book {book_idx}: {result}")
+                    mj, mo = {}, []
+                else:
+                    mj, mo = result
+
                 jr = JobResult(book_index=book_idx, middle_json=mj, model_output=mo)
 
                 if on_result:
                     await on_result(jr)
                 else:
-                    all_results.append(jr)
+                    if all_results is not None:
+                        all_results.append(jr)
 
-                # Update completed pages for progress tracking
                 pdf_info = mj.get("pdf_info", [])
                 chunk_pages_done += len(pdf_info)
 
@@ -180,7 +183,18 @@ class BulkProcessor:
                 self._save_checkpoint(job_id, done_set)
 
             self._completed_pages += chunk_pages_done
-            
+            if on_progress:
+                elapsed = time.time() - self._start_time
+                pps = self._completed_pages / elapsed if elapsed > 0 else 0
+                eta = (self._total_pages_est - self._completed_pages) / pps if pps > 0 else 0
+                on_progress(ProgressEvent(
+                    pages_done=self._completed_pages,
+                    total_pages=self._total_pages_est,
+                    elapsed_seconds=elapsed,
+                    pages_per_sec=pps,
+                    eta_seconds=eta,
+                ))
+
             # Explicitly clear memory for the processed chunk
             del chunk_bytes
             if chunk_writers:
