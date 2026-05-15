@@ -143,30 +143,28 @@ class BulkProcessor:
             from vparse.backend.vlm.vlm_analyze import _aio_doc_analyze
 
             tasks = []
-            task_map = {}
+            task_info = {}
             for offset, (idx, pdf_bytes) in enumerate(zip(chunk_indices, chunk_bytes)):
                 writer = chunk_writers[offset] if chunk_writers else None
-                task = _aio_doc_analyze(
+                coro = _aio_doc_analyze(
                     pdf_bytes,
                     image_writer=writer,
                     predictor=None,
                     backend=backend_name,
                     **kwargs,
                 )
+                task = asyncio.create_task(coro)
+                task_info[task] = (offset, idx)
                 tasks.append(task)
-                task_map[id(task)] = (offset, idx)
-
-            raw_results = await asyncio.gather(*tasks, return_exceptions=True)
 
             chunk_pages_done = 0
-            for offset_task, result in enumerate(raw_results):
-                offset, book_idx = task_map[id(tasks[offset_task])]
-
-                if isinstance(result, Exception):
-                    logger.error(f"Error processing book {book_idx}: {result}")
+            for task in asyncio.as_completed(tasks):
+                offset, book_idx = task_info[task]
+                try:
+                    mj, mo = await task
+                except Exception as e:
+                    logger.error(f"Error processing book {book_idx}: {e}")
                     mj, mo = {}, []
-                else:
-                    mj, mo = result
 
                 jr = JobResult(book_index=book_idx, middle_json=mj, model_output=mo)
 
