@@ -563,14 +563,19 @@ def main(
             gc.collect()
 
         proc = BulkProcessor()
-        await proc.process_books(
-            path_list,
-            job_id=f"vparse_batch_{Path(input_path).stem}",
-            on_progress=on_progress,
-            on_result=on_result,
-            backend=resolved,
-            **kwargs,
-        )
+        logger.info("Starting bulk processing with chunk_size=10")
+        try:
+            await proc.process_books(
+                path_list,
+                job_id=f"vparse_batch_{Path(input_path).stem}",
+                on_progress=on_progress,
+                on_result=on_result,
+                backend=resolved,
+                **kwargs,
+            )
+        except Exception as e:
+            logger.exception(f"Batch processing failed: {e}")
+            raise
 
     if os.path.isdir(input_path):
         doc_path_list = []

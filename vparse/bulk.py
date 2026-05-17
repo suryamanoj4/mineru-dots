@@ -118,6 +118,7 @@ class BulkProcessor:
 
         total_pages = self._estimate_total_pages(pdf_bytes_list)
         self._total_pages_est = total_pages
+        logger.info(f"Estimated {total_pages} pages across {len(pdf_bytes_list)} docs, {len(remaining_indices)} remaining")
 
         backend_name = kwargs.pop("backend", "vlm")
 
