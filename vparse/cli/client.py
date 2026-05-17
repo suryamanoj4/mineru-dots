@@ -243,22 +243,9 @@ def build_vparse_client(
     default=20,
 )
 @click.option(
-    "--resume/--no-resume",
-    "resume",
-    help="Resume from checkpoint if previously interrupted. Default is False (disabled).",
-    default=False,
-)
-@click.option(
     "--stream/--no-stream",
     "stream",
     help="Write staged per-page streaming outputs instead of waiting for the full document to finish.",
-    default=False,
-)
-@click.option(
-    "--batch/--no-batch",
-    "batch_flag",
-    help="Batch multiple documents across GPU calls for VLM/hybrid backends. "
-         "Reduces overhead for many small documents.",
     default=False,
 )
 def main(
@@ -277,9 +264,7 @@ def main(
     virtual_vram,
     model_source,
     batch_size,
-    resume,
     stream,
-    batch_flag,
     **kwargs,
 ):
 
@@ -325,7 +310,7 @@ def main(
         if input_folder_name:
             checkpoint_path = get_checkpoint_path(output_dir, input_folder_name)
             
-            if resume and checkpoint_path.exists():
+            if checkpoint_path.exists():
                 # Load existing checkpoint for resume
                 checkpoint = load_checkpoint(checkpoint_path)
                 if "failed" not in checkpoint:
@@ -563,6 +548,14 @@ def main(
             gc.collect()
 
         checkpoints_dir = Path(output_dir) / ".vparse_checkpoints"
+        job_id = f"vparse_batch_{Path(input_path).stem}"
+
+        # Check legacy .mineru_checkpoints dir as fallback
+        if not checkpoints_dir.exists():
+            legacy_dir = Path(output_dir) / ".mineru_checkpoints"
+            if legacy_dir.exists() and (legacy_dir / f"{Path(input_path).stem}.json").exists():
+                checkpoints_dir = legacy_dir
+
         proc = BulkProcessor(checkpoint_dir=checkpoints_dir)
         logger.info("Starting bulk processing with chunk_size=10")
         try:
@@ -594,12 +587,13 @@ def main(
         scan_time = round(time.time() - scan_start, 2)
         logger.info(f"Found {len(doc_path_list)} files in {scan_time}s")
 
-        batch_enabled = batch_flag and (
-            backend in ("vlm", "vlm-lmdeploy") or backend.startswith("vlm-")
-            or backend in ("hybrid", "hybrid-lmdeploy") or backend.startswith("hybrid-")
+        from vparse.backend.registry import resolve_backend_name
+        resolved_backend = resolve_backend_name(backend)
+        is_vlm_hybrid = (
+            resolved_backend.startswith("vlm") or resolved_backend.startswith("hybrid")
         )
 
-        if batch_enabled and len(doc_path_list) > 1:
+        if is_vlm_hybrid and len(doc_path_list) > 1:
             asyncio.run(_run_batch(doc_path_list))
         else:
             input_folder_name = Path(input_path).stem
