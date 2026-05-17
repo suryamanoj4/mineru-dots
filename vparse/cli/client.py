@@ -562,7 +562,8 @@ def main(
             del pdf_bytes
             gc.collect()
 
-        proc = BulkProcessor()
+        checkpoints_dir = Path(output_dir) / ".vparse_checkpoints"
+        proc = BulkProcessor(checkpoint_dir=checkpoints_dir)
         logger.info("Starting bulk processing with chunk_size=10")
         try:
             await proc.process_books(
