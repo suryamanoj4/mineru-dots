@@ -548,20 +548,35 @@ def main(
             gc.collect()
 
         checkpoints_dir = Path(output_dir) / ".vparse_checkpoints"
-        job_id = f"vparse_batch_{Path(input_path).stem}"
+        job_id = Path(input_path).stem
 
-        # Check legacy .mineru_checkpoints dir as fallback
-        if not checkpoints_dir.exists():
-            legacy_dir = Path(output_dir) / ".mineru_checkpoints"
-            if legacy_dir.exists() and (legacy_dir / f"{Path(input_path).stem}.json").exists():
-                checkpoints_dir = legacy_dir
+        # Migrate legacy .mineru_checkpoints format to new format
+        legacy_dir = Path(output_dir) / ".mineru_checkpoints"
+        legacy_file = legacy_dir / f"{job_id}.json"
+        if legacy_file.exists():
+            # Build mapping: filename -> index
+            name_to_idx = {path.name: i for i, path in enumerate(path_list)}
+            with open(legacy_file) as f:
+                legacy_data = json.load(f)
+            done_indices = sorted(
+                name_to_idx[name] for name in legacy_data.get("processed", [])
+                if name in name_to_idx
+            )
+            # Write migrated checkpoint
+            checkpoints_dir.mkdir(parents=True, exist_ok=True)
+            new_file = Path(output_dir) / ".vparse_checkpoints" / f"{job_id}.json"
+            with open(new_file, "w") as f:
+                json.dump({"done": done_indices}, f)
+            logger.info(
+                f"Migrated legacy checkpoint: {len(done_indices)} already processed"
+            )
 
         proc = BulkProcessor(checkpoint_dir=checkpoints_dir)
         logger.info("Starting bulk processing with chunk_size=10")
         try:
             await proc.process_books(
                 path_list,
-                job_id=f"vparse_batch_{Path(input_path).stem}",
+                job_id=job_id,
                 on_progress=on_progress,
                 on_result=on_result,
                 backend=resolved,
