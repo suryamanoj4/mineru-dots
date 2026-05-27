@@ -105,6 +105,12 @@ class BulkProcessor:
             i for i in range(len(pdf_bytes_list)) if i not in done_set
         ]
 
+        if done_set:
+            logger.info(
+                f"Resuming: {len(done_set)}/{len(pdf_bytes_list)} already processed, "
+                f"{len(remaining_indices)} remaining"
+            )
+
         if not remaining_indices:
             return []
 
