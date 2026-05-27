@@ -121,6 +121,15 @@ class BulkProcessor:
         logger.info(f"Estimated {total_pages} pages across {len(pdf_bytes_list)} docs, {len(remaining_indices)} remaining")
 
         backend_name = kwargs.pop("backend", "vlm")
+        engine = kwargs.pop("engine", None)
+
+        if engine == "lmdeploy":
+            backend_name = "lmdeploy"
+        elif backend_name in ("vlm", "hybrid"):
+            from vparse.backend.vlm.utils import resolve_vlm_engine
+            backend_name = resolve_vlm_engine()
+        elif backend_name.endswith("-lmdeploy"):
+            backend_name = "lmdeploy"
 
         all_results = [] if on_result is None else None
 
@@ -159,27 +168,30 @@ class BulkProcessor:
                 tasks.append(task)
 
             chunk_pages_done = 0
-            for task in asyncio.as_completed(tasks):
-                offset, book_idx = task_info[task]
-                try:
-                    mj, mo = await task
-                except Exception as e:
-                    logger.error(f"Error processing book {book_idx}: {e}")
-                    mj, mo = {}, []
+            pending = set(tasks)
+            while pending:
+                done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+                for task in done:
+                    offset, book_idx = task_info[task]
+                    try:
+                        mj, mo = await task
+                    except Exception as e:
+                        logger.error(f"Error processing book {book_idx}: {e}")
+                        mj, mo = {}, []
 
-                jr = JobResult(book_index=book_idx, middle_json=mj, model_output=mo)
+                    jr = JobResult(book_index=book_idx, middle_json=mj, model_output=mo)
 
-                if on_result:
-                    await on_result(jr)
-                else:
-                    if all_results is not None:
-                        all_results.append(jr)
+                    if on_result:
+                        await on_result(jr)
+                    else:
+                        if all_results is not None:
+                            all_results.append(jr)
 
-                pdf_info = mj.get("pdf_info", [])
-                chunk_pages_done += len(pdf_info)
+                    pdf_info = mj.get("pdf_info", [])
+                    chunk_pages_done += len(pdf_info)
 
-                done_set.add(book_idx)
-                self._save_checkpoint(job_id, done_set)
+                    done_set.add(book_idx)
+                    self._save_checkpoint(job_id, done_set)
 
             self._completed_pages += chunk_pages_done
             if on_progress:
