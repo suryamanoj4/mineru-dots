@@ -562,13 +562,22 @@ def main(
                 name_to_idx[name] for name in legacy_data.get("processed", [])
                 if name in name_to_idx
             )
+            failed_indices = sorted(
+                name_to_idx[name] for name in legacy_data.get("failed", [])
+                if name in name_to_idx
+            )
             # Write migrated checkpoint
             checkpoints_dir.mkdir(parents=True, exist_ok=True)
             new_file = Path(output_dir) / ".vparse_checkpoints" / f"{job_id}.json"
             with open(new_file, "w") as f:
-                json.dump({"done": done_indices}, f)
+                json.dump({"done": done_indices, "failed": failed_indices}, f)
+            parts = []
+            if done_indices:
+                parts.append(f"{len(done_indices)} already processed")
+            if failed_indices:
+                parts.append(f"{len(failed_indices)} failed")
             logger.info(
-                f"Migrated legacy checkpoint: {len(done_indices)} already processed"
+                f"Migrated legacy checkpoint: {', '.join(parts)}"
             )
 
         proc = BulkProcessor(checkpoint_dir=checkpoints_dir)

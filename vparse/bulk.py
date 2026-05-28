@@ -58,19 +58,19 @@ class BulkProcessor:
     def _checkpoint_path(self, job_id: str) -> Path:
         return self.checkpoint_dir / f"{job_id}.json"
 
-    def _load_checkpoint(self, job_id: str) -> set[int]:
+    def _load_checkpoint(self, job_id: str) -> tuple[set[int], set[int]]:
         path = self._checkpoint_path(job_id)
         if path.exists():
             with open(path) as f:
                 data = json.load(f)
-            return set(data.get("done", []))
-        return set()
+            return set(data.get("done", [])), set(data.get("failed", []))
+        return set(), set()
 
-    def _save_checkpoint(self, job_id: str, done: set[int]) -> None:
+    def _save_checkpoint(self, job_id: str, done: set[int], failed: set[int] | None = None) -> None:
         path = self._checkpoint_path(job_id)
         tmp = path.with_suffix(".tmp")
         with open(tmp, "w") as f:
-            json.dump({"done": sorted(done)}, f)
+            json.dump({"done": sorted(done), "failed": sorted(failed) if failed else []}, f)
         tmp.replace(path)
 
     def _estimate_total_pages(self, pdf_bytes_list: list[bytes] | list[Path]) -> int:
@@ -99,15 +99,21 @@ class BulkProcessor:
         **kwargs,
     ) -> list[JobResult]:
         job_id = job_id or f"bulk_{int(time.time())}"
-        done_set = self._load_checkpoint(job_id)
+        done_set, failed_set = self._load_checkpoint(job_id)
 
+        excluded = done_set | failed_set
         remaining_indices = [
-            i for i in range(len(pdf_bytes_list)) if i not in done_set
+            i for i in range(len(pdf_bytes_list)) if i not in excluded
         ]
 
-        if done_set:
+        if excluded:
+            parts = []
+            if done_set:
+                parts.append(f"{len(done_set)} already processed")
+            if failed_set:
+                parts.append(f"{len(failed_set)} failed")
             logger.info(
-                f"Resuming: {len(done_set)}/{len(pdf_bytes_list)} already processed, "
+                f"Resuming: {', '.join(parts)}, "
                 f"{len(remaining_indices)} remaining"
             )
 
@@ -143,27 +149,35 @@ class BulkProcessor:
         for i in range(0, len(remaining_indices), chunk_size):
             chunk_indices = remaining_indices[i:i+chunk_size]
             
-            # Lazy load bytes only for the current chunk
+            # Lazy load bytes only for the current chunk, skipping unreadable files
             chunk_bytes = []
+            good_indices = []
             for idx in chunk_indices:
                 item = pdf_bytes_list[idx]
-                if isinstance(item, Path):
-                    chunk_bytes.append(read_fn(item))
-                else:
-                    chunk_bytes.append(item)
+                try:
+                    pdf_bytes = read_fn(item) if isinstance(item, Path) else item
+                    chunk_bytes.append(pdf_bytes)
+                    good_indices.append(idx)
+                except Exception as e:
+                    logger.error(f"Error reading book at index {idx}: {e}")
+                    failed_set.add(idx)
+                    self._save_checkpoint(job_id, done_set, failed_set)
+
+            if not good_indices:
+                continue
 
             chunk_writers = None
             if image_writers:
-                chunk_writers = [image_writers[idx] for idx in chunk_indices]
+                chunk_writers = [image_writers[idx] for idx in good_indices]
 
             from vparse.backend.vlm.vlm_analyze import _aio_doc_analyze
 
             tasks = []
             task_info = {}
-            for offset, (idx, pdf_bytes) in enumerate(zip(chunk_indices, chunk_bytes)):
+            for offset, idx in enumerate(good_indices):
                 writer = chunk_writers[offset] if chunk_writers else None
                 coro = _aio_doc_analyze(
-                    pdf_bytes,
+                    chunk_bytes[offset],
                     image_writer=writer,
                     predictor=None,
                     backend=backend_name,
@@ -197,7 +211,7 @@ class BulkProcessor:
                     chunk_pages_done += len(pdf_info)
 
                     done_set.add(book_idx)
-                    self._save_checkpoint(job_id, done_set)
+                    self._save_checkpoint(job_id, done_set, failed_set)
 
             self._completed_pages += chunk_pages_done
             if on_progress:
