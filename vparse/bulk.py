@@ -136,9 +136,9 @@ class BulkProcessor:
                 "image_writers length must match pdf_bytes_list"
             )
 
-        total_pages = self._estimate_total_pages(pdf_bytes_list)
+        total_pages = self._estimate_total_pages([pdf_bytes_list[i] for i in remaining_indices])
         self._total_pages_est = total_pages
-        logger.info(f"Estimated {total_pages} pages across {len(pdf_bytes_list)} docs, {len(remaining_indices)} remaining")
+        logger.info(f"Estimated {total_pages} pages across {len(remaining_indices)} remaining docs")
 
         backend_name = kwargs.pop("backend", "vlm")
         engine = kwargs.pop("engine", None)
