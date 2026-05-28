@@ -547,38 +547,29 @@ def main(
             del pdf_bytes
             gc.collect()
 
+        # Move legacy .mineru_checkpoints checkpoint to new location
         checkpoints_dir = Path(output_dir) / ".vparse_checkpoints"
         job_id = Path(input_path).stem
-
-        # Migrate legacy .mineru_checkpoints format to new format
         legacy_dir = Path(output_dir) / ".mineru_checkpoints"
         legacy_file = legacy_dir / f"{job_id}.json"
-        if legacy_file.exists():
-            # Build mapping: filename -> index
-            name_to_idx = {path.name: i for i, path in enumerate(path_list)}
-            with open(legacy_file) as f:
-                legacy_data = json.load(f)
-            done_indices = sorted(
-                name_to_idx[name] for name in legacy_data.get("processed", [])
-                if name in name_to_idx
-            )
-            failed_indices = sorted(
-                name_to_idx[name] for name in legacy_data.get("failed", [])
-                if name in name_to_idx
-            )
-            # Write migrated checkpoint
+        new_checkpoint = checkpoints_dir / f"{job_id}.json"
+        if legacy_file.exists() and not new_checkpoint.exists():
             checkpoints_dir.mkdir(parents=True, exist_ok=True)
-            new_file = Path(output_dir) / ".vparse_checkpoints" / f"{job_id}.json"
-            with open(new_file, "w") as f:
-                json.dump({"done": done_indices, "failed": failed_indices}, f)
+            legacy_file.rename(new_checkpoint)
+            try:
+                legacy_dir.rmdir()
+            except OSError:
+                pass
+            with open(new_checkpoint) as f:
+                data = json.load(f)
+            processed = len(data.get("processed", []))
+            failed = len(data.get("failed", []))
             parts = []
-            if done_indices:
-                parts.append(f"{len(done_indices)} already processed")
-            if failed_indices:
-                parts.append(f"{len(failed_indices)} failed")
-            logger.info(
-                f"Migrated legacy checkpoint: {', '.join(parts)}"
-            )
+            if processed:
+                parts.append(f"{processed} already processed")
+            if failed:
+                parts.append(f"{failed} failed")
+            logger.info(f"Migrated legacy checkpoint: {', '.join(parts)}")
 
         proc = BulkProcessor(checkpoint_dir=checkpoints_dir)
         logger.info("Starting bulk processing with chunk_size=10")

@@ -58,19 +58,21 @@ class BulkProcessor:
     def _checkpoint_path(self, job_id: str) -> Path:
         return self.checkpoint_dir / f"{job_id}.json"
 
-    def _load_checkpoint(self, job_id: str) -> tuple[set[int], set[int]]:
+    def _load_checkpoint(self, job_id: str, names: list[str] | None = None) -> tuple[set[str], set[str]]:
         path = self._checkpoint_path(job_id)
         if path.exists():
             with open(path) as f:
                 data = json.load(f)
-            return set(data.get("done", [])), set(data.get("failed", []))
+            processed = set(data.get("processed", []))
+            failed = set(data.get("failed", []))
+            return processed, failed
         return set(), set()
 
-    def _save_checkpoint(self, job_id: str, done: set[int], failed: set[int] | None = None) -> None:
+    def _save_checkpoint(self, job_id: str, processed: set[str], failed: set[str] | None = None) -> None:
         path = self._checkpoint_path(job_id)
         tmp = path.with_suffix(".tmp")
         with open(tmp, "w") as f:
-            json.dump({"done": sorted(done), "failed": sorted(failed) if failed else []}, f)
+            json.dump({"processed": sorted(processed), "failed": sorted(failed) if failed else []}, f)
         tmp.replace(path)
 
     def _estimate_total_pages(self, pdf_bytes_list: list[bytes] | list[Path]) -> int:
@@ -88,6 +90,11 @@ class BulkProcessor:
                 total += 10
         return max(total, 1)
 
+    @staticmethod
+    def _item_name(pdf_bytes_list: list[bytes] | list[Path], idx: int) -> str:
+        item = pdf_bytes_list[idx]
+        return item.name if isinstance(item, Path) else str(idx)
+
     async def process_books(
         self,
         pdf_bytes_list: list[bytes] | list[Path],
@@ -103,7 +110,8 @@ class BulkProcessor:
 
         excluded = done_set | failed_set
         remaining_indices = [
-            i for i in range(len(pdf_bytes_list)) if i not in excluded
+            i for i in range(len(pdf_bytes_list))
+            if self._item_name(pdf_bytes_list, i) not in excluded
         ]
 
         if excluded:
@@ -159,8 +167,9 @@ class BulkProcessor:
                     chunk_bytes.append(pdf_bytes)
                     good_indices.append(idx)
                 except Exception as e:
-                    logger.error(f"Error reading book at index {idx}: {e}")
-                    failed_set.add(idx)
+                    name = self._item_name(pdf_bytes_list, idx)
+                    logger.error(f"Error reading book {name}: {e}")
+                    failed_set.add(name)
                     self._save_checkpoint(job_id, done_set, failed_set)
 
             if not good_indices:
@@ -210,7 +219,7 @@ class BulkProcessor:
                     pdf_info = mj.get("pdf_info", [])
                     chunk_pages_done += len(pdf_info)
 
-                    done_set.add(book_idx)
+                    done_set.add(self._item_name(pdf_bytes_list, book_idx))
                     self._save_checkpoint(job_id, done_set, failed_set)
 
             self._completed_pages += chunk_pages_done
