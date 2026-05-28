@@ -1,65 +1,93 @@
 #!/usr/bin/env python3
 """
-Script to count total pages from *_content_list.json files in the output directory.
+Count total pages from output directory.
+
+Auto-detects available output files:
+  - *_layout.pdf (fast, via pypdfium2) — falls back to
+  - *_content_list.json (slow)
 
 Usage:
     python count_pages.py <output_directory>
-    
-Example:
-    python count_pages.py /path/to/output
 """
 
 import json
 import sys
+import argparse
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
-def count_pages_from_content_list(output_dir: str):
+def count_from_pdf(output_dir: str) -> tuple[int, int, str] | None:
+    import pypdfium2 as pdfium
+    from tqdm import tqdm
+
+    pdf_files = sorted(Path(output_dir).rglob("*_layout.pdf"))
+    source_label = "layout PDFs"
+    if not pdf_files:
+        pdf_files = sorted(Path(output_dir).rglob("*_origin.pdf"))
+        source_label = "origin PDFs"
+    if not pdf_files:
+        return None
+
+    def count_pages(path: Path) -> int:
+        try:
+            doc = pdfium.PdfDocument(str(path))
+            n = len(doc)
+            doc.close()
+            return n
+        except Exception:
+            return 0
+
+    total = 0
+    n = len(pdf_files)
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        fut_map = {pool.submit(count_pages, f): f for f in pdf_files}
+        for fut in tqdm(as_completed(fut_map), total=n, desc="Counting pages", unit="pdf"):
+            total += fut.result()
+
+    return n, total, source_label
+
+
+def count_from_json(output_dir: str) -> tuple[int, int]:
+    from tqdm import tqdm
+
     output_path = Path(output_dir)
-    
     if not output_path.exists():
-        logger.error(f"Output directory does not exist: {output_dir}")
-        sys.exit(1)
-    
-    # Find all *_content_list.json files
-    content_list_files = list(output_path.rglob("*_content_list.json"))
-    
-    if not content_list_files:
-        print("Total files found: 0")
-        print("Total pages: 0")
-        return
-    
+        return 0, 0
+
+    content_files = list(output_path.rglob("*_content_list.json"))
+    if not content_files:
+        return 0, 0
+
     total_pages = 0
     valid_files = 0
-    
-    for json_file in content_list_files:
+    for f in tqdm(content_files, desc="Counting pages", unit="json"):
         try:
-            with open(json_file, "r", encoding="utf-8") as f:
-                content_list = json.load(f)
-            
-            if not isinstance(content_list, list):
+            with open(f, encoding="utf-8") as fh:
+                cl = json.load(fh)
+            if not isinstance(cl, list):
                 continue
-            
-            # Extract unique page_idx values
-            page_indices = set()
-            for item in content_list:
-                if isinstance(item, dict) and "page_idx" in item:
-                    page_indices.add(item["page_idx"])
-            
-            total_pages += len(page_indices)
+            pages = {item["page_idx"] for item in cl if isinstance(item, dict) and "page_idx" in item}
+            total_pages += len(pages)
             valid_files += 1
-            
         except Exception:
             continue
-    
-    print(f"Total files found: {valid_files}")
-    print(f"Total pages: {total_pages}")
+
+    return valid_files, total_pages
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python count_pages.py <output_directory>")
-        sys.exit(1)
-    
-    output_directory = sys.argv[1]
-    count_pages_from_content_list(output_directory)
+    parser = argparse.ArgumentParser(description="Count total pages in output directory")
+    parser.add_argument("directory", help="Output directory")
+    args = parser.parse_args()
+
+    result = count_from_pdf(args.directory)
+    if result is not None:
+        files, pages, label = result
+        print(f"Counted from {label}")
+    else:
+        files, pages = count_from_json(args.directory)
+        print(f"Counted from content_list JSONs")
+
+    print(f"Total files: {files}")
+    print(f"Total pages: {pages}")
