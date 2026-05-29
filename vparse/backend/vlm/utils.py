@@ -91,6 +91,22 @@ def set_default_gpu_memory_utilization() -> float:
         return 0.5
 
 
+def estimate_vlm_batch_size(vram_gb: int | None = None) -> int:
+    device = get_device()
+    if vram_gb is None:
+        vram_gb = get_vram(device)
+
+    gpu_util = set_default_gpu_memory_utilization()
+    available_vram = vram_gb * gpu_util
+
+    kv_cache_per_page_gb = 0.2
+
+    max_pages = int(available_vram / kv_cache_per_page_gb)
+    clamped = min(max(max_pages, 1), 64)
+
+    return clamped
+
+
 def resolve_vlm_engine() -> str:
     try:
         import vllm

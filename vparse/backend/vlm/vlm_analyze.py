@@ -2,6 +2,7 @@
 import asyncio
 import os
 import time
+from typing import Callable
 
 from loguru import logger
 
@@ -10,6 +11,7 @@ from .utils import (
     set_default_gpu_memory_utilization,
     set_lmdeploy_backend,
     mod_kwargs_by_device_type,
+    estimate_vlm_batch_size,
 )
 from .model_output_to_middle_json import result_to_middle_json
 from ...data.data_reader_writer import DataWriter
@@ -20,6 +22,7 @@ from ...utils.config_reader import get_device
 
 from ...utils.enum_class import ImageType
 from ...utils.models_download_utils import auto_download_and_get_model_root_path
+from vparse.utils.pdf_reader import page_to_image
 
 
 class ModelSingleton:
@@ -157,8 +160,9 @@ class ModelSingleton:
                         backend_config=backend_config,
                     )
 
+            upstream_backend = {"mlx": "mlx-engine", "lmdeploy": "lmdeploy-engine"}.get(backend, backend)
             self._models[key] = VParseClient(
-                backend=backend,
+                backend=upstream_backend,
                 model=model,
                 processor=processor,
                 lmdeploy_engine=lmdeploy_engine,
@@ -185,6 +189,7 @@ async def _aio_doc_analyze(
     model_path: str | None = None,
     server_url: str | None = None,
     prompt_mode: str = "prompt_layout_all_en",
+    batch_size: int = 0,
     **kwargs,
 ):
     if predictor is None:
@@ -192,23 +197,30 @@ async def _aio_doc_analyze(
             backend, model_path, server_url, **kwargs
         )
 
-    load_images_start = time.time()
-    images_list, pdf_doc = load_images_from_pdf(pdf_bytes, image_type=ImageType.PIL)
-    images_pil_list = [image_dict["img_pil"] for image_dict in images_list]
-    load_images_time = round(time.time() - load_images_start, 2)
+    load_start = time.time()
+    images_list, pdf_doc = await asyncio.to_thread(
+        lambda: load_images_from_pdf(pdf_bytes, image_type=ImageType.PIL)
+    )
+    images_pil_list = [d.pop("img_pil") for d in images_list]
+    load_time = round(time.time() - load_start, 2)
+    load_speed = round(len(images_pil_list) / load_time, 3) if load_time > 0 else 0
     logger.debug(
-        f"load images cost: {load_images_time}, speed: {round(len(images_pil_list) / load_images_time, 3)} images/s"
+        f"load images cost: {load_time}s, speed: {load_speed} images/s"
     )
 
     infer_start = time.time()
     results = await predictor.aio_batch_two_step_extract(
         images=images_pil_list, prompt_mode=prompt_mode
     )
+    del images_pil_list
+
     infer_time = round(time.time() - infer_start, 2)
+    infer_speed = round(len(results) / infer_time, 3) if infer_time > 0 else 0
     logger.debug(
-        f"infer finished, cost: {infer_time}, speed: {round(len(results) / infer_time, 3)} page/s"
+        f"infer finished, cost: {infer_time}s, speed: {infer_speed} page/s"
     )
 
+    _restore_images(images_list, pdf_doc)
     middle_json = result_to_middle_json(results, images_list, pdf_doc, image_writer)
     return middle_json, results
 
@@ -279,3 +291,126 @@ def doc_analyze(
         prompt_mode=prompt_mode,
         **kwargs,
     )
+
+
+def _restore_images(images_list: list, pdf_doc) -> None:
+    for idx, d in enumerate(images_list):
+        if d.get("img_pil") is None:
+            page = pdf_doc[idx]
+            pil_img, _ = page_to_image(page)
+            d["img_pil"] = pil_img
+
+
+async def batch_doc_analyze(
+    pdf_bytes_list: list[bytes],
+    image_writers: list[DataWriter | None] | None = None,
+    predictor=None,
+    backend="vllm",
+    model_path: str | None = None,
+    server_url: str | None = None,
+    prompt_mode: str = "prompt_layout_all_en",
+    batch_size: int = 0,
+    progress_callback: Callable[[int, int], None] | None = None,
+    **kwargs,
+):
+    if predictor is None:
+        predictor = ModelSingleton().get_model(
+            backend, model_path, server_url, **kwargs
+        )
+
+    if image_writers is None:
+        image_writers = [None] * len(pdf_bytes_list)
+
+    if batch_size <= 0:
+        batch_size = estimate_vlm_batch_size()
+
+    total_processed = 0
+    total_pages = 0
+    infer_start = time.time()
+    all_post_data = []
+
+    page_buffer: list[tuple[int, object]] = []
+    book_metadata: dict[int, tuple[list, object, object]] = {}
+
+    for book_idx, pdf_bytes in enumerate(pdf_bytes_list):
+        images_list, pdf_doc = await asyncio.to_thread(
+            lambda: load_images_from_pdf(pdf_bytes, image_type=ImageType.PIL)
+        )
+
+        total_pages += len(images_list)
+        book_metadata[book_idx] = (images_list, pdf_doc)
+
+        for img_dict in images_list:
+            page_buffer.append((book_idx, img_dict.pop("img_pil")))
+
+            if len(page_buffer) >= batch_size:
+                batch = page_buffer[:batch_size]
+                page_buffer = page_buffer[batch_size:]
+
+                batch_images = [img for _, img in batch]
+                results = await predictor.aio_batch_two_step_extract(
+                    images=batch_images, prompt_mode=prompt_mode
+                )
+
+                for (idx, _), result in zip(batch, results):
+                    all_post_data.append((idx, result))
+                total_processed += len(batch)
+
+                if progress_callback:
+                    progress_callback(total_processed, 0)
+
+                del batch, batch_images, results
+
+        del images_list
+
+    if page_buffer:
+        batch_images = [img for _, img in page_buffer]
+        results = await predictor.aio_batch_two_step_extract(
+            images=batch_images, prompt_mode=prompt_mode
+        )
+        for (idx, _), result in zip(page_buffer, results):
+            all_post_data.append((idx, result))
+        total_processed += len(page_buffer)
+
+        if progress_callback:
+            progress_callback(total_processed, 0)
+
+        del page_buffer, batch_images, results
+
+    infer_time = round(time.time() - infer_start, 2)
+    infer_speed = round(total_pages / infer_time, 3) if infer_time > 0 else 0
+    logger.info(
+        f"batch inference: {total_pages} pages across {len(pdf_bytes_list)} docs "
+        f"in {infer_time}s, speed: {infer_speed} pages/s"
+    )
+
+    book_results: dict[int, list] = {}
+    for idx, result in all_post_data:
+        book_results.setdefault(idx, []).append(result)
+    del all_post_data
+
+    post_start = time.time()
+    post_tasks = []
+    result_order = []
+
+    for book_idx in sorted(book_results.keys()):
+        blocks = book_results[book_idx]
+        images_list, pdf_doc = book_metadata[book_idx]
+        writer = image_writers[book_idx] if image_writers and book_idx < len(image_writers) else None
+
+        _restore_images(images_list, pdf_doc)
+        post_tasks.append(
+            asyncio.to_thread(result_to_middle_json, blocks, images_list, pdf_doc, writer)
+        )
+        result_order.append((book_idx, blocks))
+
+    middle_jsons = await asyncio.gather(*post_tasks)
+
+    post_time = round(time.time() - post_start, 2) or 0.001
+    logger.info(f"post-processing done in {post_time}s")
+
+    results = []
+    for (book_idx, blocks), mj in zip(result_order, middle_jsons):
+        results.append((mj, blocks))
+
+    return results

@@ -19,6 +19,18 @@ class BackendProtocol(Protocol):
     ) -> tuple[dict, dict]:
         ...
 
+    async def batch_analyze(
+        self,
+        pdf_bytes_list: list[bytes],
+        langs: list[str] | None = None,
+        parse_method: str = "auto",
+        formula_enable: bool = True,
+        table_enable: bool = True,
+        image_writers: list[DataWriter | None] | None = None,
+        **kwargs,
+    ) -> list[tuple[dict, dict]]:
+        ...
+
     async def initialize(self) -> None:
         ...
 

@@ -1,8 +1,10 @@
 # Copyright (c) Opendatalab. All rights reserved.
+import gc
 import json
 import os
 import time
 import sys
+import asyncio
 
 import click
 from pathlib import Path
@@ -20,7 +22,7 @@ from vparse.utils.config_reader import get_device
 from vparse.utils.guess_suffix_or_lang import guess_suffix_by_path
 from vparse.utils.model_utils import get_vram
 from ..version import __version__
-from .common import do_parse, read_fn, pdf_suffixes, image_suffixes
+from .common import do_parse, read_fn, pdf_suffixes, image_suffixes, _process_output, prepare_env
 from .streaming import stream_parse
 
 CLI_DRAW_LAYOUT_BBOX = True
@@ -241,12 +243,6 @@ def build_vparse_client(
     default=20,
 )
 @click.option(
-    "--resume/--no-resume",
-    "resume",
-    help="Resume from checkpoint if previously interrupted. Default is False (disabled).",
-    default=False,
-)
-@click.option(
     "--stream/--no-stream",
     "stream",
     help="Write staged per-page streaming outputs instead of waiting for the full document to finish.",
@@ -268,7 +264,6 @@ def main(
     virtual_vram,
     model_source,
     batch_size,
-    resume,
     stream,
     **kwargs,
 ):
@@ -315,7 +310,7 @@ def main(
         if input_folder_name:
             checkpoint_path = get_checkpoint_path(output_dir, input_folder_name)
             
-            if resume and checkpoint_path.exists():
+            if checkpoint_path.exists():
                 # Load existing checkpoint for resume
                 checkpoint = load_checkpoint(checkpoint_path)
                 if "failed" not in checkpoint:
@@ -492,8 +487,106 @@ def main(
         except Exception as e:
             logger.exception(e)
 
+    async def _run_batch(path_list: list[Path]):
+        from vparse.backend.registry import BackendRegistry, resolve_backend_name
+        from vparse.data.data_reader_writer import FileBasedDataWriter
+        from vparse.utils.enum_class import MakeMode
+
+        resolved = resolve_backend_name(backend)
+        is_lmdeploy = resolved == "vlm-lmdeploy"
+
+        logger.info(f"Batch processing {len(path_list)} files via {resolved}")
+
+        # Derive file names and track load errors lazily
+        file_names = {i: path.stem for i, path in enumerate(path_list)}
+        
+        last_progress = 0
+        def on_progress(e):
+            nonlocal last_progress
+            if e.pages_done - last_progress >= 10 or e.pages_done == e.total_pages:
+                logger.info(
+                    f"batch progress: {e.pages_done}/{e.total_pages} pages "
+                    f"({e.pages_per_sec:.1f} p/s, ETA {e.eta_seconds:.0f}s)"
+                )
+                last_progress = e.pages_done
+
+        kwargs.pop("engine", None)
+        if is_lmdeploy:
+            kwargs["engine"] = "lmdeploy"
+
+        from vparse.bulk import BulkProcessor
+
+        output_subdir = "vlm"
+        if resolved.startswith("hybrid"):
+            output_subdir = f"hybrid_{method}"
+
+        async def on_result(result):
+            book_idx = result.book_index
+            file_name = file_names[book_idx]
+            path = path_list[book_idx]
+            try:
+                pdf_bytes = read_fn(path)
+            except Exception as e:
+                logger.error(f"Failed to read {path.name}: {e}")
+                return
+
+            local_image_dir, local_md_dir = prepare_env(
+                output_dir, file_name, output_subdir
+            )
+            md_writer = FileBasedDataWriter(local_md_dir)
+            pdf_info = result.middle_json.get("pdf_info", [])
+
+            _process_output(
+                pdf_info, pdf_bytes, file_name, local_md_dir, local_image_dir,
+                md_writer, CLI_DRAW_LAYOUT_BBOX, CLI_DRAW_SPAN_BBOX,
+                CLI_DUMP_ORIG_PDF, CLI_DUMP_MD, CLI_DUMP_CONTENT_LIST,
+                CLI_DUMP_MIDDLE_JSON, CLI_DUMP_MODEL_OUTPUT,
+                MakeMode.MM_MD, result.middle_json, result.model_output,
+                is_pipeline=False,
+            )
+            del pdf_bytes
+            gc.collect()
+
+        # Move legacy .mineru_checkpoints checkpoint to new location
+        checkpoints_dir = Path(output_dir) / ".vparse_checkpoints"
+        job_id = Path(input_path).stem
+        legacy_dir = Path(output_dir) / ".mineru_checkpoints"
+        legacy_file = legacy_dir / f"{job_id}.json"
+        new_checkpoint = checkpoints_dir / f"{job_id}.json"
+        if legacy_file.exists() and not new_checkpoint.exists():
+            checkpoints_dir.mkdir(parents=True, exist_ok=True)
+            legacy_file.rename(new_checkpoint)
+            try:
+                legacy_dir.rmdir()
+            except OSError:
+                pass
+            with open(new_checkpoint) as f:
+                data = json.load(f)
+            processed = len(data.get("processed", []))
+            failed = len(data.get("failed", []))
+            parts = []
+            if processed:
+                parts.append(f"{processed} already processed")
+            if failed:
+                parts.append(f"{failed} failed")
+            logger.info(f"Migrated legacy checkpoint: {', '.join(parts)}")
+
+        proc = BulkProcessor(checkpoint_dir=checkpoints_dir)
+        logger.info("Starting bulk processing with chunk_size=10")
+        try:
+            await proc.process_books(
+                path_list,
+                job_id=job_id,
+                on_progress=on_progress,
+                on_result=on_result,
+                backend=resolved,
+                **kwargs,
+            )
+        except Exception as e:
+            logger.exception(f"Batch processing failed: {e}")
+            raise
+
     if os.path.isdir(input_path):
-        # Fast file scanning - just check extension, don't read file content
         doc_path_list = []
         pdf_extensions = {'.pdf'}
         image_extensions = {'.png', '.jpeg', '.jpg', '.jp2', '.webp', '.gif', '.bmp', '.tiff'}
@@ -508,9 +601,18 @@ def main(
         
         scan_time = round(time.time() - scan_start, 2)
         logger.info(f"Found {len(doc_path_list)} files in {scan_time}s")
-        
-        input_folder_name = Path(input_path).stem
-        parse_doc_with_batching(doc_path_list, input_folder_name)
+
+        from vparse.backend.registry import resolve_backend_name
+        resolved_backend = resolve_backend_name(backend)
+        is_vlm_hybrid = (
+            resolved_backend.startswith("vlm") or resolved_backend.startswith("hybrid")
+        )
+
+        if is_vlm_hybrid and len(doc_path_list) > 1:
+            asyncio.run(_run_batch(doc_path_list))
+        else:
+            input_folder_name = Path(input_path).stem
+            parse_doc_with_batching(doc_path_list, input_folder_name)
     else:
         parse_doc([Path(input_path)])
 

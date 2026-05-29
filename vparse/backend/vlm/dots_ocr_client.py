@@ -111,24 +111,29 @@ class DotsOCRClient:
         logger.info(f"Using GPU memory utilization: {self.gpu_memory_utilization}")
         logger.info(f"Using max_model_len: {self.max_model_len}")
 
-        vllm_llm = vllm.LLM(
-            model=self.model_path,
-            trust_remote_code=True,
-            gpu_memory_utilization=self.gpu_memory_utilization,
-            max_model_len=self.max_model_len,
+        from vllm.engine.arg_utils import AsyncEngineArgs
+        from vllm.v1.engine.async_llm import AsyncLLM
+
+        vllm_async_llm = AsyncLLM.from_engine_args(
+            AsyncEngineArgs(
+                model=self.model_path,
+                gpu_memory_utilization=self.gpu_memory_utilization,
+                max_model_len=self.max_model_len,
+                trust_remote_code=True,
+            )
         )
 
         logger.info("dots.ocr vLLM model loaded successfully")
 
         vparse_client = VParseClient(
             backend="vllm-async-engine",
-            vllm_llm=vllm_llm,
+            vllm_async_llm=vllm_async_llm,
             model_path=self.model_path,
             batch_size=self.batch_size,
             max_concurrency=self.max_concurrency,
         )
 
-        def build_messages_string(prompt: str, _num_images: int) -> list[dict]:
+        def build_messages_string(prompt: str, _num_images: int = 0) -> list[dict]:
             prompt = prompt or vparse_client.client.prompt
             messages = []
             if vparse_client.client.system_prompt:
