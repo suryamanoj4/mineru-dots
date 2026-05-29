@@ -33,7 +33,13 @@ def install_optional_dependency_stubs() -> None:
 
     if "loguru" not in sys.modules:
         loguru = types.ModuleType("loguru")
-        loguru.logger = types.SimpleNamespace(debug=lambda *a, **k: None, error=lambda *a, **k: None)
+        loguru.logger = types.SimpleNamespace(
+            debug=lambda *a, **k: None,
+            info=lambda *a, **k: None,
+            warning=lambda *a, **k: None,
+            error=lambda *a, **k: None,
+            exception=lambda *a, **k: None,
+        )
         sys.modules["loguru"] = loguru
 
     if "numpy" not in sys.modules:

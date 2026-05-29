@@ -1,7 +1,9 @@
 #  Copyright (c) Opendatalab. All rights reserved.
+import asyncio
 import os
 import time
 from collections import defaultdict
+from typing import Callable
 
 import cv2
 import numpy as np
@@ -398,8 +400,8 @@ def _normalize_bbox(
 def get_batch_ratio(device):
     """
     Get batch ratio based on VRAM size or environment variables
-
-    # 1. Try to get from environment variables first
+    
+    1. Try to get from environment variables first
     When c/s architecture is deployed separately, it is recommended to specify the batch ratio by setting the environment variable VPARSE_HYBRID_BATCH_RATIO
     Recommended values are as follows. The following values have considered a certain amount of redundancy. When deploying on a single GPU with multiple terminals, to ensure stability, you can reserve an extra client-side VRAM as overall redundancy.
     Single client-side VRAM size | VPARSE_HYBRID_BATCH_RATIO
@@ -472,7 +474,7 @@ def doc_analyze(
     pdf_bytes,
     image_writer: DataWriter | None,
     predictor=None,
-    backend="transformers",
+    backend="vllm",
     parse_method: str = "auto",
     language: str = "ch",
     inline_formula_enable: bool = True,
@@ -567,7 +569,7 @@ async def aio_doc_analyze(
     pdf_bytes,
     image_writer: DataWriter | None,
     predictor=None,
-    backend="transformers",
+    backend="vllm",
     parse_method: str = "auto",
     language: str = "ch",
     inline_formula_enable: bool = True,
@@ -653,3 +655,194 @@ async def aio_doc_analyze(
 
     clean_memory(device)
     return middle_json, results, _vlm_ocr_enable
+
+
+async def batch_doc_analyze(
+    pdf_bytes_list: list[bytes],
+    image_writers: list[DataWriter | None] | None = None,
+    predictor=None,
+    backend="vllm",
+    parse_method: str = "auto",
+    languages: list[str] | None = None,
+    inline_formula_enable: bool = True,
+    model_path: str | None = None,
+    server_url: str | None = None,
+    prompt_mode: str = "prompt_layout_all_en",
+    batch_size: int = 0,
+    progress_callback: Callable[[int, int], None] | None = None,
+    **kwargs,
+):
+    if predictor is None:
+        predictor = ModelSingleton().get_model(
+            backend, model_path, server_url, **kwargs
+        )
+
+    from vparse.backend.vlm.utils import estimate_vlm_batch_size
+    if batch_size <= 0:
+        batch_size = estimate_vlm_batch_size()
+
+    if languages is None:
+        languages = ["ch"] * len(pdf_bytes_list)
+
+    if image_writers is None:
+        image_writers = [None] * len(pdf_bytes_list)
+
+    # 1. Load images for all docs and determine settings
+    all_docs_images = []
+    doc_metadata = []
+    doc_settings = []
+    
+    for idx, pdf_bytes in enumerate(pdf_bytes_list):
+        images_list, pdf_doc = await asyncio.to_thread(
+            load_images_from_pdf, pdf_bytes, image_type=ImageType.PIL
+        )
+        images_pil_list = [image_dict["img_pil"] for image_dict in images_list]
+        all_docs_images.append(images_pil_list)
+        doc_metadata.append((images_list, pdf_doc))
+        
+        lang = languages[idx]
+        _ocr_enable = ocr_classify(pdf_bytes, parse_method=parse_method)
+        _vlm_ocr_enable = _should_enable_vlm_ocr(
+            _ocr_enable, lang, inline_formula_enable
+        )
+        doc_settings.append({
+            "lang": lang,
+            "ocr_enable": _ocr_enable,
+            "vlm_ocr_enable": _vlm_ocr_enable,
+        })
+
+    device = get_device()
+    batch_ratio = get_batch_ratio(device)
+
+    # 2. VLM Pass for all pages (Cross-document batching)
+    # Split pages into two groups: full VLM extraction vs layout-only
+    # Track (doc_idx, page_idx) for correct ordering during merge
+    vlm_full_pages = []
+    vlm_layout_pages = []
+    full_page_map: list[tuple[int, int]] = []
+    layout_page_map: list[tuple[int, int]] = []
+    for doc_idx, images in enumerate(all_docs_images):
+        settings = doc_settings[doc_idx]
+        for page_idx in range(len(images)):
+            if settings["vlm_ocr_enable"]:
+                vlm_full_pages.append(images[page_idx])
+                full_page_map.append((doc_idx, page_idx))
+            else:
+                vlm_layout_pages.append(images[page_idx])
+                layout_page_map.append((doc_idx, page_idx))
+
+    total_pages = len(vlm_full_pages) + len(vlm_layout_pages)
+    total_processed = 0
+
+    # Helper: process a page list in chunks
+    async def _process_page_chunk(pages, page_map, extract_needed):
+        nonlocal total_processed
+        results_by_doc: dict[int, list[tuple[int, object]]] = {}
+        for chunk_start in range(0, len(pages), batch_size):
+            chunk = pages[chunk_start:chunk_start + batch_size]
+            if extract_needed:
+                chunk_results = await predictor.aio_batch_two_step_extract(
+                    images=chunk, prompt_mode=prompt_mode
+                )
+            else:
+                chunk_results = await predictor.aio_batch_two_step_extract(
+                    images=chunk, prompt_mode=prompt_mode, not_extract_list=not_extract_list
+                )
+            for offset, result in enumerate(chunk_results):
+                doc_idx, page_idx = page_map[chunk_start + offset]
+                results_by_doc.setdefault(doc_idx, []).append((page_idx, result))
+            total_processed += len(chunk)
+            if progress_callback:
+                progress_callback(total_processed, total_pages)
+            del chunk, chunk_results
+        return results_by_doc
+
+    full_results = await _process_page_chunk(vlm_full_pages, full_page_map, extract_needed=True)
+    layout_results = await _process_page_chunk(vlm_layout_pages, layout_page_map, extract_needed=False)
+
+    # Merge and re-group by doc, sorted by page_idx for correct order
+    doc_vlm_results = [[] for _ in range(len(pdf_bytes_list))]
+    for doc_idx in range(len(pdf_bytes_list)):
+        entries = full_results.get(doc_idx, []) + layout_results.get(doc_idx, [])
+        entries.sort(key=lambda x: x[0])
+        doc_vlm_results[doc_idx] = [result for _, result in entries]
+    del full_results, layout_results, vlm_full_pages, vlm_layout_pages
+
+    # 3. Pipeline Pass (MFD/MFR/OCR) with grouping by settings
+    # To truly batch across documents, we group docs by their language and settings
+    groups = defaultdict(list)
+    for doc_idx, settings in enumerate(doc_settings):
+        # We only group if NOT using VLM OCR (since VLM OCR was already batched in step 2)
+        if not settings["vlm_ocr_enable"]:
+            key = (settings["lang"], inline_formula_enable, settings["ocr_enable"])
+            groups[key].append(doc_idx)
+
+    # Results buffers
+    doc_inline_formulas = [None] * len(pdf_bytes_list)
+    doc_ocr_res = [None] * len(pdf_bytes_list)
+    doc_pipeline_models = [None] * len(pdf_bytes_list)
+
+    for (lang, formula_en, ocr_en), doc_indices in groups.items():
+        group_images = []
+        group_vlm_results = []
+        group_page_counts = []
+        
+        for d_idx in doc_indices:
+            group_images.extend(all_docs_images[d_idx])
+            group_vlm_results.extend(doc_vlm_results[d_idx])
+            group_page_counts.append(len(all_docs_images[d_idx]))
+
+        # Single call for the whole group (cross-document)
+        g_inline_formulas, g_ocr_res, g_pipeline_model = (
+            _process_ocr_and_formulas(
+                group_images,
+                group_vlm_results,
+                lang,
+                formula_en,
+                ocr_en,
+                batch_radio=batch_ratio,
+            )
+        )
+        _normalize_bbox(g_inline_formulas, g_ocr_res, group_images)
+
+        # Distribute results back to documents
+        cursor = 0
+        for i, d_idx in enumerate(doc_indices):
+            count = group_page_counts[i]
+            doc_inline_formulas[d_idx] = g_inline_formulas[cursor : cursor + count]
+            doc_ocr_res[d_idx] = g_ocr_res[cursor : cursor + count]
+            doc_pipeline_models[d_idx] = g_pipeline_model
+            cursor += count
+
+    # 4. Final Reassembly
+    final_results = []
+    for doc_idx in range(len(pdf_bytes_list)):
+        settings = doc_settings[doc_idx]
+        images_list, pdf_doc = doc_metadata[doc_idx]
+        vlm_results = doc_vlm_results[doc_idx]
+        writer = image_writers[doc_idx]
+
+        if settings["vlm_ocr_enable"]:
+            inline_formula_list = [[] for _ in all_docs_images[doc_idx]]
+            ocr_res_list = [[] for _ in all_docs_images[doc_idx]]
+            hybrid_pipeline_model = None
+        else:
+            inline_formula_list = doc_inline_formulas[doc_idx]
+            ocr_res_list = doc_ocr_res[doc_idx]
+            hybrid_pipeline_model = doc_pipeline_models[doc_idx]
+
+        middle_json = result_to_middle_json(
+            vlm_results,
+            inline_formula_list,
+            ocr_res_list,
+            images_list,
+            pdf_doc,
+            writer,
+            settings["ocr_enable"],
+            settings["vlm_ocr_enable"],
+            hybrid_pipeline_model,
+        )
+        final_results.append((middle_json, vlm_results))
+
+    clean_memory(device)
+    return final_results

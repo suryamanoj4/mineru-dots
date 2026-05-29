@@ -93,13 +93,15 @@ https://github.com/user-attachments/assets/4bea02c9-6d54-4cd6-97ed-dff14340982c
 
 | Feature | Status | Expected Completion |
 |---------|--------|---------------------|
+| **Cross-Document Batch Processing** | ✅ Done | `--batch` flag, `BulkProcessor`, checkpoint/resume |
 | **Tesseract Integration** | ✅ Done | Lightweight `lite` backend for fast OCR |
-| **Multi-Model VLM Support** | 📋 Planned | Qwen2-VL, InternVL2, Got-OCR2.0, Nougat |
-| **KV Cache Optimization** | 📋 Planned | Memory optimization for bulk VLM processing |
-| **Bulk Processing API** | 📋 Planned | Job queue, progress tracking, checkpoint/resume |
-| **Enhanced Docker** | 📋 Planned | Multi-stage builds, Kubernetes manifests, Helm charts |
-| **Python Library API** | 📋 Planned | `from vparse import OCR` unified interface |
-| **Additional Output Formats** | 📋 Planned | DOCX, searchable PDF, HTML, LaTeX, EPUB |
+| **Python Library API** | ✅ Done | `VParse`/`AsyncVParse` classes, `BackendRegistry` |
+| **Mode Consolidation** | ✅ Done | 15→5 modes, auto engine detection |
+| **Mixed Precision Inference** | 📋 Planned | v3 — fp16/bf16 for 1.5-2x speedup |
+| **Multi-Model VLM Support** | 📋 Planned | v5 — Qwen2-VL, InternVL2, Nougat, Ollama, TGI |
+| **KV Cache Optimization** | 📋 Planned | v4 — Prefix sharing, page similarity |
+| **Enhanced Docker** | 📋 Planned | v6 — Multi-stage builds, K8s, Helm charts |
+| **Additional Output Formats** | 📋 Planned | v6 — DOCX, searchable PDF, HTML, LaTeX, EPUB |
 
 ### 📋 See Complete Roadmap
 
@@ -111,81 +113,100 @@ For detailed development plan with 15 modules and 148 tasks, see **[ROADMAP.md](
 
 ### Backend Comparison
 
-VParse currently supports **three main backends** with different trade-offs:
+VParse supports **5 modes** with different trade-offs:
 
 <table>
   <thead>
     <tr>
-      <th rowspan="2">Backend</th>
-      <th rowspan="2">Pipeline</th>
-      <th colspan="2">Auto-Engine (Local GPU)</th>
-      <th colspan="2">HTTP Client (Remote/OpenAI-Compatible)</th>
-    </tr>
-    <tr>
-      <th>Hybrid</th>
+      <th>Mode</th>
+      <th>Pipeline</th>
+      <th>Lite</th>
       <th>VLM</th>
       <th>Hybrid</th>
-      <th>VLM</th>
+      <th>Remote</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <th>Best For</th>
-      <td>CPU-only, general docs</td>
-      <td colspan="2">High accuracy, GPU available</td>
-      <td colspan="2">Remote inference, low local resources</td>
+      <td>CPU/GPU, general OCR</td>
+      <td>CPU-only, fast startup</td>
+      <td>GPU, highest accuracy</td>
+      <td>GPU, balanced accuracy</td>
+      <td>Remote server, low local resources</td>
+    </tr>
+    <tr>
+      <th>Engine Selection</th>
+      <td>Fixed pipeline</td>
+      <td>Tesseract</td>
+      <td>Auto: vLLM (CUDA) → MLX (Apple) → LMDeploy</td>
+      <td>VLM auto-detect + pipeline OCR</td>
+      <td>User provides OpenAI-compatible URL</td>
+    </tr>
+    <tr>
+      <th>Execution</th>
+      <td style="text-align:center;">sync</td>
+      <td style="text-align:center;">sync</td>
+      <td style="text-align:center;">always async</td>
+      <td style="text-align:center;">sync</td>
+      <td style="text-align:center;">always async</td>
     </tr>
     <tr>
       <th>Accuracy¹</th>
       <td style="text-align:center;">82+</td>
-      <td colspan="4" style="text-align:center;">90+</td>
+      <td style="text-align:center;">75+</td>
+      <td style="text-align:center;">90+</td>
+      <td style="text-align:center;">90+</td>
+      <td style="text-align:center;">90+</td>
     </tr>
     <tr>
       <th>CPU Support</th>
       <td style="text-align:center;">✅ Yes</td>
-      <td colspan="2" style="text-align:center;">❌ No</td>
-      <td colspan="2" style="text-align:center;">✅ Yes</td>
+      <td style="text-align:center;">✅ Yes</td>
+      <td style="text-align:center;">❌ No</td>
+      <td style="text-align:center;">❌ No</td>
+      <td style="text-align:center;">✅ Yes</td>
     </tr>
     <tr>
       <th>Min VRAM</th>
       <td style="text-align:center;">6GB</td>
-      <td style="text-align:center;">10GB</td>
+      <td style="text-align:center;">0GB</td>
       <td style="text-align:center;">8GB</td>
-      <td style="text-align:center;">3GB (server-side)</td>
+      <td style="text-align:center;">10GB</td>
       <td style="text-align:center;">3GB (server-side)</td>
     </tr>
     <tr>
       <th>Multi-language</th>
       <td style="text-align:center;">109 languages</td>
-      <td style="text-align:center;">Chinese + English</td>
-      <td style="text-align:center;">Chinese + English</td>
+      <td style="text-align:center;">ch + en</td>
+      <td style="text-align:center;">ch + en</td>
       <td style="text-align:center;">109 languages</td>
-      <td style="text-align:center;">Chinese + English</td>
+      <td style="text-align:center;">ch + en</td>
     </tr>
     <tr>
-      <th>Inference Engines</th>
-      <td colspan="5" style="text-align:center;">transformers, vLLM, LMDeploy, MLX (macOS), OpenAI-compatible HTTP</td>
-    </tr>
-    <tr>
-      <th>VLM Models</th>
-      <td>N/A</td>
-      <td colspan="4" style="text-align:center;">dots.mocr (default)</td>
+      <th>Cross-doc Batching</th>
+      <td style="text-align:center;">—</td>
+      <td style="text-align:center;">—</td>
+      <td style="text-align:center;">✅ (--batch)</td>
+      <td style="text-align:center;">✅ (--batch)</td>
+      <td style="text-align:center;">—</td>
     </tr>
   </tbody>
 </table>
 
 <sup>¹</sup> Accuracy metrics are End-to-End Evaluation Overall scores from OmniDocBench (v1.5), based on latest version.
+Sub-variants: `vlm-lmdeploy` (force LMDeploy), `hybrid-lmdeploy` (force LMDeploy).
 
 ### Backend Selection Guide
 
 | Scenario | Recommended Backend | Command |
 |----------|---------------------|---------|
-| **CPU-only device** | `pipeline` | `vparse -p input.pdf -b pipeline` |
-| **GPU available, fast processing** | `pipeline` | `vparse -p input.pdf -b pipeline` |
-| **GPU available, highest accuracy** | `vlm-auto-engine` | `vparse -p input.pdf -b vlm-auto-engine` |
-| **GPU available, balanced accuracy** | `hybrid-auto-engine` | `vparse -p input.pdf -b hybrid-auto-engine` |
-| **Remote VLM server** | `vlm-http-client` | `vparse -p input.pdf -b vlm-http-client -u http://server:30000` |
-| **Remote VLM + local OCR** | `hybrid-http-client` | `vparse -p input.pdf -b hybrid-http-client -u http://server:30000` |
+| **CPU-only, fast** | `lite` | `vparse input.pdf ./output -b lite` |
+| **CPU/GPU, general OCR** | `pipeline` | `vparse input.pdf ./output -b pipeline` |
+| **GPU, highest accuracy** | `vlm` | `vparse input.pdf ./output -b vlm` |
+| **GPU, balanced accuracy** | `hybrid` | `vparse input.pdf ./output -b hybrid` |
+| **Bulk directory (cross-doc batch)** | `vlm --batch` | `vparse ./books/ ./output -b vlm --batch` |
+| **Remote VLM server** | `remote` | `vparse input.pdf ./output -b remote -u http://server:30000` | |
 
 ### Supported VLM Models
 
@@ -201,13 +222,12 @@ VParse currently supports **three main backends** with different trade-offs:
 
 | Engine | Status | Description |
 |--------|--------|-------------|
-| **transformers** | ✅ Supported | HuggingFace transformers, universal compatibility |
-| **vLLM** | ✅ Supported | High-throughput serving, continuous batching |
-| **LMDeploy** | ✅ Supported | TurboMind engine, efficient deployment |
-| **MLX** | ✅ Supported | Apple Silicon optimization (macOS only) |
+| **vLLM** | ✅ Default | High-throughput, continuous batching. Auto-selected for CUDA GPU |
+| **MLX** | ✅ Auto | Apple Silicon optimization. Auto-selected on macOS |
+| **LMDeploy** | ✅ Supported | Explicit via `vlm-lmdeploy` backend. TurboMind engine |
+| **OpenAI-compatible HTTP** | ✅ Supported | Remote inference via API (`remote` mode) |
 | **Ollama** | 📋 Planned | Easy local model serving |
 | **TGI** | 📋 Planned | HuggingFace Text Generation Inference |
-| **OpenAI-compatible HTTP** | ✅ Supported | Remote inference via API |
 
 ### Supported Output Formats
 
@@ -323,25 +343,42 @@ See [Docker Deployment Documentation](https://opendatalab.github.io/VParse/quick
 
 #### CLI Usage
 
-For GPU-accelerated parsing (recommended):
+Default (hybrid backend, GPU recommended):
 ```bash
-vparse -p <input_path> -o <output_path>
+vparse input.pdf ./output
 ```
 
-For CPU-only environment:
+CPU-only (pipeline backend):
 ```bash
-vparse -p <input_path> -o <output_path> -b pipeline
+vparse input.pdf ./output -b pipeline
 ```
 
-For VLM backend with highest accuracy:
+CPU-only, fast startup (Tesseract):
 ```bash
-vparse -p <input_path> -o <output_path> -b vlm-auto-engine
+vparse input.pdf ./output -b lite
 ```
 
-For remote VLM server:
+VLM backend, highest accuracy:
 ```bash
-vparse -p <input_path> -o <output_path> -b vlm-http-client -u http://127.0.0.1:30000
+vparse input.pdf ./output -b vlm
 ```
+
+Force LMDeploy engine:
+```bash
+vparse input.pdf ./output -b vlm-lmdeploy
+```
+
+Remote server (OpenAI-compatible):
+```bash
+vparse input.pdf ./output -b remote -u http://127.0.0.1:30000
+```
+
+Bulk cross-document batching (many small docs):
+```bash
+vparse ./books/ ./output -b vlm --batch
+```
+
+**Legacy aliases** (`vlm-auto-engine`, `vlm-http-client`, `hybrid-auto-engine`, etc.) still work for backward compatibility.
 
 #### API Usage
 
@@ -354,7 +391,7 @@ Then send requests:
 ```bash
 curl -X POST "http://localhost:8000/file_parse" \
   -F "files=@document.pdf" \
-  -F "backend=hybrid-auto-engine" \
+  -F "backend=hybrid" \
   -F "return_md=true"
 ```
 
@@ -375,37 +412,17 @@ For detailed usage instructions, see the [Usage Guide](https://opendatalab.githu
 
 VParse is undergoing active development with a comprehensive roadmap to become a one-stop OCR toolkit.
 
-### Planned Modules (15 Total)
+### Version-Based Roadmap
 
-| Module | Focus Area | Status | Tasks |
-|--------|-----------|--------|-------|
-| **M1** | Core Library & API Foundation | 🚧 37.5% | 8 tasks |
-| **M2** | Backend Engine Abstraction | 📋 6.25% | 8 tasks |
-| **M3** | Pipeline Backend Enhancements | 🚧 43.75% | 8 tasks |
-| **M4** | Multi-Model VLM Backend | 📋 18.2% | 11 tasks |
-| **M5** | Inference Engine Integration | 🚧 44.4% | 9 tasks |
-| **M6** | Memory & Performance Optimization | 📋 27.3% | 11 tasks |
-| **M7** | KV Cache Optimization | 📋 0% | 11 tasks |
-| **M8** | Bulk Processing & Job Management | 📋 13.6% | 11 tasks |
-| **M9** | Docker & Deployment Services | 🚧 45.5% | 11 tasks |
-| **M10** | API Server Features | 📋 30% | 10 tasks |
-| **M11** | Document Processing Pipeline | 📋 31.8% | 11 tasks |
-| **M12** | Output Formats & Export | 📋 31.8% | 11 tasks |
-| **M13** | Testing & Quality Assurance | 📋 25% | 10 tasks |
-| **M14** | Monitoring & Observability | 📋 5.6% | 9 tasks |
-| **M15** | Developer Experience & Docs | 📋 35% | 10 tasks |
-
-### Implementation Waves
-
-| Wave | Focus | Timeline | Key Deliverables |
-|------|-------|----------|------------------|
-| **Wave 1** | Foundation | Weeks 1-4 | Unified API, Tesseract `lite` backend, PyPI package |
-| **Wave 2** | Multi-Model VLM | Weeks 5-8 | Qwen2-VL, InternVL2, model auto-selection |
-| **Wave 3** | Memory & Performance | Weeks 9-12 | KV cache optimization, streaming, OOM prevention |
-| **Wave 4** | Bulk Processing & Docker | Weeks 13-16 | Job queue, Redis/Celery, production Docker |
-| **Wave 5** | Output & Processing | Weeks 17-20 | DOCX, searchable PDF, RAG chunks |
-| **Wave 6** | Quality & Docs | Weeks 21-24 | 85%+ tests, monitoring, documentation |
-| **Wave 7** | Polish & Advanced | Weeks 25+ | K8s, Helm, advanced optimizations |
+| Version | Theme | Focus | Status |
+|---------|-------|-------|--------|
+| **v1** | Async Inference & Mode Consolidation | 15→5 modes, BackendProtocol, VParse/AsyncVParse clients | ✅ Complete |
+| **v2** | Bulk Processing & Job Management | Cross-doc batching, `BulkProcessor`, checkpoint/resume, progress tracking | ✅ Complete |
+| **v3** | Performance & Memory Optimization | Mixed precision, memory pool, dynamic batch sizing, OOM prevention | 📋 Next |
+| **v4** | KV Cache Optimization | Prefix sharing, page similarity, cache tuning | 📋 Planned |
+| **v5** | Multi-Model VLM & More Engines | Qwen2-VL, InternVL2, Nougat, Ollama, TGI | 📋 Planned |
+| **v6** | Output Formats, Docker & API | DOCX, searchable PDF, K8s, auth, multi-backend API | 📋 Planned |
+| **v7** | Testing, Monitoring & Docs | 85%+ coverage, Prometheus, Grafana, tutorials | 📋 Planned |
 
 📋 **For complete details with task descriptions, file references, and contribution guides, see [ROADMAP.md](ROADMAP.md).**
 

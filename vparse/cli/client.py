@@ -1,12 +1,16 @@
 # Copyright (c) Opendatalab. All rights reserved.
+import gc
 import json
 import os
 import time
 import sys
+import asyncio
 
 import click
 from pathlib import Path
 from loguru import logger
+from vparse import VParse
+from vparse.constants import ACCEPTED_BACKENDS, AVAILABLE_BACKENDS
 from vparse.utils.compat import get_env_with_legacy
 
 log_level = get_env_with_legacy("VPARSE_LOG_LEVEL", "MINERU_LOG_LEVEL", "INFO").upper()
@@ -18,8 +22,16 @@ from vparse.utils.config_reader import get_device
 from vparse.utils.guess_suffix_or_lang import guess_suffix_by_path
 from vparse.utils.model_utils import get_vram
 from ..version import __version__
-from .common import do_parse, read_fn, pdf_suffixes, image_suffixes
+from .common import do_parse, read_fn, pdf_suffixes, image_suffixes, _process_output, prepare_env
 from .streaming import stream_parse
+
+CLI_DRAW_LAYOUT_BBOX = True
+CLI_DRAW_SPAN_BBOX = False
+CLI_DUMP_MD = True
+CLI_DUMP_CONTENT_LIST = True
+CLI_DUMP_MIDDLE_JSON = False
+CLI_DUMP_MODEL_OUTPUT = False
+CLI_DUMP_ORIG_PDF = False
 
 
 def get_checkpoint_path(output_dir: str, input_folder_name: str) -> Path:
@@ -38,6 +50,35 @@ def save_checkpoint(checkpoint_path: Path, checkpoint: dict):
     checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
     with open(checkpoint_path, "w") as f:
         json.dump(checkpoint, f, indent=2)
+
+
+def build_vparse_client(
+    backend: str,
+    lang: str,
+    device_mode: str | None,
+    formula_enable: bool,
+    table_enable: bool,
+    server_url: str | None,
+    start_page_id: int,
+    end_page_id: int | None,
+    extra_kwargs: dict,
+) -> VParse:
+    constructor_kwargs = dict(extra_kwargs)
+    constructor_kwargs.update(
+        {
+            "server_url": server_url,
+            "start_page_id": start_page_id,
+            "end_page_id": end_page_id,
+        }
+    )
+    return VParse(
+        backend=backend,
+        lang=lang,
+        device=device_mode,
+        formula_enable=formula_enable,
+        table_enable=table_enable,
+        **constructor_kwargs,
+    )
 
 
 @click.command(
@@ -81,26 +122,18 @@ def save_checkpoint(checkpoint_path: Path, checkpoint: dict):
     "-b",
     "--backend",
     "backend",
-    type=click.Choice(
-        [
-            "pipeline",
-            "lite",
-            "vlm-http-client",
-            "hybrid-http-client",
-            "vlm-auto-engine",
-            "hybrid-auto-engine",
-        ]
-    ),
+    type=click.Choice(list(ACCEPTED_BACKENDS)),
     help="""\b
     the backend for parsing pdf:
-      pipeline: More general.
-      lite: Lightweight direct-Tesseract backend. Does not use the full pipeline.
-      vlm-auto-engine: High accuracy via local computing power (uses dots.ocr).
-      vlm-http-client: High accuracy via remote computing power (client suitable for openai-compatible servers).
-      hybrid-auto-engine: Next-generation high accuracy solution via local computing power (uses dots.ocr for layout).
-      hybrid-http-client: High accuracy but requires a little local computing power (client suitable for openai-compatible servers).
-    Without method specified, vlm-auto-engine will be used by default.""",
-    default="vlm-auto-engine",
+      pipeline: Layout detection + PaddleOCR/Tesseract + table/formula extraction.
+      lite: Lightweight Tesseract-only backend for CPU fast path.
+      vlm: VLM with auto-optimized engine (vLLM for CUDA, MLX for Apple Silicon).
+      vlm-lmdeploy: VLM using LMDeploy engine explicitly.
+      hybrid: VLM for layout + pipeline OCR, supports multiple languages.
+      hybrid-lmdeploy: Hybrid using LMDeploy engine explicitly.
+      remote: Point at any OpenAI-compatible server via --server-url.
+    Legacy aliases such as vlm-auto-engine and hybrid-auto-engine are also accepted.""",
+    default="hybrid",
 )
 @click.option(
     "-l",
@@ -140,7 +173,7 @@ def save_checkpoint(checkpoint_path: Path, checkpoint: dict):
     "server_url",
     type=str,
     help="""
-    When the backend is `<vlm/hybrid>-http-client`, you need to specify the server_url, for example:`http://127.0.0.1:30000`
+    When the backend is `remote`, you need to specify the server_url, for example:`http://127.0.0.1:30000`
     """,
     default=None,
 )
@@ -210,12 +243,6 @@ def save_checkpoint(checkpoint_path: Path, checkpoint: dict):
     default=20,
 )
 @click.option(
-    "--resume/--no-resume",
-    "resume",
-    help="Resume from checkpoint if previously interrupted. Default is False (disabled).",
-    default=False,
-)
-@click.option(
     "--stream/--no-stream",
     "stream",
     help="Write staged per-page streaming outputs instead of waiting for the full document to finish.",
@@ -237,14 +264,13 @@ def main(
     virtual_vram,
     model_source,
     batch_size,
-    resume,
     stream,
     **kwargs,
 ):
 
     kwargs.update(arg_parse(ctx))
 
-    if not backend.endswith("-client"):
+    if backend != "remote":
 
         def get_device_mode() -> str:
             if device_mode is not None:
@@ -284,7 +310,7 @@ def main(
         if input_folder_name:
             checkpoint_path = get_checkpoint_path(output_dir, input_folder_name)
             
-            if resume and checkpoint_path.exists():
+            if checkpoint_path.exists():
                 # Load existing checkpoint for resume
                 checkpoint = load_checkpoint(checkpoint_path)
                 if "failed" not in checkpoint:
@@ -317,12 +343,11 @@ def main(
         for batch_start in range(0, len(remaining_paths), batch_size):
             batch_paths = remaining_paths[batch_start : batch_start + batch_size]
 
-            batch_data = []
+            readable_paths = []
             for path in batch_paths:
-                file_name = str(Path(path).stem)
                 try:
-                    pdf_bytes = read_fn(path)
-                    batch_data.append((path, file_name, pdf_bytes))
+                    read_fn(path)
+                    readable_paths.append(path)
                 except Exception as e:
                     logger.error(f"Error reading {path.name}: {e}")
                     checkpoint["failed"].append(path.name)
@@ -331,11 +356,15 @@ def main(
                         checkpoint["batch_size"] = batch_size
                         save_checkpoint(checkpoint_path, checkpoint)
                     logger.info(f"Skipping unreadable file: {path.name}")
-                    continue
 
-            for path, file_name, pdf_bytes in batch_data:
-                try:
-                    if stream:
+            if not readable_paths:
+                continue
+
+            try:
+                if stream:
+                    for path in readable_paths:
+                        file_name = str(Path(path).stem)
+                        pdf_bytes = read_fn(path)
                         stream_session = stream_parse(
                             output_dir=output_dir,
                             pdf_file_name=file_name,
@@ -348,49 +377,64 @@ def main(
                             server_url=server_url,
                             start_page_id=start_page_id,
                             end_page_id=end_page_id,
-                            page_callback=lambda update: logger.info(
-                                f"{path.name}: streamed page {update['completed_pages']}/{update['total_pages']}"
+                            page_callback=lambda update, current_path=path: logger.info(
+                                f"{current_path.name}: streamed page {update['completed_pages']}/{update['total_pages']}"
                             ),
                             **kwargs,
                         )
                         logger.info(f"Streaming output dir: {stream_session}")
-                    else:
-                        do_parse(
+                else:
+                    with build_vparse_client(
+                        backend=backend,
+                        lang=lang,
+                        device_mode=device_mode,
+                        formula_enable=formula_enable,
+                        table_enable=table_enable,
+                        server_url=server_url,
+                        start_page_id=start_page_id,
+                        end_page_id=end_page_id,
+                        extra_kwargs=kwargs,
+                    ) as client:
+                        client.process_batch(
+                            readable_paths,
                             output_dir=output_dir,
-                            pdf_file_names=[file_name],
-                            pdf_bytes_list=[pdf_bytes],
-                            p_lang_list=[lang],
-                            backend=backend,
-                            parse_method=method,
-                            formula_enable=formula_enable,
-                            table_enable=table_enable,
-                            server_url=server_url,
-                            start_page_id=start_page_id,
-                            end_page_id=end_page_id,
-                            **kwargs,
+                            method=method,
+                            draw_layout_bbox=CLI_DRAW_LAYOUT_BBOX,
+                            draw_span_bbox=CLI_DRAW_SPAN_BBOX,
+                            dump_md=CLI_DUMP_MD,
+                            dump_content_list=CLI_DUMP_CONTENT_LIST,
+                            dump_middle_json=CLI_DUMP_MIDDLE_JSON,
+                            dump_model_output=CLI_DUMP_MODEL_OUTPUT,
+                            dump_orig_pdf=CLI_DUMP_ORIG_PDF,
+                            callback=lambda progress, total, current_batch=readable_paths: logger.info(
+                                f"Batch progress: {progress}/{total} files ({current_batch[progress - 1].name})"
+                            ),
                         )
 
-                    checkpoint["processed"].append(path.name)
+                checkpoint["processed"].extend(path.name for path in readable_paths)
 
-                    if checkpoint_path:
-                        checkpoint["total"] = total_files
-                        checkpoint["batch_size"] = batch_size
-                        save_checkpoint(checkpoint_path, checkpoint)
+                if checkpoint_path:
+                    checkpoint["total"] = total_files
+                    checkpoint["batch_size"] = batch_size
+                    save_checkpoint(checkpoint_path, checkpoint)
 
-                    current_processed = len(checkpoint["processed"])
-                    logger.info(
-                        f"Progress: {current_processed}/{total_files} files processed"
-                    )
-
-                except Exception as e:
-                    logger.error(f"Error processing {path.name}: {e}")
-                    checkpoint["failed"].append(path.name)
-                    if checkpoint_path:
-                        checkpoint["total"] = total_files
-                        checkpoint["batch_size"] = batch_size
-                        save_checkpoint(checkpoint_path, checkpoint)
-                    logger.info(f"Skipping failed file: {path.name}")
-                    continue
+                current_processed = len(checkpoint["processed"])
+                logger.info(
+                    f"Progress: {current_processed}/{total_files} files processed"
+                )
+            except Exception as e:
+                logger.error(f"Error processing batch starting with {readable_paths[0].name}: {e}")
+                checkpoint["failed"].extend(
+                    path.name
+                    for path in readable_paths
+                    if path.name not in checkpoint["failed"]
+                )
+                if checkpoint_path:
+                    checkpoint["total"] = total_files
+                    checkpoint["batch_size"] = batch_size
+                    save_checkpoint(checkpoint_path, checkpoint)
+                logger.info("Skipping failed batch")
+                continue
 
     def parse_doc(path_list: list[Path]):
         try:
@@ -417,34 +461,132 @@ def main(
                     )
                     logger.info(f"Streaming output dir: {stream_session}")
             else:
-                file_name_list = []
-                pdf_bytes_list = []
-                lang_list = []
-                for path in path_list:
-                    file_name = str(Path(path).stem)
-                    pdf_bytes = read_fn(path)
-                    file_name_list.append(file_name)
-                    pdf_bytes_list.append(pdf_bytes)
-                    lang_list.append(lang)
-                do_parse(
-                    output_dir=output_dir,
-                    pdf_file_names=file_name_list,
-                    pdf_bytes_list=pdf_bytes_list,
-                    p_lang_list=lang_list,
+                with build_vparse_client(
                     backend=backend,
-                    parse_method=method,
+                    lang=lang,
+                    device_mode=device_mode,
                     formula_enable=formula_enable,
                     table_enable=table_enable,
                     server_url=server_url,
                     start_page_id=start_page_id,
                     end_page_id=end_page_id,
-                    **kwargs,
-                )
+                    extra_kwargs=kwargs,
+                ) as client:
+                    client.process_batch(
+                        path_list,
+                        output_dir=output_dir,
+                        method=method,
+                        draw_layout_bbox=CLI_DRAW_LAYOUT_BBOX,
+                        draw_span_bbox=CLI_DRAW_SPAN_BBOX,
+                        dump_md=CLI_DUMP_MD,
+                        dump_content_list=CLI_DUMP_CONTENT_LIST,
+                        dump_middle_json=CLI_DUMP_MIDDLE_JSON,
+                        dump_model_output=CLI_DUMP_MODEL_OUTPUT,
+                        dump_orig_pdf=CLI_DUMP_ORIG_PDF,
+                    )
         except Exception as e:
             logger.exception(e)
 
+    async def _run_batch(path_list: list[Path]):
+        from vparse.backend.registry import BackendRegistry, resolve_backend_name
+        from vparse.data.data_reader_writer import FileBasedDataWriter
+        from vparse.utils.enum_class import MakeMode
+
+        resolved = resolve_backend_name(backend)
+        is_lmdeploy = resolved == "vlm-lmdeploy"
+
+        logger.info(f"Batch processing {len(path_list)} files via {resolved}")
+
+        # Derive file names and track load errors lazily
+        file_names = {i: path.stem for i, path in enumerate(path_list)}
+        
+        last_progress = 0
+        def on_progress(e):
+            nonlocal last_progress
+            if e.pages_done - last_progress >= 10 or e.pages_done == e.total_pages:
+                logger.info(
+                    f"batch progress: {e.pages_done}/{e.total_pages} pages "
+                    f"({e.pages_per_sec:.1f} p/s, ETA {e.eta_seconds:.0f}s)"
+                )
+                last_progress = e.pages_done
+
+        kwargs.pop("engine", None)
+        if is_lmdeploy:
+            kwargs["engine"] = "lmdeploy"
+
+        from vparse.bulk import BulkProcessor
+
+        output_subdir = "vlm"
+        if resolved.startswith("hybrid"):
+            output_subdir = f"hybrid_{method}"
+
+        async def on_result(result):
+            book_idx = result.book_index
+            file_name = file_names[book_idx]
+            path = path_list[book_idx]
+            try:
+                pdf_bytes = read_fn(path)
+            except Exception as e:
+                logger.error(f"Failed to read {path.name}: {e}")
+                return
+
+            local_image_dir, local_md_dir = prepare_env(
+                output_dir, file_name, output_subdir
+            )
+            md_writer = FileBasedDataWriter(local_md_dir)
+            pdf_info = result.middle_json.get("pdf_info", [])
+
+            _process_output(
+                pdf_info, pdf_bytes, file_name, local_md_dir, local_image_dir,
+                md_writer, CLI_DRAW_LAYOUT_BBOX, CLI_DRAW_SPAN_BBOX,
+                CLI_DUMP_ORIG_PDF, CLI_DUMP_MD, CLI_DUMP_CONTENT_LIST,
+                CLI_DUMP_MIDDLE_JSON, CLI_DUMP_MODEL_OUTPUT,
+                MakeMode.MM_MD, result.middle_json, result.model_output,
+                is_pipeline=False,
+            )
+            del pdf_bytes
+            gc.collect()
+
+        # Move legacy .mineru_checkpoints checkpoint to new location
+        checkpoints_dir = Path(output_dir) / ".vparse_checkpoints"
+        job_id = Path(input_path).stem
+        legacy_dir = Path(output_dir) / ".mineru_checkpoints"
+        legacy_file = legacy_dir / f"{job_id}.json"
+        new_checkpoint = checkpoints_dir / f"{job_id}.json"
+        if legacy_file.exists() and not new_checkpoint.exists():
+            checkpoints_dir.mkdir(parents=True, exist_ok=True)
+            legacy_file.rename(new_checkpoint)
+            try:
+                legacy_dir.rmdir()
+            except OSError:
+                pass
+            with open(new_checkpoint) as f:
+                data = json.load(f)
+            processed = len(data.get("processed", []))
+            failed = len(data.get("failed", []))
+            parts = []
+            if processed:
+                parts.append(f"{processed} already processed")
+            if failed:
+                parts.append(f"{failed} failed")
+            logger.info(f"Migrated legacy checkpoint: {', '.join(parts)}")
+
+        proc = BulkProcessor(checkpoint_dir=checkpoints_dir)
+        logger.info("Starting bulk processing with chunk_size=10")
+        try:
+            await proc.process_books(
+                path_list,
+                job_id=job_id,
+                on_progress=on_progress,
+                on_result=on_result,
+                backend=resolved,
+                **kwargs,
+            )
+        except Exception as e:
+            logger.exception(f"Batch processing failed: {e}")
+            raise
+
     if os.path.isdir(input_path):
-        # Fast file scanning - just check extension, don't read file content
         doc_path_list = []
         pdf_extensions = {'.pdf'}
         image_extensions = {'.png', '.jpeg', '.jpg', '.jp2', '.webp', '.gif', '.bmp', '.tiff'}
@@ -459,9 +601,18 @@ def main(
         
         scan_time = round(time.time() - scan_start, 2)
         logger.info(f"Found {len(doc_path_list)} files in {scan_time}s")
-        
-        input_folder_name = Path(input_path).stem
-        parse_doc_with_batching(doc_path_list, input_folder_name)
+
+        from vparse.backend.registry import resolve_backend_name
+        resolved_backend = resolve_backend_name(backend)
+        is_vlm_hybrid = (
+            resolved_backend.startswith("vlm") or resolved_backend.startswith("hybrid")
+        )
+
+        if is_vlm_hybrid and len(doc_path_list) > 1:
+            asyncio.run(_run_batch(doc_path_list))
+        else:
+            input_folder_name = Path(input_path).stem
+            parse_doc_with_batching(doc_path_list, input_folder_name)
     else:
         parse_doc([Path(input_path)])
 

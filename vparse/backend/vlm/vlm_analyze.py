@@ -1,16 +1,17 @@
 # Copyright (c) Opendatalab. All rights reserved.
+import asyncio
 import os
 import time
-import json
+from typing import Callable
 
 from loguru import logger
 
 from .utils import (
     enable_custom_logits_processors,
     set_default_gpu_memory_utilization,
-    set_default_batch_size,
     set_lmdeploy_backend,
     mod_kwargs_by_device_type,
+    estimate_vlm_batch_size,
 )
 from .model_output_to_middle_json import result_to_middle_json
 from ...data.data_reader_writer import DataWriter
@@ -21,8 +22,7 @@ from ...utils.config_reader import get_device
 
 from ...utils.enum_class import ImageType
 from ...utils.models_download_utils import auto_download_and_get_model_root_path
-
-from packaging import version
+from vparse.utils.pdf_reader import page_to_image
 
 
 class ModelSingleton:
@@ -48,19 +48,17 @@ class ModelSingleton:
             if not model_path:
                 model_path = auto_download_and_get_model_root_path("/", "vlm")
 
-            if backend == "dots-ocr-hf" or backend == "dots-ocr-vllm":
+            if backend in ("vllm", "dots-ocr-vllm", "remote"):
                 from .dots_ocr_client import DotsOCRClient
 
-                use_hf = backend == "dots-ocr-hf"
                 self._models[key] = DotsOCRClient(
-                    backend="transformers" if use_hf else "vllm-engine",
+                    backend="vllm-async-engine",
                     model_path=model_path,
                     server_url=server_url,
-                    use_hf=use_hf,
                     **kwargs,
                 )
                 elapsed = round(time.time() - start_time, 2)
-                logger.info(f"get {backend} predictor cost: {elapsed}s")
+                logger.info(f"get vllm predictor cost: {elapsed}s")
                 return self._models[key]
 
             from mineru_vl_utils import MinerUClient as VParseClient
@@ -88,135 +86,30 @@ class ModelSingleton:
                 if param in kwargs:
                     del kwargs[param]
 
-            if backend == "transformers":
-                try:
-                    from transformers import (
-                        AutoProcessor,
-                        Qwen2VLForConditionalGeneration,
-                    )
-                    from transformers import __version__ as transformers_version
-                except ImportError:
-                    raise ImportError(
-                        "Please install transformers to use the transformers backend."
-                    )
-
-                if version.parse(transformers_version) >= version.parse("4.56.0"):
-                    dtype_key = "dtype"
-                else:
-                    dtype_key = "torch_dtype"
-                device = get_device()
-                model = Qwen2VLForConditionalGeneration.from_pretrained(
-                    model_path,
-                    device_map={"": device},
-                    **{dtype_key: "auto"},
-                )
-                processor = AutoProcessor.from_pretrained(
-                    model_path,
-                    use_fast=True,
-                )
-                if batch_size == 0:
-                    batch_size = set_default_batch_size()
-            elif backend == "mlx-engine":
+            if backend == "mlx":
                 mlx_supported = is_mac_os_version_supported()
                 if not mlx_supported:
                     raise EnvironmentError(
-                        "mlx-engine backend is only supported on macOS 13.5+ with Apple Silicon."
+                        "mlx backend is only supported on macOS 13.5+ with Apple Silicon."
                     )
                 try:
                     from mlx_vlm import load as mlx_load
                 except ImportError:
                     raise ImportError(
-                        "Please install mlx-vlm to use the mlx-engine backend."
+                        "Please install mlx-vlm to use the mlx backend."
                     )
                 model, processor = mlx_load(model_path)
             else:
                 if os.getenv("OMP_NUM_THREADS") is None:
                     os.environ["OMP_NUM_THREADS"] = "1"
 
-                if backend == "vllm-engine":
-                    try:
-                        import vllm
-                    except ImportError:
-                        raise ImportError(
-                            "Please install vllm to use the vllm-engine backend."
-                        )
-
-                    kwargs = mod_kwargs_by_device_type(kwargs, vllm_mode="sync_engine")
-
-                    if "compilation_config" in kwargs:
-                        if isinstance(kwargs["compilation_config"], str):
-                            try:
-                                kwargs["compilation_config"] = json.loads(
-                                    kwargs["compilation_config"]
-                                )
-                            except json.JSONDecodeError:
-                                logger.warning(
-                                    f"Failed to parse compilation_config as JSON: {kwargs['compilation_config']}"
-                                )
-                                del kwargs["compilation_config"]
-                    if "gpu_memory_utilization" not in kwargs:
-                        kwargs["gpu_memory_utilization"] = (
-                            set_default_gpu_memory_utilization()
-                        )
-                    if "model" not in kwargs:
-                        kwargs["model"] = model_path
-                    if enable_custom_logits_processors() and (
-                        "logits_processors" not in kwargs
-                    ):
-                        from mineru_vl_utils import MinerULogitsProcessor as VParseLogitsProcessor
-
-                        kwargs["logits_processors"] = [VParseLogitsProcessor]
-                    vllm_llm = vllm.LLM(**kwargs)
-                elif backend == "vllm-async-engine":
-                    try:
-                        from vllm.engine.arg_utils import AsyncEngineArgs
-                        from vllm.v1.engine.async_llm import AsyncLLM
-                        from vllm.config import CompilationConfig
-                    except ImportError:
-                        raise ImportError(
-                            "Please install vllm to use the vllm-async-engine backend."
-                        )
-
-                    kwargs = mod_kwargs_by_device_type(kwargs, vllm_mode="async_engine")
-
-                    if "compilation_config" in kwargs:
-                        if isinstance(kwargs["compilation_config"], dict):
-                            kwargs["compilation_config"] = CompilationConfig(
-                                **kwargs["compilation_config"]
-                            )
-                        elif isinstance(kwargs["compilation_config"], str):
-                            try:
-                                config_dict = json.loads(kwargs["compilation_config"])
-                                kwargs["compilation_config"] = CompilationConfig(
-                                    **config_dict
-                                )
-                            except (json.JSONDecodeError, TypeError) as e:
-                                logger.warning(
-                                    f"Failed to parse compilation_config: {kwargs['compilation_config']}, error: {e}"
-                                )
-                                del kwargs["compilation_config"]
-                    if "gpu_memory_utilization" not in kwargs:
-                        kwargs["gpu_memory_utilization"] = (
-                            set_default_gpu_memory_utilization()
-                        )
-                    if "model" not in kwargs:
-                        kwargs["model"] = model_path
-                    if enable_custom_logits_processors() and (
-                        "logits_processors" not in kwargs
-                    ):
-                        from mineru_vl_utils import MinerULogitsProcessor as VParseLogitsProcessor
-
-                        kwargs["logits_processors"] = [VParseLogitsProcessor]
-                    vllm_async_llm = AsyncLLM.from_engine_args(
-                        AsyncEngineArgs(**kwargs)
-                    )
-                elif backend == "lmdeploy-engine":
+                if backend == "lmdeploy":
                     try:
                         from lmdeploy import PytorchEngineConfig, TurbomindEngineConfig
                         from lmdeploy.serve.vl_async_engine import VLAsyncEngine
                     except ImportError:
                         raise ImportError(
-                            "Please install lmdeploy to use the lmdeploy-engine backend."
+                            "Please install lmdeploy to use the lmdeploy backend."
                         )
                     if "cache_max_entry_count" not in kwargs:
                         kwargs["cache_max_entry_count"] = 0.5
@@ -267,8 +160,9 @@ class ModelSingleton:
                         backend_config=backend_config,
                     )
 
+            upstream_backend = {"mlx": "mlx-engine", "lmdeploy": "lmdeploy-engine"}.get(backend, backend)
             self._models[key] = VParseClient(
-                backend=backend,
+                backend=upstream_backend,
                 model=model,
                 processor=processor,
                 lmdeploy_engine=lmdeploy_engine,
@@ -287,14 +181,15 @@ class ModelSingleton:
         return self._models[key]
 
 
-def doc_analyze(
+async def _aio_doc_analyze(
     pdf_bytes,
     image_writer: DataWriter | None,
     predictor=None,
-    backend="transformers",
+    backend="vllm",
     model_path: str | None = None,
     server_url: str | None = None,
     prompt_mode: str = "prompt_layout_all_en",
+    batch_size: int = 0,
     **kwargs,
 ):
     if predictor is None:
@@ -302,57 +197,220 @@ def doc_analyze(
             backend, model_path, server_url, **kwargs
         )
 
-    load_images_start = time.time()
-    images_list, pdf_doc = load_images_from_pdf(pdf_bytes, image_type=ImageType.PIL)
-    images_pil_list = [image_dict["img_pil"] for image_dict in images_list]
-    load_images_time = round(time.time() - load_images_start, 2)
-    logger.debug(
-        f"load images cost: {load_images_time}, speed: {round(len(images_pil_list) / load_images_time, 3)} images/s"
+    load_start = time.time()
+    images_list, pdf_doc = await asyncio.to_thread(
+        lambda: load_images_from_pdf(pdf_bytes, image_type=ImageType.PIL)
     )
-
-    infer_start = time.time()
-    results = predictor.batch_two_step_extract(
-        images=images_pil_list, prompt_mode=prompt_mode
-    )
-    infer_time = round(time.time() - infer_start, 2)
+    images_pil_list = [d.pop("img_pil") for d in images_list]
+    load_time = round(time.time() - load_start, 2)
+    load_speed = round(len(images_pil_list) / load_time, 3) if load_time > 0 else 0
     logger.debug(
-        f"infer finished, cost: {infer_time}, speed: {round(len(results) / infer_time, 3)} page/s"
-    )
-
-    middle_json = result_to_middle_json(results, images_list, pdf_doc, image_writer)
-    return middle_json, results
-
-
-async def aio_doc_analyze(
-    pdf_bytes,
-    image_writer: DataWriter | None,
-    predictor=None,
-    backend="transformers",
-    model_path: str | None = None,
-    server_url: str | None = None,
-    prompt_mode: str = "prompt_layout_all_en",
-    **kwargs,
-):
-    if predictor is None:
-        predictor = ModelSingleton().get_model(
-            backend, model_path, server_url, **kwargs
-        )
-
-    load_images_start = time.time()
-    images_list, pdf_doc = load_images_from_pdf(pdf_bytes, image_type=ImageType.PIL)
-    images_pil_list = [image_dict["img_pil"] for image_dict in images_list]
-    load_images_time = round(time.time() - load_images_start, 2)
-    logger.debug(
-        f"load images cost: {load_images_time}, speed: {round(len(images_pil_list) / load_images_time, 3)} images/s"
+        f"load images cost: {load_time}s, speed: {load_speed} images/s"
     )
 
     infer_start = time.time()
     results = await predictor.aio_batch_two_step_extract(
         images=images_pil_list, prompt_mode=prompt_mode
     )
+    del images_pil_list
+
     infer_time = round(time.time() - infer_start, 2)
+    infer_speed = round(len(results) / infer_time, 3) if infer_time > 0 else 0
     logger.debug(
-        f"infer finished, cost: {infer_time}, speed: {round(len(results) / infer_time, 3)} page/s"
+        f"infer finished, cost: {infer_time}s, speed: {infer_speed} page/s"
     )
+
+    _restore_images(images_list, pdf_doc)
     middle_json = result_to_middle_json(results, images_list, pdf_doc, image_writer)
     return middle_json, results
+
+
+def sync_doc_analyze(
+    pdf_bytes,
+    image_writer: DataWriter | None,
+    predictor=None,
+    backend="vllm",
+    model_path: str | None = None,
+    server_url: str | None = None,
+    prompt_mode: str = "prompt_layout_all_en",
+    **kwargs,
+):
+    return asyncio.run(
+        _aio_doc_analyze(
+            pdf_bytes,
+            image_writer=image_writer,
+            predictor=predictor,
+            backend=backend,
+            model_path=model_path,
+            server_url=server_url,
+            prompt_mode=prompt_mode,
+            **kwargs,
+        )
+    )
+
+
+async def aio_doc_analyze(
+    pdf_bytes,
+    image_writer: DataWriter | None,
+    predictor=None,
+    backend="vllm",
+    model_path: str | None = None,
+    server_url: str | None = None,
+    prompt_mode: str = "prompt_layout_all_en",
+    **kwargs,
+):
+    return await _aio_doc_analyze(
+        pdf_bytes,
+        image_writer=image_writer,
+        predictor=predictor,
+        backend=backend,
+        model_path=model_path,
+        server_url=server_url,
+        prompt_mode=prompt_mode,
+        **kwargs,
+    )
+
+
+def doc_analyze(
+    pdf_bytes,
+    image_writer: DataWriter | None,
+    predictor=None,
+    backend="vllm",
+    model_path: str | None = None,
+    server_url: str | None = None,
+    prompt_mode: str = "prompt_layout_all_en",
+    **kwargs,
+):
+    return sync_doc_analyze(
+        pdf_bytes,
+        image_writer=image_writer,
+        predictor=predictor,
+        backend=backend,
+        model_path=model_path,
+        server_url=server_url,
+        prompt_mode=prompt_mode,
+        **kwargs,
+    )
+
+
+def _restore_images(images_list: list, pdf_doc) -> None:
+    for idx, d in enumerate(images_list):
+        if d.get("img_pil") is None:
+            page = pdf_doc[idx]
+            pil_img, _ = page_to_image(page)
+            d["img_pil"] = pil_img
+
+
+async def batch_doc_analyze(
+    pdf_bytes_list: list[bytes],
+    image_writers: list[DataWriter | None] | None = None,
+    predictor=None,
+    backend="vllm",
+    model_path: str | None = None,
+    server_url: str | None = None,
+    prompt_mode: str = "prompt_layout_all_en",
+    batch_size: int = 0,
+    progress_callback: Callable[[int, int], None] | None = None,
+    **kwargs,
+):
+    if predictor is None:
+        predictor = ModelSingleton().get_model(
+            backend, model_path, server_url, **kwargs
+        )
+
+    if image_writers is None:
+        image_writers = [None] * len(pdf_bytes_list)
+
+    if batch_size <= 0:
+        batch_size = estimate_vlm_batch_size()
+
+    total_processed = 0
+    total_pages = 0
+    infer_start = time.time()
+    all_post_data = []
+
+    page_buffer: list[tuple[int, object]] = []
+    book_metadata: dict[int, tuple[list, object, object]] = {}
+
+    for book_idx, pdf_bytes in enumerate(pdf_bytes_list):
+        images_list, pdf_doc = await asyncio.to_thread(
+            lambda: load_images_from_pdf(pdf_bytes, image_type=ImageType.PIL)
+        )
+
+        total_pages += len(images_list)
+        book_metadata[book_idx] = (images_list, pdf_doc)
+
+        for img_dict in images_list:
+            page_buffer.append((book_idx, img_dict.pop("img_pil")))
+
+            if len(page_buffer) >= batch_size:
+                batch = page_buffer[:batch_size]
+                page_buffer = page_buffer[batch_size:]
+
+                batch_images = [img for _, img in batch]
+                results = await predictor.aio_batch_two_step_extract(
+                    images=batch_images, prompt_mode=prompt_mode
+                )
+
+                for (idx, _), result in zip(batch, results):
+                    all_post_data.append((idx, result))
+                total_processed += len(batch)
+
+                if progress_callback:
+                    progress_callback(total_processed, 0)
+
+                del batch, batch_images, results
+
+        del images_list
+
+    if page_buffer:
+        batch_images = [img for _, img in page_buffer]
+        results = await predictor.aio_batch_two_step_extract(
+            images=batch_images, prompt_mode=prompt_mode
+        )
+        for (idx, _), result in zip(page_buffer, results):
+            all_post_data.append((idx, result))
+        total_processed += len(page_buffer)
+
+        if progress_callback:
+            progress_callback(total_processed, 0)
+
+        del page_buffer, batch_images, results
+
+    infer_time = round(time.time() - infer_start, 2)
+    infer_speed = round(total_pages / infer_time, 3) if infer_time > 0 else 0
+    logger.info(
+        f"batch inference: {total_pages} pages across {len(pdf_bytes_list)} docs "
+        f"in {infer_time}s, speed: {infer_speed} pages/s"
+    )
+
+    book_results: dict[int, list] = {}
+    for idx, result in all_post_data:
+        book_results.setdefault(idx, []).append(result)
+    del all_post_data
+
+    post_start = time.time()
+    post_tasks = []
+    result_order = []
+
+    for book_idx in sorted(book_results.keys()):
+        blocks = book_results[book_idx]
+        images_list, pdf_doc = book_metadata[book_idx]
+        writer = image_writers[book_idx] if image_writers and book_idx < len(image_writers) else None
+
+        _restore_images(images_list, pdf_doc)
+        post_tasks.append(
+            asyncio.to_thread(result_to_middle_json, blocks, images_list, pdf_doc, writer)
+        )
+        result_order.append((book_idx, blocks))
+
+    middle_jsons = await asyncio.gather(*post_tasks)
+
+    post_time = round(time.time() - post_start, 2) or 0.001
+    logger.info(f"post-processing done in {post_time}s")
+
+    results = []
+    for (book_idx, blocks), mj in zip(result_order, middle_jsons):
+        results.append((mj, blocks))
+
+    return results
